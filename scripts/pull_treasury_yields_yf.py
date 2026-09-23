@@ -49,7 +49,11 @@ sys.path.insert(0, str(_ROOT))
 import pandas as pd  # noqa: E402
 import yfinance as yf  # noqa: E402
 
-OUT_CSV = _ROOT / "data" / "bloomberg" / "treasury_yields.csv"
+from engine import paths  # noqa: E402
+
+OUT_CSV = (
+    (paths.data_root() or _ROOT) / "data" / "bloomberg" / "treasury_yields.csv"
+)  # data root (D31)
 
 YIELD_SYMBOLS = {
     "rate_3m": "^IRX",

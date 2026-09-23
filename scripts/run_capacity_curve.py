@@ -25,9 +25,10 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from backtests import capacity_curve as cc  # noqa: E402
+from engine import paths  # noqa: E402
 
 DEFAULT_OUT_DIR = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    Path(os.environ.get("SWE_VALIDATION_DIR", str(paths.processed_dir() / "validation")))
     / "capacity_curve"
 )
 

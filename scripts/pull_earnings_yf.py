@@ -56,8 +56,12 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import yfinance as yf  # noqa: E402
 
+from engine import paths  # noqa: E402
+
 logger = logging.getLogger(__name__)
-OUT_CSV = _ROOT / "data" / "bloomberg" / "sp500_earnings_yf.csv"
+OUT_CSV = (
+    (paths.data_root() or _ROOT) / "data" / "bloomberg" / "sp500_earnings_yf.csv"
+)  # data root (D31)
 
 
 def load_universe(pit_date: str | None = None) -> list[str]:

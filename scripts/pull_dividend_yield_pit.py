@@ -11,12 +11,18 @@ live-path append producer. For a full rebuild set SWE_PULL_START=2010-01-01.
 """
 
 import os
+import sys
 
 import pandas as pd
 from xbbg import blp
 
 HERE = os.path.dirname(__file__)
-MONO = os.path.join(HERE, "..", "data", "bloomberg")
+sys.path.insert(0, os.path.join(HERE, ".."))
+from engine import paths  # noqa: E402
+
+MONO = os.path.join(
+    str(paths.data_root() or os.path.join(HERE, "..")), "data", "bloomberg"
+)  # data root (D31)
 OUT = os.path.join(MONO, "broad_pull", "dividend_pit", "sp500_dividend_yield_pit.csv")
 START = os.environ.get("SWE_PULL_START", "2026-06-01")
 END = os.environ.get("SWE_PULL_END", "2026-07-02")

@@ -39,14 +39,15 @@ import pandas as pd  # noqa: E402
 
 from backtests import param_plateau as pp  # noqa: E402
 from backtests.parameter_oos import sample_business_days  # noqa: E402
+from engine import paths  # noqa: E402
 
 DEFAULT_OUT_DIR = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    Path(os.environ.get("SWE_VALIDATION_DIR", str(paths.processed_dir() / "validation")))
     / "param_plateau"
 )
-DEFAULT_DATA_DIR = _REPO_ROOT / "data" / "bloomberg"
+DEFAULT_DATA_DIR = (paths.data_root() or _REPO_ROOT) / "data" / "bloomberg"  # data root (D31)
 V1_OUT_DIR = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    Path(os.environ.get("SWE_VALIDATION_DIR", str(paths.processed_dir() / "validation")))
     / "tail_exceedance"
 )
 

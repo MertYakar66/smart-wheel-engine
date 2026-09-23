@@ -1,8 +1,9 @@
 # Project State
 
-**Last updated:** 2026-09-18 (data-home ruling D31 recorded in §1: the data lives
-under `SWE_DATA_ROOT` on the Operator's desktop, git holds the manifest; #507 closed by
-the ruling. 2026-09-17: §3 reduced to the open items; the dated
+**Last updated:** 2026-09-23 (D31 step 5: git tracks no market data; the desktop root
+holds all 144 manifest files, `check` 144/0/0. 2026-09-18: data-home ruling D31 recorded
+in §1: the data lives under `SWE_DATA_ROOT` on the Operator's desktop, git holds the
+manifest; #507 closed by the ruling. 2026-09-17: §3 reduced to the open items; the dated
 May–July narrative moved verbatim to `archive/2026-09/`; §1 news sentence
 updated for D29. 2026-09-11: §0 added below with the verified state at restart
 and a pointer to the restart brief. Prior: 2026-07-02 deployment-truth doc pass —
@@ -155,7 +156,7 @@ blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
 soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
 
-> **Data currency (point-in-time).** The Bloomberg CSVs (under the data root — `SWE_DATA_ROOT`, D31; tracked on `main` only until step 5) are
+> **Data currency (point-in-time).** The Bloomberg CSVs (under the data root — `SWE_DATA_ROOT`, D31; untracked from git 2026-09-23) are
 > point-in-time as of **2026-06-04** (the R1 refresh cut, #338 —
 > pinned by `EXPECTED_FRONTIER` in `tests/test_preflight_environment.py`;
 > the legacy `pull_ohlcv.py` / `pull_liquidity.py` hardcode

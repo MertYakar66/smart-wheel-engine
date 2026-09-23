@@ -1,8 +1,14 @@
+import sys
+from pathlib import Path
+
 import pandas as pd
 import requests
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from engine import paths  # noqa: E402
+
 WIKI_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-OUTPUT_PATH = "data_raw/sp500_constituents_current.csv"
+OUTPUT_PATH = str(paths.resolve("data_raw/sp500_constituents_current.csv"))  # data root (D31)
 
 
 def fetch_sp500_constituents() -> pd.DataFrame:

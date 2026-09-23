@@ -254,6 +254,11 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 
 ## `data/` — data layer (Bloomberg-CSV provider + feature pipeline)
 
+Code, docs and the manifest only. The market data itself — the Bloomberg panels,
+the broad-pull datasets, the deep slices, the AAPL feature sample — lives under
+the desktop data root and is not tracked (DECISIONS.md D31, untracked 2026-09-23);
+`data/DATA_MANIFEST.json` lists every file with its size and sha256.
+
 | File | Purpose |
 |---|---|
 | `data/__init__.py` | Package re-export hub for the data layer. |
@@ -269,30 +274,22 @@ The four reproducers that pin S27/S32/S34/S35 against the current engine. Snapsh
 | `data/pipeline.py` | `DataPipeline` — master data interface; auto-detects CSV format; survivorship-bias audit. |
 | `data/quality.py` | `DataQualityFramework` — schema / completeness / consistency / anomaly / freshness validation; the chain-quality gate on the EV path. |
 | `data/bloomberg/EXTRACTION_GUIDE.md` | Runbook of Bloomberg Excel formulas to regenerate the CSV panels. |
-| `data/bloomberg/*.csv` | Consolidated wide-format Bloomberg data panels — OHLCV, IV/vol, earnings, dividends, fundamentals, credit, analyst, institutional, macro, VIX, short interest, index membership, sector ETFs, treasury yields, VIX term structure. |
-| `data/bloomberg/sp500_short_interest.csv.xlsx` | A short-interest export carrying a double `.csv.xlsx` extension (an `.xlsx` file; not loadable by the CSV connector as-named). |
-| `data/bloomberg/broad_pull/` | Integrated net-new broad-pull Bloomberg datasets (the ~25 logical / 27 files from `staging/` on branch `claude/bloomberg-broad-pull-2026-06-17`, mirroring its bucket structure): IV skew surface (`.gz`), macro calendar + releases, vol/rates/cross-asset wide series, per-name panels (returns+bid/ask, IV-term+RV `.gz`, beta/shares, fundamentals, estimates, valuation, options-sentiment), dividend-PIT, short interest, and the ratings/GICS snapshot. Read by `data/broad_pull_loaders.py`; **not yet consumed**. Census in `docs/DATA_INVENTORY.md` §6. |
-| `data/features/<group>/ticker=AAPL/{data.parquet,metadata.json,stats.json}` | Committed AAPL-only feature-store sample shards across the 8 feature groups; other tickers regenerate via `scripts/backfill_features.py`. |
-| `data/features/_lineage/`, `data/features/_registry/` | Feature-store lineage table and registry index. |
 | `data/schemas.py` | Pydantic schemas for OHLCV, options flow, fundamentals, vol, etc. |
 | `data/DATA_MANIFEST.json` | Every dataset the engine owns (144 files, 1.74 GB): path, size, sha256, group, git source at generation (2026-09-18, completed 2026-09-23 with the 16 feature sidecars and the 29-file `data_archive/` branch archive whose rows carry `git_path`; `git_sources` pins the five commits) and the Drive folder ids. Verify a root with `scripts/data_manifest.py check`; fill one with `materialize`. |
 
 ## `data_processed/`
 
-Mostly gitignored regenerable Theta/yfinance pulls. Tracked content:
+Gitignored: the processed stores live under the data root (D31). Tracked content:
 
 | File | Purpose |
 |---|---|
-| `data_processed/trade_universe/2025-11-22_trade_universe.csv` | A labeled per-contract ML training dataset snapshot. |
 | `data_processed/.gitkeep` | Directory placeholder. |
 
 ## `data_raw/`
 
-| File | Purpose |
-|---|---|
-| `data_raw/sp500_constituents_current.csv` | The canonical S&P 500 constituent universe list. |
-| `data_raw/ohlcv/*.csv` | Sample per-ticker yfinance OHLCV fixtures (5 tickers). |
-| `data_raw/yfinance/options/*.csv` | Sample dated yfinance option-chain fixtures (5 tickers). |
+Nothing tracked since 2026-09-23 (D31): the constituents list and the yfinance
+OHLCV / option-chain fixtures live under the data root, listed in
+`data/DATA_MANIFEST.json`.
 
 ## `docs/` — documentation set
 

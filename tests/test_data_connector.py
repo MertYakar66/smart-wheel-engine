@@ -15,6 +15,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from engine import paths
 from engine.data_connector import MarketDataConnector, normalize_ticker
 
 
@@ -765,17 +766,13 @@ class TestDataFrontier:
         assert isinstance(frontier, pd.Timestamp)
         assert frontier == pd.Timestamp("2024-01-04")
 
+    @pytest.mark.requires_data
     def test_real_frontier_ge_expected(self):
-        """Real Bloomberg CSVs: frontier >= EXPECTED_FRONTIER (2026-07-02).
-
-        Skips when the real data dir is unavailable (e.g. CI sandbox).
-        """
-        import os
-
-        data_dir_real = os.path.join(os.path.dirname(__file__), "..", "data", "bloomberg")
-        if not os.path.isdir(data_dir_real):
-            pytest.skip("Real bloomberg data_dir unavailable")
-        conn = MarketDataConnector(data_dir=data_dir_real)
+        """Real Bloomberg CSVs under the data root: frontier >= EXPECTED_FRONTIER
+        (2026-07-02). ``requires_data`` skips it where no root holds them (CI);
+        the folder test it used before stopped working once git kept
+        data/bloomberg/ for its docs alone (D31 step 5)."""
+        conn = MarketDataConnector(data_dir=str(paths.bloomberg_dir()))
         frontier = conn.get_data_frontier()
         assert frontier is not None, "Frontier must not be None on real data"
         assert frontier >= self.EXPECTED_FRONTIER, (

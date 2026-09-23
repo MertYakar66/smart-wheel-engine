@@ -8,9 +8,9 @@ git objects the manifest names, never overwrites, and names the branch to
 fetch when an object is absent; an archive row (data_archive/, D31) is read
 from its git_path and written to its own path; build carries the ledger
 metadata (git_sources, drive, per-file git_source and git_path) over from the
-manifest it replaces; and the committed data/DATA_MANIFEST.json parses with the
-expected schema, covers the datasets git holds today (bloomberg, broad_pull,
-deep, ticks), and has a row for every data file tracked on this checkout.
+manifest it replaces; the committed data/DATA_MANIFEST.json parses with the
+expected schema and covers the datasets git held (bloomberg, broad_pull, deep,
+ticks); and git tracks no market data under the data trees (D31).
 
 Fixture files are written as bytes so the git round trip is byte-stable on
 Windows, where ``write_text`` emits CRLF and ``core.autocrlf`` may rewrite it.
@@ -147,20 +147,19 @@ def test_committed_manifest_covers_the_git_held_datasets():
 
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git not installed")
-def test_every_tracked_data_file_has_a_manifest_row():
-    """``check`` walks manifest rows only, so a tracked file without a row is
-    invisible to it — and untracking it would drop the only copy (D31 gap A,
-    2026-09-23: 16 feature sidecars). Whatever git still tracks under the data
-    trees must be in the manifest."""
-    m = dm.load_manifest(_REPO / "data" / "DATA_MANIFEST.json")
-    known = {f["path"] for f in m["files"]}
+def test_git_tracks_no_market_data():
+    """D31: git holds no market data — since 2026-09-23 it lives under the
+    desktop data root, listed in the manifest. Under the data trees git may
+    track code, docs and the manifest only (the manifest tool's own definition
+    of "not data"). A data file committed here fails this test; it belongs under
+    the root, with a manifest row from ``build``."""
     tracked = _git(_REPO, "ls-files", "--", *dm.WALK_DIRS).splitlines()
     data_files = [
         p
         for p in tracked
         if not p.endswith(dm.SKIP_SUFFIXES) and not set(p.split("/")) & set(dm.SKIP_NAMES)
     ]
-    assert [p for p in data_files if p not in known] == []
+    assert data_files == []
 
 
 # --------------------------------------------------------------------------

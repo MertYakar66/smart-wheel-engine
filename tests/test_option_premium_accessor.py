@@ -16,10 +16,11 @@ import pandas as pd
 import pytest
 
 import scripts.produce_option_premiums as prod
+from engine import paths
 from engine.data_connector import OPTION_PREMIUM_COLUMNS, MarketDataConnector
 
 REPO = Path(__file__).resolve().parent.parent
-_LARDER = REPO / "data_processed" / "theta" / "option_history"
+_LARDER = paths.theta_dir() / "option_history"  # under the data root (D31)
 
 
 # ---------------------------------------------------------------------------

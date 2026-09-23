@@ -56,8 +56,11 @@ except Exception:  # pragma: no cover
 FRICTION_LEVELS = ("none", "bid_ask", "full")
 R10_CAP = 0.10  # single-name 10%
 R9_CAP = 0.25  # sector 25%
-OHLCV_CSV = _REPO_ROOT / "data" / "bloomberg" / "sp500_ohlcv.csv"
-FUNDAMENTALS_CSV = _REPO_ROOT / "data" / "bloomberg" / "sp500_fundamentals.csv"
+from engine import paths  # noqa: E402
+
+_BBG = (paths.data_root() or _REPO_ROOT) / "data" / "bloomberg"  # data root (D31)
+OHLCV_CSV = _BBG / "sp500_ohlcv.csv"
+FUNDAMENTALS_CSV = _BBG / "sp500_fundamentals.csv"
 DEFAULT_ROOT = Path(os.environ.get("TEMP", "/tmp")) / "sim200k_backtest"
 SELFTEST_ROOT = Path(os.environ.get("TEMP", "/tmp")) / "sim200k_smoke"
 

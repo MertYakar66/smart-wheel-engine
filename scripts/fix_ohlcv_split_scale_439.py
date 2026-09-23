@@ -35,9 +35,13 @@ from __future__ import annotations
 
 import sys
 from decimal import Decimal
+from pathlib import Path
 
-OHLCV = "data/bloomberg/sp500_ohlcv.csv"
-DIVID = "data/bloomberg/sp500_dividends.csv"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from engine import paths  # noqa: E402
+
+OHLCV = str(paths.resolve("data/bloomberg/sp500_ohlcv.csv"))  # data root (D31)
+DIVID = str(paths.resolve("data/bloomberg/sp500_dividends.csv"))
 BOUNDARY = "2026-03-23"  # rows strictly BEFORE this (the un-split history) get adjusted
 
 # ohlcv ticker -> integer split factor (divide pre-splice prices, multiply volume)

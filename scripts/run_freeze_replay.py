@@ -42,12 +42,13 @@ import pandas as pd  # noqa: E402
 
 from backtests import freeze_replay as fz  # noqa: E402
 from backtests.parameter_oos import sample_business_days  # noqa: E402
+from engine import paths  # noqa: E402
 
 DEFAULT_OUT_DIR = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    Path(os.environ.get("SWE_VALIDATION_DIR", str(paths.processed_dir() / "validation")))
     / "freeze_replay"
 )
-DEFAULT_DATA_DIR = _REPO_ROOT / "data" / "bloomberg"
+DEFAULT_DATA_DIR = (paths.data_root() or _REPO_ROOT) / "data" / "bloomberg"  # data root (D31)
 FIXTURE_PATH = _REPO_ROOT / "tests" / "fixtures" / "freeze_replay" / "freeze_snapshot_24t.json"
 
 #: Amnesia grid — five regime-spanning business days (calm / elevated /
@@ -108,9 +109,7 @@ def _holdout_grid(cfg: dict) -> list[date]:
 
 def _default_production_table(config: str) -> str:
     return str(
-        Path(
-            os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation"))
-        )
+        Path(os.environ.get("SWE_VALIDATION_DIR", str(paths.processed_dir() / "validation")))
         / "tail_exceedance"
         / f"tail_table_{config}.csv"
     )

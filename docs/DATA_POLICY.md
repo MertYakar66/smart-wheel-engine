@@ -18,7 +18,7 @@ provider capability matrix lives in §2 below.
 
 | Tier | Lives at (relative to the data root) | In git? | Source / regen path |
 |---|---|---|---|
-| **Raw** | `data/bloomberg/*.csv` (served monoliths), `data/bloomberg/broad_pull/`, `data/bloomberg/deep/`, `data_raw/` (yfinance pulls, constituents, day-bot ticks) | **no** (D31; the served files stay tracked on `main` only until the step-5 untracking PR lands) | Bloomberg Terminal exports (frozen — the Terminal is no longer available), yfinance pulls, the day-bot |
+| **Raw** | `data/bloomberg/*.csv` (served monoliths), `data/bloomberg/broad_pull/`, `data/bloomberg/deep/`, `data_raw/` (yfinance pulls, constituents, day-bot ticks) | **no** (D31; untracked from git 2026-09-23) | Bloomberg Terminal exports (frozen — the Terminal is no longer available), yfinance pulls, the day-bot |
 | **Processed** | `data_processed/theta/**`, `data_processed/vol_indices*.parquet`, `data_processed/option_premium/`, `data_processed/ibkr/`, `data_processed/sim/` | **no** | `scripts/pull_all.py` on a Theta-up machine; each rail regenerates its own store |
 | **Derived** | `data/features/<group>/ticker=<X>/` | **no** | `scripts/backfill_features.py` |
 
@@ -90,9 +90,9 @@ git holds are `data/DATA_MANIFEST.json` (hashes, not bytes) and the small
 synthetic fixtures under `tests/fixtures/`. A refresh therefore ends
 with `python scripts/data_manifest.py build --root <root>` and a commit
 of the manifest, never of the data. (Status: the served monoliths and
-the small `data_raw/` / `data/features` samples are still tracked on
-`main` until the step-5 untracking PR lands — see `DATA_INVENTORY.md`
-§A for the live status of each step.)
+the small `data_raw/` / `data/features` samples were untracked on
+2026-09-23 — see `DATA_INVENTORY.md` §A for the live status of each
+step.)
 
 **Credentials and installed software:**
 
@@ -108,7 +108,7 @@ the small `data_raw/` / `data/features` samples are still tracked on
 
 | Path | Regen via | Size |
 |---|---|---|
-| `data/bloomberg/`, `data_raw/` | not regenerable — the Terminal is gone; `materialize` from git until step 5, then the desktop root + Drive | 536 MB + 365 MB deep + 491 MB ticks |
+| `data/bloomberg/`, `data_raw/` | not regenerable — the Terminal is gone; the desktop root + Drive (`materialize` can still read the bytes from git history until the data branches are deleted) | 536 MB + 365 MB deep + 491 MB ticks |
 | `data_processed/` | `scripts/pull_all.py` | many GB across theta sub-dirs |
 | `data/features/**/ticker=*/` | `scripts/backfill_features.py` | ~1.2 GB |
 | `dashboard/node_modules/` | `npm install` | ~hundreds of MB |
@@ -289,16 +289,18 @@ python scripts/data_manifest.py census --root D:\swe-data
 [Environment]::SetEnvironmentVariable("SWE_DATA_ROOT", "D:\swe-data", "User")
 ```
 
-Only after step 5 pull the commit that untracks the data: `git pull` of an
-untracking commit removes the *tracked* copies from the working tree (git
-sees a deletion), which is harmless once the root outside the checkout is
-verified and in use. The step-5 PR is held until the operator reports the
-`check` line from step 3.
+**Git tracks no data since 2026-09-23** (step 5). Pulling that change
+removed the *tracked* copies from each checkout's working tree (git sees a
+deletion), which is harmless because the root outside the checkout is
+verified and in use; `data_processed/` and the other gitignored stores were
+never touched by it. A data file committed again fails
+`tests/test_data_manifest.py::test_git_tracks_no_market_data`.
 
 **Backup.** Google Drive holds a verified copy of the served monoliths and
 the deep slices and a copy of the local-only stores (`DATA_INVENTORY.md`
-§C); the day-bot ticks have no Drive copy yet and must get one before their
-branch is deleted. Drive is a backup, never a source of truth: the engine
+§C); the day-bot ticks got theirs on 2026-09-23 (`swe-local-only/ticks`,
+`rclone check` clean), and `data_archive/` and the full-history bundle get
+theirs before any branch is deleted. Drive is a backup, never a source of truth: the engine
 reads the desktop root, and `check` — not a folder listing — is what
 "the copy is complete" means.
 

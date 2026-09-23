@@ -26,7 +26,11 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from engine import paths  # noqa: E402
 
 # NOTE: PyMuPDF (`fitz`) is imported lazily inside load_pages() — it's only needed
 # to read the PDF, not to import this module. This keeps the pure parsers (and
@@ -349,7 +353,9 @@ def parse_deposits(pages) -> list[dict]:
 
 # --------------------------------------------------- universe membership
 def load_universe(repo_root: Path) -> set[str]:
-    p = repo_root / "data_raw" / "sp500_constituents_current.csv"
+    p = (
+        (paths.data_root() or repo_root) / "data_raw" / "sp500_constituents_current.csv"
+    )  # data root (D31)
     syms: set[str] = set()
     if p.exists():
         for ln in p.read_text(encoding="utf-8").splitlines()[1:]:
@@ -560,7 +566,7 @@ def build(pdf_path: str, out_dir: str):
         "closed_positions": closed,
     }
 
-    out = Path(out_dir)
+    out = paths.resolve(out_dir)  # a relative --out lands under the data root (D31)
     out.mkdir(parents=True, exist_ok=True)
     (out / "portfolio_snapshot.json").write_text(json.dumps(snapshot, indent=2), encoding="utf-8")
     (out / "portfolio_history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")

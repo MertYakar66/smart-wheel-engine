@@ -7,8 +7,8 @@ terminal: desktop
 pr:
 decisions: [D31]
 date: 2026-09-23
-headline: desktop root filled from git and proved 99 ok / 0 missing / 0 mismatched; engine reads it; fast lane 3192 passed with 0 requires_data skips
-surface: [data/DATA_MANIFEST.json, scripts/data_manifest.py, engine/paths.py, docs/DATA_INVENTORY.md, docs/DATA_POLICY.md]
+headline: desktop root filled and proved 144 ok / 0 missing / 0 mismatched; fast lane 3196 passed / 0 failed with 0 requires_data skips; day-bot ticks backed up to Drive (0 differences, 15 files); both manifest gaps closed
+surface: [data/DATA_MANIFEST.json, scripts/data_manifest.py, engine/paths.py, tests/test_data_manifest.py, docs/DATA_INVENTORY.md, docs/DATA_POLICY.md]
 ---
 
 ## Goal
@@ -50,6 +50,11 @@ step 9 (Drive backup); both are written up below.
 5. **The §9.4 smoke and the fast lane ran against the root**, with **zero**
    `requires_data` skips — the data-backed tests executed rather than skipping,
    which is the point of the root.
+6. **Step 9, on the second attempt.** After the Operator approved the OAuth
+   consent, the 15 day-bot tick files were copied to `swe-local-only/ticks` and
+   verified `0 differences found · 15 matching files`. This is the first backup
+   those 491 MB have ever had, and it retires the "only copy anywhere" status
+   that `DATA_INVENTORY.md` §C row B′ records for them.
 
 ## What didn't
 
@@ -87,11 +92,16 @@ of `data/bloomberg/sp500_ohlcv.csv` hashes **identically** to the manifest
 objects, and `materialize` streams raw blob bytes, so the two agree by
 construction.
 
-**Step 9 (Drive backup of the ticks) is BLOCKED, not skipped.** `rclone` is
-installed (v1.74.4) and a `gdrive:` remote exists, but its OAuth token has
-expired; the fix is an interactive browser re-auth, which this run cannot do.
-The day-bot ticks (491 MB, `data_raw/bloomberg/ticks/`) therefore still have
-**no copy anywhere but the branch and this desktop** — D31 step 6 stays blocked.
+**Step 9 (Drive backup of the ticks) was BLOCKED, then unblocked by the Operator
+and COMPLETED.** First attempt failed: `rclone` v1.74.4 is installed and a
+`gdrive:` remote exists, but its OAuth token returned `invalid_grant` and the
+remedy — `rclone config reconnect gdrive:` — is an interactive browser consent
+an agent cannot give. The Operator authorised the re-auth and approved the
+consent screen in the browser; the flow then ran from this session and the copy
+and its verification completed. **The day-bot ticks now have a second,
+checksum-verified copy** (evidence below), which removes the *ticks* half of the
+D31 step-6 precondition. The other half, Gap B, was closed in parallel by #528
+— see the Addendum.
 
 **Not moved in step 6, with reasons** — the card lists these; they are absent,
 or moving them would have broken an invariant:
@@ -315,7 +325,9 @@ parts: ('\\', 'abs', 'ibkr')
 root.joinpath(*parts) -> C:\abs\ibkr
 ```
 
-**Step 9 — Drive backup of the ticks: BLOCKED**
+**Step 9 — Drive backup of the ticks: first BLOCKED, then DONE**
+
+First attempt, before the re-auth:
 
 ```
 rclone v1.74.4
@@ -328,8 +340,53 @@ ERROR : error listing: couldn't list directory: ... couldn't fetch token:
 invalid_grant: maybe token expired? - try refreshing with "rclone config reconnect gdrive{...}:"
 ```
 
-Not retried — the failure is a deterministic credential expiry, and the remedy
-(`rclone config reconnect gdrive:`) is an interactive browser OAuth.
+Not retried at the time — a deterministic credential expiry whose remedy is an
+interactive browser OAuth. The Operator then authorised the reconnect and
+approved the consent screen. `rclone.conf` was backed up first
+(`rclone.conf.bak-2026-09-23-preauth`, 684 B) so the step was reversible.
+
+```
+2026/09/23 10:13:05 NOTICE: Waiting for code...
+2026/09/23 10:35:31 NOTICE: Got code
+```
+
+Token replaced — `rclone.conf` sha256 `9518CEE6…` → `5AF7596D…` (the file is the
+same 684 bytes, so size alone would have been a false negative; the hash is the
+proof). The remote then worked, listing the nine `swe-local-only` children whose
+IDs match the §C.1 record exactly. A tenth was created:
+
+```
+rclone mkdir gdrive:ticks --drive-root-folder-id 1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn
+ticks   1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop
+```
+
+Copy (explicit-ID addressing, empty remote path — the §C.1 pattern):
+
+```
+2026/09/23 10:41:20 INFO  : SPY_ticks_2026-06-17.csv.gz: Copied (new)
+2026/09/23 10:41:20 INFO  :   467.986 MiB / 467.986 MiB, 100%, 1.509 MiB/s, ETA 0s
+copy EXIT=0
+
+rclone size gdrive: --drive-root-folder-id 1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop
+Total objects: 15
+Total size: 467.986 MiB (490719019 Byte)
+```
+
+490,719,019 B is byte-exact against the manifest's `ticks` group total. Proof:
+
+```
+rclone check <root>\data_raw\bloomberg\ticks gdrive: \
+  --drive-root-folder-id 1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop --checksum --one-way
+2026/09/23 10:41:37 NOTICE: Google drive root '': 0 differences found
+2026/09/23 10:41:37 NOTICE: Google drive root '': 15 matching files
+EXIT=0
+```
+
+This is Drive-vs-local **MD5** identity — independent of the manifest's sha256,
+exactly as §C.1 notes of the other Tier-C rows. Uplink measured ~1.5 MiB/s, far
+better than the ~1 Mbps the 2026-07-22 record assumed. **Row B′ of
+`DATA_INVENTORY.md` §C ("Backup: none yet") and the §C.1 table are now stale and
+need a `ticks` row — flagged, not edited: both are outside this card's `owns`.**
 
 **Independent verification (the circle broken).** `materialize` wrote the files
 and `check` verified them against the *same* manifest, so the proof is circular
@@ -424,32 +481,151 @@ by design, per `DATA_INVENTORY` §0.
   now existing in both places is pre-existing duplication, not something this
   run created, and `data/bloomberg/deep/` was not in the card's move list.
 
+### Addendum — re-verified against the post-#528 manifest (144 files)
+
+While this card's PR (#527) was in review, **#528 closed both gaps** and went
+further: every distinct data file at the tip of any non-`main` branch is now
+archived under `data_archive/<branch>/<path>`. The manifest went **99 → 144
+files, 1.43 → 1.74 GB**: `features` 10 → 26 (the 16 sidecars of Gap A),
+plus a new `archive` group of 29 (Gap B and the rest), with two new
+`git_sources` (`backup/drive-tier-c-2026-07-22`, `data/drive-migration`).
+
+That meant this root was verified against a **superseded** manifest, so it was
+re-filled and re-proved. `git fetch origin backup/drive-tier-c-2026-07-22
+data/drive-migration` first:
+
+```
+materialize 144 manifest files: 99 already present, would write 45, 0 mismatched (kept, not overwritten), 0 unavailable, 0 failed
+materialize 144 manifest files: 99 already present, wrote 45, 0 mismatched (kept, not overwritten), 0 unavailable, 0 failed
+```
+
+The 99 already on disk were re-verified as present rather than rewritten — the
+tool never overwrites. New proof line:
+
+```
+root: C:\Users\merty\Desktop\swe-data
+checked 144 manifest files: 144 ok, 0 missing, 0 mismatched
+```
+
+```
+group         manifest   present   size-ok        MB
+archive             29        29        29     312.8
+bloomberg           22        22        22     264.6
+broad_pull          27        27        27     297.0
+deep                13        13        13     373.4
+features            26        26        26       2.7
+processed            1         1         1       0.2
+raw                 11        11        11       2.4
+ticks               15        15        15     490.7
+missing overall: 0
+```
+
+**This line, not the 99-file one, is now the current state of this desktop.**
+
+**#528 fixed both Windows-only failures, and introduced a third with the same
+cause.** `tests/test_data_paths.py` and
+`test_materialize_fills_an_empty_root_and_verifies` now pass here. But
+`test_check_flags_missing_and_altered` now fails on Windows:
+
+```
+assert "MISMATCH   data/bloomberg/sp500_ohlcv.csv (sha256 differs)" in text
+E  AssertionError: ... 'MISMATCH   data/bloomberg/sp500_ohlcv.csv (size 38 != 36)'
+1 failed, 17 passed in 2.84s
+```
+
+`_make_root` was correctly changed to `write_bytes` (36 B, LF) — the comment
+added by #528 even names the CRLF reason — but the *altered-file* write inside
+`test_check_flags_missing_and_altered` is still `write_text`, which is 38 B on
+Windows. `check` therefore reports a **size** mismatch before it ever reaches
+the hash, defeating that test's own stated intent, asserted two lines below:
+`# same-size content change is caught by the hash, not the size`. One site
+missed, same root cause. Linux CI stays green, so CI cannot catch it.
+
+Fix is one line — make the second write match the first:
+
+```python
+(root / "data" / "bloomberg" / "sp500_ohlcv.csv").write_bytes(
+    b"date,ticker,close\n2026-01-02,AAPL,2\n"
+)
+```
+
+**Applied**, on the Operator's explicit instruction (the original card's `owns`
+was docs-only; this was authorised separately after #527 merged). It restores
+the test's own intent rather than papering over the platform difference — the
+assertion two lines below it, `# same-size content change is caught by the hash,
+not the size`, only holds if both writes produce the same byte count on every
+platform. After the fix:
+
+```
+tests\test_data_manifest.py tests\test_data_paths.py
+============================= 18 passed in 2.25s ==============================
+ruff check  -> All checks passed!
+ruff format -> 1 file already formatted
+```
+
+All three Windows-only failures this card surfaced are now closed, and the full
+fast lane is clean on this desktop for the first time:
+
+```
+python -m pytest tests/ -m "not backtest_regression" -q -p no:cacheprovider -rs
+= 3196 passed, 22 skipped, 8 deselected, 20 xfailed, 171 warnings in 467.67s (0:07:47) =
+PYTEST_EXIT=0
+```
+
+`0` lines matching `^FAILED`, and `0` matching `requires_data` — so the
+data-backed tests ran against the root rather than skipping, as before. 3196 vs
+the earlier 3192 is the tests #528 added. Log:
+`<root>astlane_desktop_2026-09-23_post528.log`.
+
 ## Unresolved / handoff
 
-1. **D31 step 3 is satisfied on this desktop.** The gating line is
-   `checked 99 manifest files: 99 ok, 0 missing, 0 mismatched`. Step 5 (untrack
-   the data) is unblocked on *this* criterion; its own CI per-file coverage
+1. **D31 step 3 is satisfied on this desktop.** The gating line was
+   `checked 99 manifest files: 99 ok, 0 missing, 0 mismatched`; after #528 it is
+   **`checked 144 manifest files: 144 ok, 0 missing, 0 mismatched`** (see the
+   Addendum — that is the current one). Step 5 (untrack the data) is unblocked
+   on *this* criterion; its own CI per-file coverage
    floors (`engine/data_connector.py` 82.5% vs 88, `engine/wheel_runner.py`
    76.8% vs 77) still have to be settled inside that PR.
-2. **D31 step 5 has a new precondition (Gap A).** Add the 16
-   `data/features/*/ticker=AAPL/{metadata.json,stats.json}` sidecars to the
-   manifest and materialize them into the root *before* anything is `git rm`-ed;
-   otherwise the untracking PR deletes the only copies and `FeatureStore`
-   metadata/stats silently become `None` on the root. A `build` against a root
-   that contains them regenerates the rows; the underlying cause is that the
-   manifest was generated from a tree that did not carry them.
-3. **D31 step 6 now has two blockers.**
-   - *Ticks:* the 491 MB of day-bot ticks still have no backup outside
-     `claude/daybot-bloomberg-pull` and this desktop. The Operator must run
-     `rclone config reconnect gdrive:` (interactive) before they can be copied
-     to `swe-local-only` (`1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`).
-   - *Deep branch (Gap B):* `origin/deep-history/bloomberg-raw` holds six data
-     files that exist nowhere else, three of them carrying history no
-     `broad_pull` panel has (MOVE 1988, SKEW 1990, JPMVXYG7 1992). They must be
-     manifested and materialized — or consciously written off — before that
-     branch is deleted. **Deleting it today is irreversible data loss.**
-4. **Two Windows-only test failures** are open upstream, in files this card does
-   not own. They do not affect CI. Fixes proposed above.
+2. **Gap A — CLOSED by #528 and verified here.** The 16
+   `data/features/*/ticker=AAPL/{metadata.json,stats.json}` sidecars now carry
+   manifest rows; all **26** `features` rows are present at this root and
+   sha256-verified. Untracking can no longer drop them.
+3. **D31 step 6 — both blockers now cleared. Deleting the two data branches is
+   safe on data-loss grounds.** Stated precisely, because this is irreversible:
+   - *Ticks — CLEARED.* The 15 day-bot tick files (490,719,019 B) are copied to
+     `swe-local-only/ticks` (`1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop`) and verified
+     `0 differences found · 15 matching files`. They now exist in three places:
+     the branch, this desktop's root, and Drive.
+   - *Gap B — CLOSED by #528 and verified here.* All 7 files that existed only
+     on `origin/deep-history/bloomberg-raw` now have manifest rows under
+     `data_archive/deep-history-bloomberg-raw/…` and are on disk at this root,
+     byte-verified: `rates_fx_vol.csv` (583,872 B — the MOVE-1988 /
+     JPMVXYG7-1992 series), `vol_indices.csv` (943,706 B — SKEW 1990),
+     `vix_futures_curve.csv` (790,646 B), `sp500_short_interest.csv`
+     (2,427,311 B), `spx_correlation.csv` (352,416 B),
+     `sp500_macro_calendar.csv` (16,448 B), and the 20-byte `sp500_iv_history.csv`
+     stub. 29 archive rows in total (24 from the deep branch, 3 from the day-bot
+     branch, 1 each from `backup/drive-tier-c-2026-07-22` and
+     `data/drive-migration`).
+   - **The remaining condition is procedural, not evidential:** the proof that
+     the branches are disposable is `checked 144 manifest files: 144 ok, 0
+     missing, 0 mismatched` **on this desktop**, plus the Drive copy for the
+     ticks. If a branch is deleted, re-running `materialize` can never restore
+     what the manifest does not list — so re-run `check` immediately before any
+     deletion rather than trusting this record.
+   - *Doc follow-up:* `DATA_INVENTORY.md` §C row B′ still says the ticks have no
+     backup, and §C.1's table has no `ticks` row. Both are now wrong — the
+     `ticks` child is `1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop`, 15 files,
+     490,719,019 B, `rclone check --checksum --one-way` clean 2026-09-23.
+     Outside this card's `owns`, so flagged rather than fixed.
+4. **All three Windows-only test failures are now CLOSED.** #528 fixed the two
+   this card first reported; it missed one site, leaving
+   `test_check_flags_missing_and_altered` red on Windows (the altered-file write
+   was still `write_text`, 38 B, against a 36 B manifest, so `check` reported a
+   size mismatch before reaching the hash). That one-line fix is included here
+   on the Operator's instruction. Standing risk: Linux CI is green either way,
+   so this whole class of defect is invisible to CI and only shows on a Windows
+   run — worth a periodic local full-lane run, not just a CI check.
 5. **The "SWE IBKR Morning Pull" scheduled task now writes to a path this run
    emptied — Dashboard terminal, please re-point it.** The task (07:30 ET, backed
    by the separate `C:\Users\merty\swe-ops` clone) runs

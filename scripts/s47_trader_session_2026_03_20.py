@@ -49,6 +49,7 @@ except Exception:  # noqa: BLE001
 
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.option_pricer import black_scholes_delta, black_scholes_price  # noqa: E402
 from engine.tradingview_bridge import ChartContext  # noqa: E402
 from engine.wheel_runner import WheelRunner, _resolve_pit_atm_iv  # noqa: E402
@@ -190,7 +191,7 @@ def step0_provenance(runner: WheelRunner) -> None:
         prov["git_head"] = f"(unavailable: {e})"
     # data coverage + OHLCV hash (so a re-run on different data is detectable)
     try:
-        ohlcv_path = _HERE / "data" / "bloomberg" / "sp500_ohlcv.csv"
+        ohlcv_path = paths.bloomberg_dir() / "sp500_ohlcv.csv"  # data root (D31)
         h = hashlib.sha256()
         with open(ohlcv_path, "rb") as f:
             for chunk in iter(lambda: f.read(1 << 20), b""):

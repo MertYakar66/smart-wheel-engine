@@ -151,8 +151,11 @@ CONFIG: dict = {
 }
 
 ARTIFACT_ROOT = _REPO_ROOT / "docs" / "verification_artifacts" / "trader500k"
-MACRO_CSV = _REPO_ROOT / "data" / "bloomberg" / "sp500_macro.csv"
-OHLCV_CSV = _REPO_ROOT / "data" / "bloomberg" / "sp500_ohlcv.csv"
+from engine import paths  # noqa: E402
+
+_BBG = (paths.data_root() or _REPO_ROOT) / "data" / "bloomberg"  # data root (D31)
+MACRO_CSV = _BBG / "sp500_macro.csv"
+OHLCV_CSV = _BBG / "sp500_ohlcv.csv"
 
 app = typer.Typer(add_completion=False, help=__doc__)
 

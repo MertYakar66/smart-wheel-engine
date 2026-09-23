@@ -72,14 +72,16 @@ sys.path.insert(0, str(_ROOT))
 
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.data_connector import normalize_ticker  # noqa: E402
 from engine.theta_connector import ThetaConnector, _normalise_theta_symbol  # noqa: E402
 
 logger = logging.getLogger(__name__)
-OUT_ROOT = _ROOT / "data_processed" / "theta" / "option_history"
+OUT_ROOT = paths.theta_dir() / "option_history"  # data root (D31)
 _THETA_HISTORY_FLOOR = pd.Timestamp("2016-01-01")  # STANDARD tier option-history start
-_CONSTITUENTS_CSV = _ROOT / "data_raw" / "sp500_constituents_current.csv"
-_BLOOMBERG_OHLCV = _ROOT / "data" / "bloomberg" / "sp500_ohlcv.csv"
+_DATA = paths.data_root() or _ROOT  # data root (D31)
+_CONSTITUENTS_CSV = _DATA / "data_raw" / "sp500_constituents_current.csv"
+_BLOOMBERG_OHLCV = _DATA / "data" / "bloomberg" / "sp500_ohlcv.csv"
 
 
 def _theta_up() -> bool:

@@ -38,6 +38,7 @@ from pathlib import Path
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
+from engine import paths  # noqa: E402
 
 
 def _log(msg: str) -> None:
@@ -108,7 +109,9 @@ def refresh_daily_data(tickers: list[str] | None = None) -> dict:
             try:
                 df = yf.download(ticker, period="5d", progress=False)
                 if df is not None and len(df) > 0:
-                    out_dir = PROJECT_ROOT / "data_raw" / "ohlcv_daily"
+                    out_dir = (
+                        (paths.data_root() or PROJECT_ROOT) / "data_raw" / "ohlcv_daily"
+                    )  # data root (D31)
                     out_dir.mkdir(parents=True, exist_ok=True)
                     df.to_csv(out_dir / f"{ticker}.csv")
                     results["ohlcv"][ticker] = len(df)

@@ -60,6 +60,7 @@ _REPO = Path(__file__).resolve().parent.parent
 if str(_REPO) not in sys.path:
     sys.path.insert(0, str(_REPO))
 
+from engine import paths  # noqa: E402
 from engine.data_connector import OPTION_PREMIUM_COLUMNS  # noqa: E402
 
 logger = logging.getLogger("produce_option_premiums")
@@ -236,11 +237,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--larder-dir",
-        default=str(_REPO / "data_processed" / "theta" / "option_history"),
+        default=str(paths.theta_dir() / "option_history"),  # data root (D31)
     )
     ap.add_argument(
         "--out-dir",
-        default=str(_REPO / "data_processed" / "option_premium"),
+        default=str(paths.option_premium_dir()),  # data root (D31)
     )
     ap.add_argument("--dte-min", type=int, default=DTE_MIN_DEFAULT)
     ap.add_argument("--dte-max", type=int, default=DTE_MAX_DEFAULT)

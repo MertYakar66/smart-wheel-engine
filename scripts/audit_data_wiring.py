@@ -26,6 +26,7 @@ REPO = Path(__file__).resolve().parent.parent
 if str(REPO) not in sys.path:
     sys.path.insert(0, str(REPO))
 
+from engine import paths  # noqa: E402
 from engine.data_connector import MarketDataConnector  # noqa: E402
 
 OUT = REPO / "docs" / "verification_artifacts" / "data_wiring_2026-06-27"
@@ -126,7 +127,7 @@ def audit_ohlcv(c: MarketDataConnector) -> dict:
 # vol_iv — IV sentinel + low-floor leakage; PERCENT-band verification
 # ---------------------------------------------------------------------------
 def audit_vol_iv(c: MarketDataConnector) -> dict:
-    raw = pd.read_csv(REPO / "data" / "bloomberg" / "sp500_vol_iv_full.csv", low_memory=False)
+    raw = pd.read_csv(paths.bloomberg_dir() / "sp500_vol_iv_full.csv", low_memory=False)
     iv_cols = ["hist_put_imp_vol", "hist_call_imp_vol"]
     raw_stats = {}
     for col in iv_cols:
@@ -178,7 +179,7 @@ def audit_vol_iv(c: MarketDataConnector) -> dict:
 # treasury / risk-free — coverage + unit sanity
 # ---------------------------------------------------------------------------
 def audit_treasury(c: MarketDataConnector) -> dict:
-    raw = pd.read_csv(REPO / "data" / "bloomberg" / "treasury_yields.csv")
+    raw = pd.read_csv(paths.bloomberg_dir() / "treasury_yields.csv")
     raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
     tenors = [col for col in raw.columns if col.startswith("rate_") or col == "sofr"]
     cov = {}

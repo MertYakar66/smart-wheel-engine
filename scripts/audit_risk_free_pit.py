@@ -38,6 +38,7 @@ if str(REPO) not in sys.path:
 warnings.filterwarnings("ignore")
 
 import engine.data_integration as di  # noqa: E402
+from engine import paths  # noqa: E402
 from engine.data_connector import MarketDataConnector  # noqa: E402
 from engine.wheel_runner import WheelRunner  # noqa: E402
 
@@ -47,7 +48,7 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 def audit_rfr_defect() -> dict:
     conn = MarketDataConnector()
-    raw = pd.read_csv(REPO / "data" / "bloomberg" / "treasury_yields.csv")
+    raw = pd.read_csv(paths.bloomberg_dir() / "treasury_yields.csv")
     raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
     cov = raw.dropna(subset=["rate_3m"])
     cov_start = str(cov["date"].min().date())
@@ -59,7 +60,7 @@ def audit_rfr_defect() -> dict:
             "connector": round(conn.get_risk_free_rate(asof, "rate_3m"), 6),
             "data_integration_fallback0.05": round(
                 di.get_current_risk_free_rate(
-                    asof, data_dir=str(REPO / "data" / "bloomberg"), fallback=0.05
+                    asof, data_dir=str(paths.bloomberg_dir()), fallback=0.05
                 ),
                 6,
             ),
@@ -67,7 +68,7 @@ def audit_rfr_defect() -> dict:
     # The fallback only fires before coverage — demonstrate on a pre-1994 as_of.
     pre_cov = round(
         di.get_current_risk_free_rate(
-            "1990-01-01", data_dir=str(REPO / "data" / "bloomberg"), fallback=0.05
+            "1990-01-01", data_dir=str(paths.bloomberg_dir()), fallback=0.05
         ),
         6,
     )

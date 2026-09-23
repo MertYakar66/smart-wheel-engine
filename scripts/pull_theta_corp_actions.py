@@ -70,7 +70,9 @@ logger = logging.getLogger(__name__)
 OUT_DIR = paths.processed_dir() / "corporate_actions"  # data root (D31)
 OUT_SPLITS = OUT_DIR / "splits.parquet"
 OUT_DIV = OUT_DIR / "dividends.parquet"
-COMPAT_DIV_CSV = _ROOT / "data" / "bloomberg" / "sp500_dividends_theta.csv"
+COMPAT_DIV_CSV = (
+    (paths.data_root() or _ROOT) / "data" / "bloomberg" / "sp500_dividends_theta.csv"
+)  # data root (D31)
 
 
 def _theta_up() -> bool:

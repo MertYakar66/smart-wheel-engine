@@ -63,11 +63,12 @@ sys.path.insert(0, str(_ROOT))
 
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.theta_connector import ThetaConnector, _normalise_theta_symbol  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-OUT_ROOT = _ROOT / "data_processed" / "theta" / "iv_surface_history"
+OUT_ROOT = paths.theta_dir() / "iv_surface_history"  # data root (D31)
 # Target DTE buckets we want to sample — we snap to the nearest listed expiry.
 TARGET_DTES = (7, 14, 30, 60, 90, 180)
 
@@ -662,7 +663,7 @@ def main() -> int:
         # manifest — half-run is exactly when this signal matters most.
         failures = conn.get_failures()
         if failures:
-            manifest_dir = Path("data_processed/theta")
+            manifest_dir = paths.theta_dir()  # data root (D31)
             manifest_dir.mkdir(parents=True, exist_ok=True)
             ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
             step_name = Path(__file__).stem

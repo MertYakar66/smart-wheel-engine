@@ -34,6 +34,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from data.observability import metrics, setup_logging
 from data.orchestrator import PipelineOrchestrator, StageType
+from engine import paths
 
 
 def setup_parser() -> argparse.ArgumentParser:
@@ -105,7 +106,9 @@ def get_universe(name: str) -> list:
 
     if name == "sp500":
         # Load from file
-        constituents_path = Path("data_raw/sp500_constituents_current.csv")
+        constituents_path = paths.resolve(
+            "data_raw/sp500_constituents_current.csv"
+        )  # data root (D31)
         if constituents_path.exists():
             import pandas as pd
 

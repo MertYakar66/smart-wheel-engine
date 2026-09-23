@@ -41,7 +41,12 @@ for _s in (sys.stdout, sys.stderr):
         _s.reconfigure(encoding="utf-8", errors="replace")
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-UNIVERSE = os.path.join(REPO, "data", "bloomberg", "_delisted_universe.csv")
+sys.path.insert(0, REPO)
+from engine import paths  # noqa: E402
+
+UNIVERSE = os.path.join(
+    str(paths.data_root() or REPO), "data", "bloomberg", "_delisted_universe.csv"
+)  # data root (D31)
 
 OHLCV_FLDS = ["PX_OPEN", "PX_HIGH", "PX_LOW", "PX_LAST", "PX_VOLUME"]
 OHLCV_MAP = {

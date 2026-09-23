@@ -62,6 +62,15 @@ which reads the data root, must keep its full lane.
   the root. The paper book's "never touches the real IBKR dir" test would
   fingerprint an empty checkout folder there, proving nothing. Neither fails
   anywhere today; both went wrong the moment the data left the checkout.
+- **Thirty-one operator scripts and one regression harness still read or wrote data inside the checkout**
+  (Codex review on this PR, P1, verified): with the data untracked and
+  `SWE_DATA_ROOT` pointing at the desktop root, the Theta pulls would have
+  exited ("constituents not found") and written into the checkout,
+  `run_pipeline` would have fallen back to MAG7 silently, `ibkr_import` would
+  have joined against an empty universe, and the yfinance refreshes, the
+  validation runners and the feature backfill would have read or written
+  the checkout. The 2026-09-18 pass re-rooted the engine, the data layer and
+  a first set of scripts; a full sweep found the rest.
 - A quick three-file run without `-m "not backtest_regression"` showed
   `test_end_to_end_seed_and_forward_integration` failing without data. That is
   the slow lane, which CI deselects and the desktop runs with its data; CI's
@@ -77,6 +86,21 @@ which reads the data root, must keep its full lane.
   minus 2pp, with the reason in the file. The script says to recalibrate "in
   the same PR that legitimately shifts coverage"; taking the data out of CI is
   that PR.
+- Every script that reads or writes data now resolves its paths through
+  `engine.paths`, keeping today's behaviour when `SWE_DATA_ROOT` is unset:
+  repository-anchored paths become `(paths.data_root() or <repo>) / …`,
+  CWD-relative strings become `paths.resolve("…")`, Theta and processed outputs
+  use `paths.theta_dir()` / `paths.processed_dir()` / `paths.option_premium_dir()`,
+  and relative `--out` / `--out-dir` / `--universe` / `--log-csv` values are
+  resolved after parsing. Scripts that had no `sys.path` bootstrap got one.
+  Proof: all 32 load; with a root set, every module-level data path lands
+  under it (the eight that need `yfinance` / `xbbg` loaded with stand-in
+  modules); the three sites Codex named read the root's constituents
+  (`ibkr_import.load_universe`, `run_pipeline.get_universe('sp500')`,
+  `pull_theta_option_history._load_universe()` → `['AAPL', 'MSFT']` from a
+  scratch root); with the variable unset the legacy paths are identical.
+  Three of them (`download_*.py`) were committed with CRLF; `.gitattributes`
+  (`eol=lf`) normalises them on this edit.
 - `tests/test_data_manifest.py::test_git_tracks_no_market_data` replaces the
   #528 "every tracked data file has a row" guard: no data file may be tracked
   under the data trees. The last Windows CRLF write in that file is bytes (the

@@ -35,8 +35,10 @@ if str(_REPO_ROOT) not in sys.path:
 
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
+
 DEFAULT_OUT_DIR = (
-    Path(os.environ.get("SWE_VALIDATION_DIR", str(_REPO_ROOT / "data_processed" / "validation")))
+    Path(os.environ.get("SWE_VALIDATION_DIR", str(paths.processed_dir() / "validation")))
     / "v6r_fullmenu"
 )
 
@@ -112,7 +114,7 @@ def _safe(fn, *fn_args) -> dict:
 def cmd_run(args: argparse.Namespace) -> int:
     from backtests.survivorship import run_survivorship_backtest
 
-    deep = _REPO_ROOT / "data" / "bloomberg" / "deep"
+    deep = paths.deep_dir()  # data root (D31)
     if not deep.exists():
         print(
             f"[v6r] PRECONDITION FAILED: {deep} absent — deep panels live on operator machines only",

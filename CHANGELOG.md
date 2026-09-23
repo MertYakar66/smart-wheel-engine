@@ -37,7 +37,13 @@ New guard: `tests/test_data_manifest.py::test_git_tracks_no_market_data`.
 checkout that keeps `data/bloomberg/` for its guide, then failed; now
 `requires_data` through `engine.paths`), the option-premium accessor's Theta
 larder, and the paper book's real-IBKR-dir isolation proof. The last Windows
-CRLF write in `tests/test_data_manifest.py` is bytes now.
+CRLF write in `tests/test_data_manifest.py` is bytes now. Thirty-one operator
+scripts (the Theta pulls, the yfinance refreshes, the IBKR import and
+snapshot, the validation runners, the feature backfill, the Bloomberg pull
+and audit scripts) and the trader-500k regression harness resolve their data
+paths through `engine.paths` — with
+the data out of the checkout they would have read or written the wrong
+tree (Codex review, #530).
 
 **Docs** — `DATA_INVENTORY` §A (steps 2, 3, 5 done; step 6's two remaining
 preconditions; step 2b from Drive, the data laptop being gone), §B, §C, §C.1

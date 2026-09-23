@@ -76,7 +76,12 @@ preconditions; step 2b from Drive, the data laptop being gone), §B, §C, §C.1
 (the ticks' Drive copy); `DATA_POLICY` §1/§3/§6; `PROJECT_STATE`; the Bloomberg
 runbook's post-pull tail; `FILE_MANIFEST` (the nine data rows go); D31 status.
 
-## 2026-09-23 — data home: the desktop root verified; the manifest's two gaps closed (D31; #527, #528 `ab89a16`, #529)
+## 2026-09-23 — data home: the desktop root verified; the manifest's two gaps closed (D31)
+
+**Merged** — one bullet per merge that landed:
+- #527 `fc03b94`: the desktop's report. The root was filled and proved at 99 of 99.
+- #528 `ab89a16`: the manifest's two gaps were closed, making 144 rows.
+- #529 `67b7134`: the desktop's re-proof at 144, the ticks on Drive, and the Windows test fix.
 
 **Verified** — steps 2–3 ran on the Operator's desktop (#527): the root
 `C:\Users\merty\Desktop\swe-data` holds all 99 manifest files, `check` reads

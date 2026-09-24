@@ -68,6 +68,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -759,6 +760,19 @@ def test_a_folder_loop_never_hides_a_credential_folder(tmp_path, monkeypatch):
         assert rows[oid]["class"] == "unresolved" and rows[oid]["dest"] == "", oid
 
 
+def test_a_loop_through_first_parents_still_gives_a_plan(tmp_path, monkeypatch):
+    # "data" lists its own child "sub" as its first parent, the area root second.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.folder("data", "areaA", oid="f1", parents=["f2", "areaA"])
+    d.folder("sub", "f1", oid="f2")
+    oid = d.file("prices.csv", "f2", b"x\n", oid="f3")
+    w = _one_area(tmp_path, monkeypatch, d)
+    row = _by_id(_plan(w))[oid]
+    assert row["path"] == "data/sub/prices.csv"
+    assert row["class"] == "unresolved" and row["dest"] == "" and not row["deletable"]
+
+
 def test_a_file_whose_other_parent_is_outside_every_area_stays_on_drive(tmp_path, monkeypatch):
     # Its other folder could be anyone's "credentials/": the census never saw its path.
     d = FakeDrive()
@@ -1184,6 +1198,21 @@ def test_an_extended_length_path_into_the_root_is_refused(world):
     assert (root / "data/x.csv").read_bytes() == before
 
 
+def test_bytecheck_removes_the_temporary_folder_it_made(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("f.csv", "areaA", b"no sha-256\n", sha=False)
+    w = _one_area(tmp_path, monkeypatch, d, {"data/twin.csv": b"no sha-256\n"})
+    assert _by_id(_plan(w))[oid]["class"] == "needs-byte-check"
+    systmp = tmp_path / "systmp"
+    systmp.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(systmp))
+    t = w["tmp"]
+    args = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(t / "i.json")]
+    assert dc.main([*args, "--root", str(w["root"]), "--remote", "fake:"]) == 0
+    assert list(systmp.iterdir()) == []
+
+
 def test_bytecheck_keeps_a_temporary_folder_it_did_not_make(world):
     _plan(world)
     (world["tmp"] / "bc").mkdir()  # the operator's own, empty
@@ -1468,7 +1497,9 @@ DRIFTS = [
 
 
 @pytest.mark.parametrize("change", DRIFTS)
-def test_copy_fetches_nothing_that_changed_on_drive_since_the_plan(tmp_path, monkeypatch, change):
+def test_copy_fetches_nothing_that_changed_on_drive_since_the_plan(
+    tmp_path, monkeypatch, capsys, change
+):
     # The plan is a snapshot: a file renamed to a credential-shaped name, or moved under
     # one, after it was made must never be fetched on the plan's word.
     d = FakeDrive()
@@ -1476,9 +1507,20 @@ def test_copy_fetches_nothing_that_changed_on_drive_since_the_plan(tmp_path, mon
     oid = d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
     w = _one_area(tmp_path, monkeypatch, d)
     assert _by_id(_plan(w))[oid]["class"] == "copy"
+    capsys.readouterr()
     _drift(d, w, oid, change)
     assert _copy(w) == 3
     assert _fetched(w) == [] and not (w["root"] / "data_archive").exists()
+    said = {  # what the operator is told
+        "renamed to config": "credential-shaped",
+        "its folder renamed secrets": "credential-shaped",
+        "moved into tokens/": "credential-shaped",
+        "also filed under secrets/": "credential-shaped",
+        "moved, harmlessly": "now at A/elsewhere/prices.csv",
+        "removed": "gone from the area",
+        "edited in place": "edited in place",
+    }[change]
+    assert f"CHANGED  A/data/prices.csv: {said}" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("change", DRIFTS)
@@ -1532,6 +1574,41 @@ def test_copy_publishes_nothing_edited_on_drive_while_it_ran(tmp_path, monkeypat
     assert oid in _fetched(w) and not (w["root"] / rows[oid]["dest"]).exists()
     staging = dc._staging(w["root"])
     assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
+
+
+@pytest.mark.parametrize("stop", ["the log is locked", "interrupted"])
+def test_a_stop_while_publishing_leaves_no_changed_download(tmp_path, monkeypatch, stop):
+    # a.csv publishes first; b.csv was renamed to config while the copy ran. Whatever
+    # stops the publishing, b.csv's download is already gone.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    data = d.folder("data", "areaA")
+    d.file("a.csv", data, b"published first\n")
+    oid = d.file("b.csv", data, b"[remote]\n\turl = https://x:token@example\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    _plan(w)
+    monkeypatch.setenv("FAKE_RENAME_AFTER_FETCH", f"{oid}|config")
+    if stop == "the log is locked":
+        real_open = open
+
+        def locked(file, mode="r", *a, **k):
+            if str(file).endswith("_copy.jsonl") and "a" in mode:
+                raise PermissionError(errno.EACCES, "held by another program", str(file))
+            return real_open(file, mode, *a, **k)
+
+        monkeypatch.setattr(dc, "open", locked, raising=False)
+        assert _copy(w) == 4
+    else:
+
+        def interrupted(src, dst):
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(dc, "_publish", interrupted)
+        with pytest.raises(KeyboardInterrupt):
+            _copy(w)
+    staging = dc._staging(w["root"])
+    left = [p.name for p in staging.rglob("*") if p.is_file()] if staging.exists() else []
+    assert oid not in left
 
 
 def test_copy_keeps_nothing_it_fetched_when_drive_cannot_be_checked_again(tmp_path, monkeypatch):

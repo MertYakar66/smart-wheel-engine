@@ -368,16 +368,10 @@ def guard_out(path: Path, root: Path | str | None) -> Path:
         # However the output is spelled, a linked _logs could lead into the live trees.
         raise ToolError(f"refusing to write {path}: {Path(root) / LOGS} is a link or junction")
     if root is not None and _inside(path, root) and not _inside(path, Path(root) / LOGS):
+        # Links resolved: a link inside _logs that leads into the live trees is refused too.
         raise ToolError(
             f"refusing to write {path} inside the data root; use {LOGS}/ or a folder outside it"
         )
-    if root is not None:
-        ap, ar = os.path.abspath(path), os.path.abspath(str(root))
-        if os.path.normcase(ap).startswith(os.path.normcase(ar.rstrip("\\/")) + os.sep):
-            rel = os.path.relpath(os.path.dirname(ap), ar).replace(os.sep, "/")
-            link = _link_on_path(Path(ar), rel) if rel != "." else None
-            if link:  # a linked _logs could lead into the live trees
-                raise ToolError(f"refusing to write {path}: {link} is a link or junction")
     return path
 
 
@@ -772,38 +766,42 @@ def _area_tree(area: dict) -> tuple[dict, dict, dict]:
     # it is in that folder too, so none is ever cleaned by path.
     # A census without the root's parents cannot show it has only one: ambiguous.
     top_own = len(area.get("root_parents") or []) == 1
-    parent_of, inside_of = {}, {}
+    inside_of = {}
     for o in objs.values():
         inside = [p for p in o["parents"] if p == top or p in objs]
         if not inside:
             raise ToolError(f"area {area['name']}: object {o['id']} has no parent inside the area")
-        parent_of[o["id"]], inside_of[o["id"]] = inside[0], inside
+        inside_of[o["id"]] = inside
     # A name counts under every folder it is in, so a second parent's clash is seen too.
     siblings = Counter((p, objs[i]["name"]) for i in objs for p in inside_of[i])
     paths, chains, unique = {}, {}, {}
 
-    def resolve(oid: str, depth: int = 0):
+    def resolve(oid: str, chain: frozenset) -> bool:
+        """Its path through the first parent that does not lead back into the chain."""
         if oid in paths:
-            return
-        if depth > 200:
+            return True
+        if len(chain) > 200:
             raise ToolError(f"area {area['name']}: folder chain deeper than 200 at {oid}")
-        par = parent_of[oid]
         name = objs[oid]["name"]
         # One parent and no sibling of the same name. An item with a second parent,
         # even outside every area, is also in another folder: never cleaned by path.
         own = len(objs[oid]["parents"]) == 1 and all(
             siblings[(p, name)] == 1 for p in inside_of[oid]
         )
-        if par == top:
-            paths[oid], chains[oid], unique[oid] = name, [oid], own and top_own
-        else:
-            resolve(par, depth + 1)
-            paths[oid] = f"{paths[par]}/{name}"
-            chains[oid] = [*chains[par], oid]
-            unique[oid] = own and unique[par]
+        for par in inside_of[oid]:
+            if par == top:
+                paths[oid], chains[oid], unique[oid] = name, [oid], own and top_own
+                return True
+            if par != oid and par not in chain and resolve(par, chain | {oid}):
+                paths[oid] = f"{paths[par]}/{name}"
+                chains[oid] = [*chains[par], oid]
+                unique[oid] = own and unique[par]
+                return True
+        return False  # every parent leads back into the chain: a loop
 
     for oid in objs:
-        resolve(oid)
+        if not resolve(oid, frozenset()):
+            raise ToolError(f"area {area['name']}: {oid} is reached only through a loop of folders")
     return paths, chains, unique
 
 
@@ -1167,7 +1165,9 @@ def _refuse_drift(plan: dict, remote: str, rows: list[dict], when: str) -> None:
         )
 
 
-def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict:
+def bytecheck(
+    plan: dict, inv: dict, root: Path, remote: str, tmp: Path, made_tmp: bool = False
+) -> dict:
     if inv.get("generated") != plan.get("inventory_generated"):
         raise ToolError("this inventory is not the one the plan was made from")
     if _inside(tmp, root) or _inside(root, tmp):
@@ -1198,7 +1198,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
     )
     if todo:
         _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
-    made_tmp = not os.path.lexists(native(tmp))
+    made_tmp = made_tmp or not os.path.lexists(native(tmp))
     tmp.mkdir(parents=True, exist_ok=True)
     made: list[str] = []
     try:
@@ -1510,6 +1510,13 @@ def copy_all(
         changed: dict[str, str] = {}
         if fetched:
             changed = {r["id"]: why for r, why in _drifted(plan, remote, [f[0] for f in fetched])}
+        stuck: dict[str, str] = {}
+        for r, s, _ok, _sha in fetched:  # before any publish, so no stop can leave one behind
+            if r["id"] in changed:
+                try:
+                    os.remove(native(s))  # our own download of it, never published
+                except OSError as e:
+                    stuck[r["id"]] = f"; kept at {s} ({e.strerror or e})"
         checked = True
     finally:
         if not checked:  # stopped before Drive was checked again: nothing fetched is kept
@@ -1519,11 +1526,10 @@ def copy_all(
     for r, s, ok, sha in sorted(fetched, key=lambda f: f[0]["dest"]):
         rec = {"id": r["id"], "dest": r["dest"]}
         if r["id"] in changed:
-            rec["status"] = f"changed on Drive during the copy ({changed[r['id']]}); not published"
-            try:
-                os.remove(native(s))  # our own download of it, never published
-            except OSError as e:
-                rec["status"] += f"; kept at {s} ({e.strerror or e})"
+            rec["status"] = (
+                f"changed on Drive during the copy ({changed[r['id']]}); not published"
+                + stuck.get(r["id"], "")
+            )
         elif not ok:
             rec["status"] = f"MISMATCH with Drive's listing: {sha}; kept at {s}"
         elif _link_on_path(root, r["dest"]):
@@ -1961,7 +1967,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         tmp = Path(os.path.abspath(args.tmp or tempfile.mkdtemp(prefix="swe-bytecheck-")))
         if tmp.exists() and any(tmp.iterdir()):
             raise ToolError(f"the temporary folder {tmp} is not empty")
-        bytecheck(plan, _load_doc(Path(args.inventory), "inventory"), root, args.remote, tmp)
+        inv = _load_doc(Path(args.inventory), "inventory")
+        bytecheck(plan, inv, root, args.remote, tmp, made_tmp=not args.tmp)
         ledger = plan_path.with_name(plan_path.stem + "_ledger.csv")
         write_outputs([(ledger, ledger_text(plan["rows"])), (plan_path, json_text(plan))])
         print("\n".join(summarize(plan)))

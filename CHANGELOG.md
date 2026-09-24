@@ -27,19 +27,24 @@ has no command that deletes, moves or uploads anything.
   card 3.
 - **copy:** by Drive id into a staging folder beside the root. Each file is
   re-hashed, then published with a hard link that never overwrites. A failed batch
-  is retried one object at a time.
+  is retried one object at a time. It runs a fresh census before the first
+  download and again after the last, and neither fetches nor publishes anything
+  that has moved or become unsafe since the plan. Each run writes its own new log.
 - **sweep:** a local folder's data files whose bytes the root lacks, through the
   same staging folder, so a bad copy never reaches the root.
 - **links:** a symbolic link or Windows junction in the root is never a home for
   Drive bytes. The inventory does not follow one, and nothing is placed on one.
 - **verify:** re-hashes every copy and every root file a Drive object was matched
   to, so a root file changed since the inventory fails the check.
+- **outputs:** never inside the root except under `_logs/`, and never through a
+  link in the root, however the path reaches it.
 - **also:** `bytecheck`, `sums` (`SHA256SUMS`) and `filters`.
 
-`tests/test_drive_consolidate.py` has 92 tests against a fake Drive. Every safety
-rule was broken on purpose in turn, and all 71 breaks were caught. Two independent
-reviews each found a blocker, and Codex's two reviews of #534 found four more
-defects; the worklog lists every finding and what became of it.
+`tests/test_drive_consolidate.py` has 202 tests against a fake Drive (one runs on Windows
+only). Every safety rule was broken on purpose in turn, and all 144 breaks were
+caught. Seven independent reviews (the last in five rounds) and twenty-one Codex reviews
+of #534 found two blockers between them, and the last review of each kind found nothing;
+the worklog lists every finding and what became of it.
 
 ---
 

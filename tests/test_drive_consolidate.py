@@ -1183,6 +1183,44 @@ def test_the_same_root_spelled_two_ways_is_the_same_root():
     assert not dc.same_path("\\\\?\\C:\\swe-data", "C:\\other")
 
 
+@pytest.mark.parametrize("where", ["_logs", "_logs/sub", "_logs, through another name"])
+def test_no_output_goes_through_a_link_under_the_root_to_somewhere_else(world, tmp_path, where):
+    # A link under the root that leads outside it: an output there would replace a file of
+    # someone else's, instead of landing in the root's own _logs/.
+    root = world["root"]
+    outside = tmp_path / "someone-else"
+    outside.mkdir()
+    (outside / "i.json").write_bytes(b"their bytes\n")
+    if where == "_logs/sub":
+        _symlink_or_skip(root / "_logs" / "sub", outside, is_dir=True)
+        base = root / "_logs" / "sub"
+    else:
+        shutil.rmtree(root / "_logs")
+        _symlink_or_skip(root / "_logs", outside, is_dir=True)
+        base = root / "_logs"
+        if where != "_logs":
+            alias = tmp_path / "alias"
+            _symlink_or_skip(alias, root, is_dir=True)
+            base = alias / "_logs"
+    for out in (base / "i.json", base / "new.json"):
+        assert dc.main(["inventory", "--root", str(root), "--out", str(out)]) == 2
+    assert (outside / "i.json").read_bytes() == b"their bytes\n"
+    assert sorted(p.name for p in outside.iterdir()) == ["i.json"]
+
+
+def test_no_output_reaches_the_root_through_a_side_door_while_its_logs_is_a_link(world, tmp_path):
+    # A link from outside straight into data/, while _logs is a link to data/ too: by its
+    # resolved path the output would sit "inside _logs".
+    root = world["root"]
+    before = (root / "data/x.csv").read_bytes()
+    shutil.rmtree(root / "_logs")
+    _symlink_or_skip(root / "_logs", root / "data", is_dir=True)
+    side = tmp_path / "side-door"
+    _symlink_or_skip(side, root / "data", is_dir=True)
+    assert dc.main(["inventory", "--root", str(root), "--out", str(side / "x.csv")]) == 2
+    assert (root / "data/x.csv").read_bytes() == before
+
+
 def test_extended_length_paths_are_compared_the_ordinary_way():
     assert dc._plain("\\\\?\\C:\\swe-data\\data\\x.csv") == "C:\\swe-data\\data\\x.csv"
     assert dc._plain("\\\\?\\UNC\\server\\share\\x") == "\\\\server\\share\\x"
@@ -1198,7 +1236,9 @@ def test_an_extended_length_path_into_the_root_is_refused(world):
     assert (root / "data/x.csv").read_bytes() == before
 
 
-def test_bytecheck_removes_the_temporary_folder_it_made(tmp_path, monkeypatch):
+@pytest.mark.parametrize("ending", ["settled", "another inventory", "changed on Drive"])
+def test_bytecheck_removes_the_temporary_folder_it_made(tmp_path, monkeypatch, ending):
+    # With no --tmp it makes its own, and removes it however the run ends.
     d = FakeDrive()
     d.folder("A", "root", "areaA")
     oid = d.file("f.csv", "areaA", b"no sha-256\n", sha=False)
@@ -1208,8 +1248,18 @@ def test_bytecheck_removes_the_temporary_folder_it_made(tmp_path, monkeypatch):
     systmp.mkdir()
     monkeypatch.setattr(tempfile, "tempdir", str(systmp))
     t = w["tmp"]
-    args = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(t / "i.json")]
-    assert dc.main([*args, "--root", str(w["root"]), "--remote", "fake:"]) == 0
+    inv, expect = t / "i.json", 0
+    if ending == "another inventory":
+        doc = json.loads(inv.read_text(encoding="utf-8"))
+        doc["generated"] = "another run"
+        inv = t / "i2.json"
+        inv.write_text(json.dumps(doc), encoding="utf-8")
+        expect = 2
+    elif ending == "changed on Drive":
+        _drift(d, w, oid, "renamed to config")
+        expect = 3
+    args = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(inv)]
+    assert dc.main([*args, "--root", str(w["root"]), "--remote", "fake:"]) == expect
     assert list(systmp.iterdir()) == []
 
 

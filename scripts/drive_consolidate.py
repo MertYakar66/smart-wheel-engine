@@ -359,11 +359,29 @@ def _inside(path: Path | str, folder: Path | str) -> bool:
     return p == f or p.startswith(f.rstrip("\\/") + os.sep)
 
 
+def _link_below_root(path: Path, root: Path | str) -> str | None:
+    """A link or junction on the part of path below the root, however the root is spelled.
+
+    An output meant for the root's _logs/ must land there, not wherever a link under
+    the root leads (outside it, where it could replace a file of someone else's).
+    """
+    ap = Path(_plain(os.path.abspath(_plain(str(path)))))
+    real_root = os.path.normcase(_plain(os.path.realpath(_plain(str(root)))))
+    for anc in ap.parents:
+        if os.path.normcase(_plain(os.path.realpath(str(anc)))) == real_root:
+            rel = ap.parent.relative_to(anc).as_posix()
+            return _link_on_path(anc, rel) if rel != "." else None
+    return None
+
+
 def guard_out(path: Path, root: Path | str | None) -> Path:
     """Our own output files never land inside the data root, except under its _logs/."""
     if root is None:
         env = os.environ.get("SWE_DATA_ROOT", "").strip()
         root = env or None
+    link = _link_below_root(path, root) if root is not None else None
+    if link:
+        raise ToolError(f"refusing to write {path}: {link} is a link or junction")
     if root is not None and _inside(path, root) and _is_link(native(Path(root) / LOGS)):
         # However the output is spelled, a linked _logs could lead into the live trees.
         raise ToolError(f"refusing to write {path}: {Path(root) / LOGS} is a link or junction")
@@ -1165,12 +1183,11 @@ def _refuse_drift(plan: dict, remote: str, rows: list[dict], when: str) -> None:
         )
 
 
-def bytecheck(
-    plan: dict, inv: dict, root: Path, remote: str, tmp: Path, made_tmp: bool = False
-) -> dict:
+def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path | None) -> dict:
+    """Settle what Drive lists without a size or hash, by download (tmp: None makes one)."""
     if inv.get("generated") != plan.get("inventory_generated"):
         raise ToolError("this inventory is not the one the plan was made from")
-    if _inside(tmp, root) or _inside(root, tmp):
+    if tmp is not None and (_inside(tmp, root) or _inside(root, tmp)):
         raise ToolError(f"the temporary folder {tmp} must be outside the root {root}")
     rows = plan["rows"]
     by_full: dict[tuple, str] = {}
@@ -1198,7 +1215,12 @@ def bytecheck(
     )
     if todo:
         _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
-    made_tmp = made_tmp or not os.path.lexists(native(tmp))
+    made_tmp = tmp is None or not os.path.lexists(native(tmp))
+    if tmp is None:  # made only now, after every check that can stop the run
+        tmp = Path(os.path.abspath(tempfile.mkdtemp(prefix="swe-bytecheck-")))
+        if _inside(tmp, root) or _inside(root, tmp):
+            tmp.rmdir()  # the empty folder just made
+            raise ToolError(f"the temporary folder {tmp} must be outside the root {root}")
     tmp.mkdir(parents=True, exist_ok=True)
     made: list[str] = []
     try:
@@ -1964,11 +1986,10 @@ def _dispatch(args: argparse.Namespace) -> int:
         guard_out(plan_path, root)
         require_rclone()
         # Absolute, so rclone never reads a colon in it as a remote name.
-        tmp = Path(os.path.abspath(args.tmp or tempfile.mkdtemp(prefix="swe-bytecheck-")))
-        if tmp.exists() and any(tmp.iterdir()):
+        tmp = Path(os.path.abspath(args.tmp)) if args.tmp else None
+        if tmp is not None and tmp.exists() and any(tmp.iterdir()):
             raise ToolError(f"the temporary folder {tmp} is not empty")
-        inv = _load_doc(Path(args.inventory), "inventory")
-        bytecheck(plan, inv, root, args.remote, tmp, made_tmp=not args.tmp)
+        bytecheck(plan, _load_doc(Path(args.inventory), "inventory"), root, args.remote, tmp)
         ledger = plan_path.with_name(plan_path.stem + "_ledger.csv")
         write_outputs([(ledger, ledger_text(plan["rows"])), (plan_path, json_text(plan))])
         print("\n".join(summarize(plan)))

@@ -1534,6 +1534,31 @@ def test_copy_publishes_nothing_edited_on_drive_while_it_ran(tmp_path, monkeypat
     assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
 
 
+def test_copy_keeps_nothing_it_fetched_when_drive_cannot_be_checked_again(tmp_path, monkeypatch):
+    # The census after the downloads fails (Drive does not answer, or its totals move):
+    # nothing fetched was checked against Drive again, so none of it is kept.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    rows = _by_id(_plan(w))
+    monkeypatch.setenv("FAKE_EDIT_ON_FETCH", f"{oid}|before")  # other bytes arrive
+    real, calls = dc._drifted, []
+
+    def second_census_fails(plan, remote, rows):
+        calls.append(1)
+        if len(calls) == 2:
+            raise dc.ToolError("Drive did not answer")
+        return real(plan, remote, rows)
+
+    monkeypatch.setattr(dc, "_drifted", second_census_fails)
+    assert _copy(w) == 2
+    assert len(calls) == 2 and oid in _fetched(w)
+    assert not (w["root"] / rows[oid]["dest"]).exists()
+    staging = dc._staging(w["root"])
+    assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
+
+
 def test_copy_keeps_no_download_of_what_changed_on_drive_even_if_its_bytes_differ(
     tmp_path, monkeypatch
 ):

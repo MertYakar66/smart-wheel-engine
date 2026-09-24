@@ -1361,6 +1361,19 @@ def _run_folder(root: Path, kind: str) -> Path:
     return Path(tempfile.mkdtemp(prefix=f"{kind}-{stamp}-", dir=str(base)))
 
 
+def _discard(run: Path) -> list[str]:
+    """Remove every file in this run's own staging folder; return any that would not go."""
+    left = []
+    for dirpath, _dirs, filenames in os.walk(native(run)):
+        for fn in filenames:
+            full = os.path.join(dirpath, fn)
+            try:
+                os.remove(full)  # downloaded by this run into its own new folder
+            except OSError:
+                left.append(full)
+    return left
+
+
 def _tidy(staging: Path) -> None:
     for p in (staging, staging.parent):
         if os.path.isdir(native(p)) and not os.listdir(native(p)):
@@ -1484,17 +1497,25 @@ def copy_all(
             with lock:
                 fetched.append((r, s, ok, why))
 
-    chunks = _batches(todo, batch, staging)
-    with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
-        for i, _ in enumerate(ex.map(run, chunks), 1):
-            if i % 10 == 0 or i == len(chunks):
-                print(f"copy: {i}/{len(chunks)} batches", file=sys.stderr)
-    # The downloads took time: Drive is censused again, and only an object still at its
-    # path and still safe to read is published. What changed is not kept, whatever its
-    # bytes: it may be a credential now.
-    changed: dict[str, str] = {}
-    if fetched:
-        changed = {r["id"]: why for r, why in _drifted(plan, remote, [f[0] for f in fetched])}
+    checked = False
+    try:
+        chunks = _batches(todo, batch, staging)
+        with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
+            for i, _ in enumerate(ex.map(run, chunks), 1):
+                if i % 10 == 0 or i == len(chunks):
+                    print(f"copy: {i}/{len(chunks)} batches", file=sys.stderr)
+        # The downloads took time: Drive is censused again, and only an object still at
+        # its path and still safe to read is published. What changed is not kept,
+        # whatever its bytes: it may be a credential now.
+        changed: dict[str, str] = {}
+        if fetched:
+            changed = {r["id"]: why for r, why in _drifted(plan, remote, [f[0] for f in fetched])}
+        checked = True
+    finally:
+        if not checked:  # stopped before Drive was checked again: nothing fetched is kept
+            for f in _discard(staging):
+                print(f"  NOT REMOVED  {f}", file=sys.stderr)
+            _tidy(staging)
     for r, s, ok, sha in sorted(fetched, key=lambda f: f[0]["dest"]):
         rec = {"id": r["id"], "dest": r["dest"]}
         if r["id"] in changed:

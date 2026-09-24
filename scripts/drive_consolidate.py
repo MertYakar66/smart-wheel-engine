@@ -63,7 +63,10 @@ re-hashes each file there, and only then publishes it with a hard link, which
 fails if the destination exists: nothing is ever written over. A destination that
 already holds the right bytes counts as done, so a rerun resumes; one holding other
 bytes stops the run before anything is copied. A failed batch is retried one object
-at a time, so one object that cannot be downloaded never blocks the others.
+at a time, so one object that cannot be downloaded never blocks the others. The plan
+is a snapshot: just before downloading anything, ``copy`` and ``bytecheck`` census
+the plan's areas again, and an object gone, moved or renamed since the plan, or no
+longer safe to read, stops the run before anything is fetched.
 ``sweep`` does the same for a local folder, by bytes, through the same staging
 folder; a root file the inventory lists counts only if it still holds its bytes.
 
@@ -82,9 +85,9 @@ never go inside the root except under ``_logs/``. Deletion is a separate step wi
 the Operator's yes (D33, card 3).
 
 Exit codes: 0 ok · 1 verify found a difference · 2 configuration or safety error,
-or an unexpected one · 3 a destination holds other bytes, or a download does not
-match Drive · 4 a copy or file operation failed (a rerun resumes) · 5 not enough
-free space. Standard library only; the
+or an unexpected one · 3 a destination holds other bytes, a download does not
+match Drive, or Drive changed since the plan · 4 a copy or file operation failed (a
+rerun resumes) · 5 not enough free space. Standard library only; the
 Drive side is rclone ≥ 1.65 (Drive SHA-256).
 """
 
@@ -914,7 +917,8 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
         "census_generated": census_doc["generated"],
         "inventory_generated": inv["generated"],
         "areas": [
-            {"name": a["name"], "id": a["id"], "mode": a["mode"]} for a in census_doc["areas"]
+            {k: a.get(k) for k in ("name", "id", "parent", "folder", "mode")}
+            for a in census_doc["areas"]
         ],
         "swe_data": census_doc.get("swe_data", []),
         "root_bytes": sum(f["size"] for f in usable),
@@ -1090,6 +1094,41 @@ def summarize(plan: dict, about: dict | None = None, limit: int = 40) -> list[st
 # ---------------------------------------------------------------- bytecheck
 
 
+def _refuse_drift(plan: dict, remote: str, rows: list[dict]) -> None:
+    """Stop before any download if Drive changed under the plan.
+
+    The plan is a snapshot. A fresh census of its areas must show each object about to
+    be fetched at the same path, and still safe to read (``_unsafe_ids``): one renamed
+    to a credential-shaped name since, moved under one, or moved at all, is never
+    fetched on the plan's word.
+    """
+    specs = []
+    for a in plan["areas"]:
+        if not a.get("parent") or not a.get("folder"):
+            raise ToolError(f"the plan does not record where area {a['name']} is; plan again")
+        specs.append({k: a[k] for k in ("name", "id", "parent", "folder", "mode")})
+    fresh = census(remote, specs)
+    bad = _unsafe_ids(fresh["areas"])
+    now = {}
+    for a in fresh["areas"]:
+        now.update({(a["name"], oid): path for oid, path in _area_tree(a)[0].items()})
+    changed = []
+    for r in rows:
+        where = now.get((r["area"], r["id"]))
+        if r["id"] in bad:  # a second folder can make it unsafe while its path stays
+            changed.append((r, bad[r["id"]][0]))
+        elif where != r["path"]:
+            changed.append((r, f"now at {r['area']}/{where}" if where else "gone from the area"))
+    if changed:
+        for r, why in changed[:40]:
+            print(f"  CHANGED  {r['area']}/{r['path']}: {why}")
+        raise ToolError(
+            f"{len(changed)} object(s) changed on Drive since the plan; run census and plan "
+            "again. Nothing was fetched",
+            3,
+        )
+
+
 def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict:
     if inv.get("generated") != plan.get("inventory_generated"):
         raise ToolError("this inventory is not the one the plan was made from")
@@ -1119,6 +1158,8 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
         (r for r in rows if r["class"] == "needs-byte-check" and not r.get("same_object")),
         key=lambda r: (r["area"], r["path"]),
     )
+    if todo:
+        _refuse_drift(plan, remote, todo)
     tmp.mkdir(parents=True, exist_ok=True)
     made: list[str] = []
     try:
@@ -1358,6 +1399,7 @@ def copy_all(
     if dry_run or not todo:
         return 0
     require_rclone()
+    _refuse_drift(plan, remote, todo)
     guard_out(log, root)
     if _is_link(native(log)):
         raise ToolError(f"refusing to append to {log}: it is a link or junction")

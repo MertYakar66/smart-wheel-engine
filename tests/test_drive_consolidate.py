@@ -1247,6 +1247,65 @@ def test_copy_refuses_a_destination_outside_the_legacy_folder(world):
     assert _copy(world) == 2
 
 
+def _drift(d: FakeDrive, w: dict, oid: str, change: str) -> None:
+    """Change one object on the fake Drive after the plan was made."""
+    objs = {o["id"]: o for o in d.objects}
+    if change == "renamed to config":
+        objs[oid]["name"] = "config"
+    elif change == "its folder renamed secrets":
+        objs[objs[oid]["parents"][0]]["name"] = "secrets"
+    elif change == "moved into tokens/":
+        objs[oid]["parents"] = [d.folder("tokens", "areaA")]
+    elif change == "also filed under secrets/":  # its first path stays the same
+        objs[oid]["parents"] = [objs[oid]["parents"][0], d.folder("secrets", "areaA")]
+    elif change == "moved, harmlessly":
+        objs[oid]["parents"] = [d.folder("elsewhere", "areaA")]
+    elif change == "removed":
+        d.objects.remove(objs[oid])
+    d.save(w["tmp"] / "drive.json")
+
+
+DRIFTS = [
+    "renamed to config",
+    "its folder renamed secrets",
+    "moved into tokens/",
+    "also filed under secrets/",
+    "moved, harmlessly",
+    "removed",
+]
+
+
+@pytest.mark.parametrize("change", DRIFTS)
+def test_copy_fetches_nothing_that_changed_on_drive_since_the_plan(tmp_path, monkeypatch, change):
+    # The plan is a snapshot: a file renamed to a credential-shaped name, or moved under
+    # one, after it was made must never be fetched on the plan's word.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    assert _by_id(_plan(w))[oid]["class"] == "copy"
+    _drift(d, w, oid, change)
+    assert _copy(w) == 3
+    assert _fetched(w) == [] and not (w["root"] / "data_archive").exists()
+
+
+@pytest.mark.parametrize("change", DRIFTS)
+def test_bytecheck_fetches_nothing_that_changed_on_drive_since_the_plan(
+    tmp_path, monkeypatch, change
+):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("prices.csv", d.folder("data", "areaA"), b"no sha-256\n", sha=False)
+    w = _one_area(tmp_path, monkeypatch, d, {"data/twin.csv": b"no sha-256\n"})
+    assert _by_id(_plan(w))[oid]["class"] == "needs-byte-check"  # its MD5 is not unique
+    _drift(d, w, oid, change)
+    t = w["tmp"]
+    args = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(t / "i.json")]
+    args += ["--root", str(w["root"]), "--remote", "fake:", "--tmp", str(t / "bc")]
+    assert dc.main(args) == 3
+    assert _fetched(w) == []
+
+
 def test_copy_refuses_a_plan_made_for_another_root(world, tmp_path):
     _plan(world)
     other = tmp_path / "other-root"

@@ -710,21 +710,51 @@ def test_an_empty_file_is_home_only_under_its_own_name(tmp_path, monkeypatch):
 
 
 def test_a_later_row_of_the_same_object_mirrors_the_first(tmp_path, monkeypatch):
-    # Area B nested in A under "tokens/": the object's first row (A) is unresolved.
+    # Area B nested in A: the object's first row (A) finds no free destination.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.folder("vendor", "areaA", "areaB")
+    oid = d.file("prices.csv", "areaB", b"in two areas\n")
+    areas = [
+        {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"},
+        {"name": "B", "id": "areaB", "parent": "areaA", "folder": "vendor", "mode": "consolidate"},
+    ]
+    files = {
+        "data_archive/drive-legacy/A/vendor/prices.csv": b"other bytes 1\n",
+        f"data_archive/drive-legacy/A/_conflicts/{oid}/prices.csv": b"other bytes 2\n",
+    }
+    w = _env(tmp_path, monkeypatch, d, areas, files)
+    rows = [r for r in _plan(w)["rows"] if r["id"] == oid]
+    assert [(r["area"], r["class"]) for r in rows] == [("A", "unresolved"), ("B", "unresolved")]
+    assert rows[1]["reason"] == (
+        "the same Drive object as A/vendor/prices.csv: no free destination under the root"
+    )
+    assert not any(r["dest"] or r["deletable"] for r in rows)
+
+
+@pytest.mark.parametrize("order", ["outer first", "inner first"])
+def test_an_object_unsafe_in_one_area_is_unsafe_in_every_area(tmp_path, monkeypatch, order):
+    # Area B nested in A under "tokens/": B alone sees nothing wrong with the file.
     d = FakeDrive()
     d.folder("A", "root", "areaA")
     tokens = d.folder("tokens", "areaA")
     d.folder("vendor", tokens, "areaB")
     oid = d.file("prices.csv", "areaB", b"in two areas\n")
-    areas = [
-        {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"},
-        {"name": "B", "id": "areaB", "parent": tokens, "folder": "vendor", "mode": "consolidate"},
+    a = {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"}
+    b = {"name": "B", "id": "areaB", "parent": tokens, "folder": "vendor", "mode": "consolidate"}
+    w = _env(tmp_path, monkeypatch, d, [a, b] if order == "outer first" else [b, a], {})
+    rows = {r["area"]: r for r in _plan(w)["rows"] if r["id"] == oid}
+    assert {k: r["class"] for k, r in rows.items()} == {"A": "unresolved", "B": "unresolved"}
+    assert rows["B"]["reason"] == (
+        "credential-shaped name: never read or copied (as seen in area A)"
+    )
+    assert not any(r["dest"] or r["deletable"] for r in rows.values())
+    census = json.loads((w["tmp"] / "c.json").read_text(encoding="utf-8"))
+    kept = [
+        (o["md5"], o["sha256"]) for x in census["areas"] for o in x["objects"] if o["id"] == oid
     ]
-    w = _env(tmp_path, monkeypatch, d, areas, {"data/keep.csv": b"keep\n"})
-    rows = [r for r in _plan(w)["rows"] if r["id"] == oid]
-    assert [(r["area"], r["class"]) for r in rows] == [("A", "unresolved"), ("B", "unresolved")]
-    assert "the same Drive object as A/tokens/vendor/prices.csv" in rows[1]["reason"]
-    assert not any(r["dest"] or r["deletable"] for r in rows)
+    assert kept == [("withheld", None), ("withheld", None)]  # no hash kept in either area
+    assert _copy(w) == 0 and _fetched(w) == []
 
 
 def test_bytecheck_settles_an_object_reached_through_two_areas_once(tmp_path, monkeypatch):
@@ -859,6 +889,19 @@ def test_no_hash_of_a_credential_file_is_kept(world):
     for r in plan["rows"]:
         if dc.credential_shaped(r["path"]):
             assert r["sha256"] is None and r["md5"] in (None, "withheld"), r["path"]
+
+
+def test_a_credential_file_drive_lists_without_an_md5_never_needs_a_byte_check(
+    tmp_path, monkeypatch
+):
+    # No hash for the census to withhold: only the plan's verdict keeps it from a download.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("rclone.conf", d.folder("cfg", "areaA"), b"[gdrive]\n", md5="", sha=False)
+    w = _one_area(tmp_path, monkeypatch, d)
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "unresolved" and row["reason"].startswith("credential-shaped")
+    assert row["md5"] is None and row["sha256"] is None
 
 
 def test_a_destination_that_would_look_credential_shaped_is_never_used(tmp_path, monkeypatch):

@@ -41,7 +41,12 @@ neither count nor download it.
                       downloads it and settles it (``copy`` refuses to run before)
     unresolved        left where it is and listed: a shortcut, a Google-format
                       file, a credential-shaped name, a git folder's config,
+                      a path through a folder the census never listed,
                       a destination that cannot be placed
+
+A Drive id is one object wherever it is seen, and areas can overlap: a path that
+keeps it on Drive in one area keeps it there in every area, and the census keeps
+no hash of it in any.
 
 Only bytes count (D33): a missing hash never counts as a match, and a git object in
 the old ``.git`` upload is not a copy of the bundle that holds the same logical
@@ -574,7 +579,6 @@ def census(remote: str, areas: list[dict]) -> dict:
                 if obj.get("mimeType") == FOLDER:
                     queue.append(obj["id"])
         objects.sort(key=lambda o: o["id"])
-        _withhold_credential_hashes({**area, "root_parents": root_parents, "objects": objects})
         mine = census_totals(objects, area["id"])
         walk = rclone_size(remote, area["id"])
         if mine != walk:
@@ -603,6 +607,14 @@ def census(remote: str, areas: list[dict]) -> dict:
             + (f"; {nomd5} file(s) without an MD5, which rclone cannot download" if nomd5 else ""),
             file=sys.stderr,
         )
+    # One verdict per Drive id across every area: an object any area sees on a path the
+    # tool must not read keeps no hash anywhere (areas can overlap, nested in each other).
+    bad = _unsafe_ids(out)
+    for a in out:
+        for o in a["objects"]:
+            if o["id"] in bad:
+                o["md5"] = "withheld" if o["md5"] else None
+                o["sha256"] = None
     swe = drive_query(remote, "'root' in parents and name = 'swe-data' and trashed = false")
     return {
         "schema": SCHEMA,
@@ -825,6 +837,7 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
     # A link is occupied too: nothing is placed at or under it.
     taken = Taken([f["path"] for f in root_files] + inv.get("links", []), inv.get("dirs", []))
     trees = {a["id"]: _area_tree(a) for a in census_doc["areas"]}
+    bad = _unsafe_ids(census_doc["areas"])
     for a in census_doc["areas"]:
         for o in a["objects"]:
             if is_file(o) and o["size"] and o["md5"]:
@@ -834,8 +847,6 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
     for a in census_doc["areas"]:
         paths, chains, unique = trees[a["id"]]
         names = {o["id"]: o["name"] for o in a["objects"]}
-        gitdirs = _git_dirs(a)
-        every = _every_path(a)
         for o in sorted(a["objects"], key=lambda o: (paths[o["id"]], o["id"])):
             path = paths[o["id"]]
             kind = (
@@ -871,17 +882,13 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
                 "candidates": [natural, conflict],
                 "path_unique": unique[o["id"]],
             }
-            if kind == "file" and o["name"].casefold() == "config" and set(o["parents"]) & gitdirs:
-                # A git folder uploaded without its ".git" name: its config can carry a
-                # token in a remote URL, as .git/config can.
-                cls, reason, twin = (
-                    "unresolved",
-                    "git config (beside HEAD and objects/): never read or copied",
-                    "",
-                )
+            if kind == "file" and o["id"] in bad:
+                why, seen = bad[o["id"]]
+                cls, twin = "unresolved", ""
+                reason = why if seen == a["name"] else f"{why} (as seen in area {seen})"
             else:
                 cls, reason, twin = _classify(
-                    o, every[o["id"]], by_full, md5_count, first_copy, row["candidates"], empty_root
+                    o, by_full, md5_count, first_copy, row["candidates"], empty_root
                 )
             row.update({"class": cls, "reason": reason, "twin": twin})
             prev = first_row.get(o["id"])
@@ -927,7 +934,7 @@ def _place(row: dict, taken: Taken) -> None:
         row["dest"] = dest
 
 
-def _classify(o, every, by_full, md5_count, first_copy, candidates, empty_root):
+def _classify(o, by_full, md5_count, first_copy, candidates, empty_root):
     if o["mime"] == FOLDER:
         return "folder", "", ""
     if o["mime"] == SHORTCUT:
@@ -938,13 +945,7 @@ def _classify(o, every, by_full, md5_count, first_copy, candidates, empty_root):
         )
     if o["mime"].startswith(GOOGLE):
         return "unresolved", "Google-format file: no bytes to compare", ""
-    if len(every) > MAX_PATHS:
-        return "unresolved", f"reached through more than {MAX_PATHS} paths", ""
-    if any(credential_shaped(p) for p in every):  # on every path, not just the first
-        return "unresolved", "credential-shaped name: never read or copied", ""
-    if any(p.startswith(OUTSIDE) for p in every):  # a path whose names cannot be checked
-        return "unresolved", "also in a folder outside the area, whose path is not known", ""
-    if o["md5"] == "withheld":  # any other reason the census kept no hash
+    if o["md5"] == "withheld":  # the census kept no hash: never read or copied
         return "unresolved", "hashes withheld by the census: never read or copied", ""
     if o["size"] is None:
         return "needs-byte-check", "Drive lists no size", ""
@@ -978,17 +979,34 @@ def _git_dirs(area: dict) -> set[str]:
     return {p for p, names in kids.items() if "head" in names and names.get("objects") == FOLDER}
 
 
-def _withhold_credential_hashes(area: dict) -> None:
-    """Keep no Drive hash of a credential: a credential-shaped path, or a git folder's config."""
-    every = _every_path(area)
-    gitdirs = _git_dirs(area)
-    for o in area["objects"]:
-        git_config = o["name"].casefold() == "config" and bool(set(o["parents"]) & gitdirs)
-        many = len(every[o["id"]]) > MAX_PATHS
-        unknown = any(p.startswith(OUTSIDE) for p in every[o["id"]])
-        if many or unknown or git_config or any(credential_shaped(p) for p in every[o["id"]]):
-            o["md5"] = "withheld" if o["md5"] else None
-            o["sha256"] = None
+def _unsafe_ids(areas: list[dict]) -> dict[str, tuple[str, str]]:
+    """Drive ids the tool must never read or copy: id -> (reason, the area that showed it).
+
+    Judged on every path in every area, since areas can overlap (one nested in
+    another) and an object is one Drive id wherever it is seen: a credential-shaped
+    name on any path, a path through a parent no census listed, more than MAX_PATHS
+    paths, or a git folder's config.
+    """
+    bad: dict[str, tuple[str, str]] = {}
+    for area in areas:
+        every = _every_path(area)
+        gitdirs = _git_dirs(area)
+        for o in area["objects"]:
+            paths = every[o["id"]]
+            if len(paths) > MAX_PATHS:
+                reason = f"reached through more than {MAX_PATHS} paths"
+            elif any(credential_shaped(p) for p in paths):  # every path, not just the first
+                reason = "credential-shaped name: never read or copied"
+            elif any(p.startswith(OUTSIDE) for p in paths):  # names that cannot be checked
+                reason = "also in a folder outside the area, whose path is not known"
+            elif o["name"].casefold() == "config" and set(o["parents"]) & gitdirs:
+                # A git folder uploaded without its ".git" name: its config can carry a
+                # token in a remote URL, as .git/config can.
+                reason = "git config (beside HEAD and objects/): never read or copied"
+            else:
+                continue
+            bad.setdefault(o["id"], (reason, area["name"]))
+    return bad
 
 
 def _mirror(rows: list[dict]) -> None:

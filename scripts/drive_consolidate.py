@@ -393,6 +393,19 @@ def guard_out(path: Path, root: Path | str | None) -> Path:
     return path
 
 
+def _file_key(path: Path | str) -> str:
+    """One file's name for comparing: links resolved, by the platform's case rule."""
+    return os.path.normcase(_plain(os.path.realpath(_plain(str(path)))))
+
+
+def _not_an_input(outputs: list[Path], inputs: list) -> None:
+    """Refuse, before any work, an output that is also one of the command's own inputs."""
+    ins = {_file_key(i) for i in inputs if i}
+    for out in outputs:
+        if _file_key(out) in ins:
+            raise ToolError(f"refusing to write {out}: it is also an input of this command")
+
+
 def write_outputs(pairs: list[tuple[Path, str]]) -> None:
     """Write our own output files: every temp file first, then replace them all.
 
@@ -400,7 +413,7 @@ def write_outputs(pairs: list[tuple[Path, str]]) -> None:
     file or link), and a destination that is a link is refused: an output never lands
     in whatever a link points to.
     """
-    names = [os.path.normcase(_plain(os.path.realpath(_plain(str(p))))) for p, _t in pairs]
+    names = [_file_key(p) for p, _t in pairs]
     if len(set(names)) < len(names):  # the second would silently replace the first
         raise ToolError("two outputs name the same file: " + ", ".join(str(p) for p, _t in pairs))
     temps: list[tuple[str, Path]] = []
@@ -1937,6 +1950,7 @@ def _dispatch(args: argparse.Namespace) -> int:
         return 0
     if args.cmd == "census":
         out = guard_out(Path(args.out), args.root)
+        _not_an_input([out], [args.areas])
         version = require_rclone()
         doc = census(args.remote, _areas(args.areas))
         doc["rclone"] = version
@@ -1964,6 +1978,7 @@ def _dispatch(args: argparse.Namespace) -> int:
             Path(args.ledger) if args.ledger else out.with_name(out.stem + "_ledger.csv"),
             inv["root"],
         )
+        _not_an_input([out, ledger], [args.census, args.inventory])
         plan = build_plan(_load_doc(Path(args.census), "census"), inv)
         write_outputs([(ledger, ledger_text(plan["rows"])), (out, json_text(plan))])
         about = load_json(Path(args.about)) if args.about else None
@@ -1995,13 +2010,15 @@ def _dispatch(args: argparse.Namespace) -> int:
         tmp = Path(os.path.abspath(args.tmp)) if args.tmp else None
         if tmp is not None and tmp.exists() and any(tmp.iterdir()):
             raise ToolError(f"the temporary folder {tmp} is not empty")
-        bytecheck(plan, _load_doc(Path(args.inventory), "inventory"), root, args.remote, tmp)
         ledger = plan_path.with_name(plan_path.stem + "_ledger.csv")
+        _not_an_input([ledger], [args.inventory])
+        bytecheck(plan, _load_doc(Path(args.inventory), "inventory"), root, args.remote, tmp)
         write_outputs([(ledger, ledger_text(plan["rows"])), (plan_path, json_text(plan))])
         print("\n".join(summarize(plan)))
         return 0
     if args.cmd == "copy":
         log = Path(args.log) if args.log else plan_path.with_name(plan_path.stem + "_copy.jsonl")
+        _not_an_input([log], [plan_path])  # appended lines would corrupt the plan
         return copy_all(
             plan,
             root,

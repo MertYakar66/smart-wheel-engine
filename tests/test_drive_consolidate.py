@@ -1221,6 +1221,42 @@ def test_no_output_reaches_the_root_through_a_side_door_while_its_logs_is_a_link
     assert (root / "data/x.csv").read_bytes() == before
 
 
+def test_the_copy_log_is_never_the_plan(tmp_path, monkeypatch):
+    # Its lines would be appended to the plan, and every later command would fail to load it.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    _plan(w)
+    t = w["tmp"]
+    before = (t / "p.json").read_bytes()
+    link = tmp_path / "t-link"
+    _symlink_or_skip(link, t, is_dir=True)
+    for log in (t / "p.json", link / "p.json"):
+        assert _copy(w, "--log", str(log)) == 2
+    assert (t / "p.json").read_bytes() == before and _fetched(w) == []
+
+
+def test_no_output_is_one_of_its_own_inputs(world):
+    # The plan written over its census or inventory, the census over its areas file.
+    t = world["tmp"]
+    _plan(world)
+    before = {n: (t / n).read_bytes() for n in ("c.json", "i.json")}
+    areas = world["areas"].read_bytes()
+    base = ["plan", "--census", str(t / "c.json"), "--inventory", str(t / "i.json")]
+    assert dc.main([*base, "--out", str(t / "c.json")]) == 2
+    assert dc.main([*base, "--out", str(t / "p2.json"), "--ledger", str(t / "i.json")]) == 2
+    census = ["census", "--remote", "fake:", "--areas", str(world["areas"])]
+    assert dc.main([*census, "--out", str(world["areas"])]) == 2
+    # bytecheck's ledger, p_ledger.csv, naming the inventory it reads
+    shutil.copyfile(t / "i.json", t / "p_ledger.csv")
+    args = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(t / "p_ledger.csv")]
+    assert dc.main([*args, "--root", str(world["root"]), "--remote", "fake:"]) == 2
+    assert (t / "p_ledger.csv").read_bytes() == before["i.json"]
+    assert {n: (t / n).read_bytes() for n in ("c.json", "i.json")} == before
+    assert world["areas"].read_bytes() == areas and not (t / "p2.json").exists()
+
+
 def test_two_outputs_that_name_one_file_are_refused(world, tmp_path):
     # --out and --ledger as the same file, directly or through a link: the ledger would
     # be written and then silently replaced by the plan.

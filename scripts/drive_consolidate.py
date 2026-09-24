@@ -974,12 +974,19 @@ def _matches(path: Path | str, r: dict) -> tuple[bool, str]:
 
 
 def _copy_new(src: str, dst: Path) -> None:
-    """Copy src to a file that must not exist yet (exclusive create: never overwrites)."""
+    """Copy src to a file that must not exist yet (exclusive create: never overwrites).
+
+    A copy that fails part-way removes the file it created, so no partial file stays.
+    """
     os.makedirs(native(dst.parent), exist_ok=True)
     fd = os.open(native(dst), os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0))
-    with os.fdopen(fd, "wb") as out, open(src, "rb") as inp:
-        shutil.copyfileobj(inp, out, 1 << 20)
-    shutil.copystat(src, native(dst))
+    try:
+        with os.fdopen(fd, "wb") as out, open(src, "rb") as inp:
+            shutil.copyfileobj(inp, out, 1 << 20)
+        shutil.copystat(src, native(dst))
+    except BaseException:
+        os.remove(native(dst))  # the partial file this call created (O_EXCL), never another's
+        raise
 
 
 def _publish(src: Path, dst: Path) -> None:
@@ -1001,6 +1008,22 @@ def _publish(src: Path, dst: Path) -> None:
 
 def _staging(root: Path) -> Path:
     return root.parent / (root.name + STAGING_SUFFIX)
+
+
+def _run_folder(root: Path, kind: str) -> Path:
+    """A new, empty folder of our own beside the root (same volume), unique to this run."""
+    base = _staging(root)
+    if _inside(base, root):
+        raise ToolError(f"the staging folder {base} must be outside the root")
+    os.makedirs(native(base), exist_ok=True)
+    stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    return Path(tempfile.mkdtemp(prefix=f"{kind}-{stamp}-", dir=str(base)))
+
+
+def _tidy(staging: Path) -> None:
+    for p in (staging, staging.parent):
+        if os.path.isdir(native(p)) and not os.listdir(native(p)):
+            os.rmdir(native(p))  # our own staging folder, once empty
 
 
 def _batches(rows: list[dict], batch: int, staging: Path) -> list[list[dict]]:
@@ -1071,11 +1094,8 @@ def copy_all(
     if dry_run or not todo:
         return 0
     require_rclone()
-    staging = _staging(root) / dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-    if _inside(staging, root):
-        raise ToolError(f"the staging folder {staging} must be outside the root")
-    os.makedirs(native(staging), exist_ok=False)
     guard_out(log, root)
+    staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
 
@@ -1124,9 +1144,7 @@ def copy_all(
         for i, _ in enumerate(ex.map(run, chunks), 1):
             if i % 10 == 0 or i == len(chunks):
                 print(f"copy: {i}/{len(chunks)} batches", file=sys.stderr)
-    for p in (staging, staging.parent):
-        if os.path.isdir(native(p)) and not os.listdir(native(p)):
-            os.rmdir(native(p))  # our own staging folder, once empty
+    _tidy(staging)
     bad = [x for x in results if x["status"] != "ok"]
     print(f"copy: {len(results) - len(bad)} copied and verified; {len(bad)} not")
     for x in bad[:50]:
@@ -1237,11 +1255,26 @@ def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
         print(f"  {'would copy' if dry_run else 'copy'}  {dest}/{rel}  ({size:,} B)")
     if dry_run:
         return 0
-    for rel, full, _size, sha in todo:
-        target = root / dest / rel
-        _copy_new(full, target)
-        if hash_file(target)[2] != sha:
-            raise ToolError(f"{dest}/{rel}: the copy does not match its source", 4)
+    if todo:
+        # Copy beside the root, re-hash there, then publish with a hard link: a bad copy
+        # never reaches the root, and a file that appears meanwhile is never replaced.
+        staging = _run_folder(root, "sweep")
+        bad = []
+        for n, (rel, full, _size, sha) in enumerate(todo):
+            tmp = staging / f"{n:06d}"
+            _copy_new(full, tmp)
+            if hash_file(tmp)[2] != sha:
+                bad.append(f"{dest}/{rel}: the copy does not match its source; kept at {tmp}")
+                continue
+            try:
+                _publish(tmp, root / dest / rel)
+            except FileExistsError:
+                bad.append(f"{dest}/{rel}: the destination appeared; kept at {tmp}")
+        _tidy(staging)
+        for b in bad:
+            print(f"  FAILED  {b}")
+        if bad:
+            raise ToolError(f"{len(bad)} file(s) not copied; nothing was overwritten", 3)
     print(f"sweep: copied and verified {len(todo)} file(s)")
     return 0
 

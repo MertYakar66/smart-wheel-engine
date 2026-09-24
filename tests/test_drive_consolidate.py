@@ -27,8 +27,11 @@ Pins:
   - resumes after an interruption without copying a file twice;
   - runs batches in parallel;
   - handles long paths;
+- a copy that fails part-way leaves no partial file;
 - verify re-hashes and fails while byte checks are pending;
-- sweep copies a local folder's missing bytes, and only those;
+- sweep copies a local folder's missing bytes, and only those, through the staging
+  folder: a bad copy never reaches the root, and a file that appears mid-run is
+  never replaced;
 - outputs never land inside the root;
 - SHA256SUMS excludes the logs, credential names and itself;
 - the rclone filter agrees with the tool's own exclusion rule (when rclone is
@@ -533,6 +536,30 @@ def test_the_two_never_overwrite_primitives_refuse_an_existing_file(tmp_path):
     assert fresh.read_bytes() == b"new bytes\n" and not src.exists()
 
 
+def test_a_copy_that_fails_part_way_leaves_no_partial_file(tmp_path, monkeypatch):
+    src = tmp_path / "src.bin"
+    src.write_bytes(b"0123456789" * 1000)
+
+    def disk_full(inp, out, _length=0):
+        out.write(inp.read(100))
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(dc.shutil, "copyfileobj", disk_full)
+    dst = tmp_path / "out" / "dst.bin"
+    with pytest.raises(OSError):
+        dc._copy_new(str(src), dst)
+    assert not dst.exists()
+
+    # The fallback when a hard link is not possible: the staging copy stays, nothing lands.
+    def no_links(*_a):
+        raise OSError(1, "hard links not supported")
+
+    monkeypatch.setattr(dc.os, "link", no_links)
+    with pytest.raises(OSError):
+        dc._publish(src, dst)
+    assert not dst.exists() and src.read_bytes() == b"0123456789" * 1000
+
+
 def test_outputs_never_land_inside_the_root_except_logs(world):
     t, root = world["tmp"], world["root"]
     assert _census(world) == 0
@@ -807,6 +834,7 @@ def test_sweep_copies_only_the_bytes_the_root_lacks(sweep_world, monkeypatch):
     assert not any("secret_token" in s for s in seen)
     assert _sweep(sweep_world) == 0  # a rerun copies nothing new
     assert sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file()) == got
+    assert not (root.parent / (root.name + dc.STAGING_SUFFIX)).exists()  # staging cleaned up
 
 
 def test_sweep_stops_on_a_destination_with_other_bytes(sweep_world):
@@ -817,6 +845,44 @@ def test_sweep_stops_on_a_destination_with_other_bytes(sweep_world):
     assert _sweep(sweep_world) == 3
     assert squat.read_bytes() == b"other bytes\n"
     assert not (root / "data_archive/old/a/empty.flag").exists()
+
+
+def _staged(root):
+    staging = root.parent / (root.name + dc.STAGING_SUFFIX)
+    return sorted(p for p in staging.rglob("*") if p.is_file()) if staging.exists() else []
+
+
+def test_sweep_never_puts_a_bad_copy_in_the_root(sweep_world, monkeypatch):
+    root = sweep_world["root"]
+    real = dc._copy_new
+
+    def corrupting(src, dst):
+        real(src, dst)
+        with open(dst, "ab") as fh:
+            fh.write(b"!")
+
+    monkeypatch.setattr(dc, "_copy_new", corrupting)
+    assert _sweep(sweep_world) == 3
+    assert not (root / "data_archive/old").exists()
+    assert len(_staged(root)) == 2  # kept beside the root for inspection
+
+
+def test_sweep_never_replaces_a_file_that_appears_mid_run(sweep_world, monkeypatch):
+    root = sweep_world["root"]
+    target = root / "data_archive/old/a/new.csv"
+    real = dc._copy_new
+
+    def squatting(src, dst):
+        real(src, dst)
+        if str(src).endswith("new.csv"):
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b"someone else's bytes\n")
+
+    monkeypatch.setattr(dc, "_copy_new", squatting)
+    assert _sweep(sweep_world) == 3
+    assert target.read_bytes() == b"someone else's bytes\n"
+    assert (root / "data_archive/old/a/empty.flag").read_bytes() == b""
+    assert [p.read_bytes() for p in _staged(root)] == [b"only here\n"]
 
 
 @pytest.mark.parametrize("dest", ["data/x", "data_raw", "_logs/x", "a\\b", "../out", ""])

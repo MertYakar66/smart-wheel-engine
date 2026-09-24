@@ -26,10 +26,12 @@ has no command that deletes, moves or uploads anything.
 - **copy:** by Drive id into a staging folder beside the root. Each file is
   re-hashed, then published with a hard link that never overwrites. A failed batch
   is retried one object at a time.
-- **also:** `bytecheck`, `verify`, `sweep`, `sums` (`SHA256SUMS`) and `filters`.
+- **sweep:** a local folder's data files whose bytes the root lacks, through the
+  same staging folder, so a bad copy never reaches the root.
+- **also:** `bytecheck`, `verify`, `sums` (`SHA256SUMS`) and `filters`.
 
-`tests/test_drive_consolidate.py` has 46 tests against a fake Drive. Every safety
-rule was broken on purpose in turn, and all 22 breaks were caught. An independent
+`tests/test_drive_consolidate.py` has 49 tests against a fake Drive. Every safety
+rule was broken on purpose in turn, and all 27 breaks were caught. An independent
 review found one blocker and four should-fixes, all fixed before this entry.
 
 ---

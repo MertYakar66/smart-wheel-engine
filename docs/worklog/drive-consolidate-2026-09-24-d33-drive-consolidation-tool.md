@@ -7,7 +7,7 @@ terminal: sandbox
 pr:
 decisions: [D33, D31]
 date: 2026-09-24
-headline: scripts/drive_consolidate.py makes D33's consolidation mechanical. It lists every object in the old Drive areas, cross-checked against rclone size, and classifies each by bytes only (size, MD5 and SHA-256; a missing hash never matches). It copies Drive-only files home by id into data_archive/drive-legacy/, publishing each verified download with a hard link that never overwrites. It sweeps local stray data by bytes and writes SHA256SUMS. It has no command that deletes or uploads. An independent review found one blocker (Drive can silently drop part of a query over several parents) and four should-fixes, all fixed. 22 of 22 deliberate breaks of the safety rules fail the tests.
+headline: scripts/drive_consolidate.py makes D33's consolidation mechanical. It lists every object in the old Drive areas, cross-checked against rclone size, and classifies each by bytes only (size, MD5 and SHA-256; a missing hash never matches). It copies Drive-only files home by id into data_archive/drive-legacy/, publishing each verified download with a hard link that never overwrites. It sweeps local stray data by bytes, through the same staging folder, and writes SHA256SUMS. It has no command that deletes or uploads. An independent review found one blocker (Drive can silently drop part of a query over several parents) and four should-fixes, all fixed. 27 of 27 deliberate breaks of the safety rules fail the tests.
 surface: [scripts/drive_consolidate.py, tests/test_drive_consolidate.py, FILE_MANIFEST.md, TESTING.md, CHANGELOG.md]
 ---
 
@@ -49,26 +49,37 @@ The deliberate-break check pins every rule. Each rule was broken in turn, and ev
 
 - **My first deliberate-break pass missed three rules.** One of the three breaks was built wrongly: "last row wins" hid a per-row `deletable`. Three tests were added, and the breaks were rebuilt correctly.
 - **A gate masked by a pipe.** I ran `check_manifest_coverage.py | tail -1` in a chain that committed on success, so `tail`'s exit code hid the check's failure. The failure was benign: the registry rows named files not yet committed, and the pushed commit holds both. From now on each gate's own exit code is read, never a pipeline's.
+- **A partial file could stay in the root.** I found this myself while preparing the pull request, after the review.
+  - If a local copy failed part-way (a full disk, say), the file it had begun stayed where it was.
+  - `sweep` also wrote straight to its destination, so a copy that failed its hash check stayed in the root.
+  - Nothing was overwritten. But `sums` would have listed the bad file, and card 2 would have uploaded it.
+  - Now a failed copy removes the file it created, which exclusive creation proves is its own. `sweep` copies through the staging folder and publishes with a hard link, as `copy` does.
 
 ## How we fixed it
 
-See above. The tool has no command that deletes, moves or uploads anything. The only files it removes or replaces are its own: temporary downloads outside the root, the staging name of a file once published, and its output files. Those never go inside the root except under `_logs/`.
+See above. The tool has no command that deletes, moves or uploads anything. The only files it removes or replaces are its own:
+- temporary downloads outside the root;
+- the staging name of a file once it is published;
+- the unfinished file a failed copy has just created;
+- its output files, which never go inside the root except under `_logs/`.
 
 ## Evidence
 
 ```
 $ python -m pytest tests/test_drive_consolidate.py -q
-46 passed
+49 passed
 
 $ deliberate breaks (each applied alone, then the suite run; the tool restored after)
-CAUGHT  22 of 22:
+CAUGHT  27 of 27:
   - M1-M3 SHA-256 in the plan, bytecheck and copy;
   - B1 no per-parent fallback; B1 no rclone size cross-check;
   - S1 zero size; S2 abort on no free destination; S3 no per-object retry; S4 copy with pending checks;
   - N1 deletable per row; N2 rewritten names; N3 publish overwrites;
   - .git/config; the same-object rule; copy ignores conflicts; census follows shortcuts;
   - inventory hashes credentials; read-only deletable; bytecheck trusts the listing;
-  - empty matched by content; sweep overwrites; the output guard.
+  - empty matched by content; sweep overwrites; the output guard;
+  - a failed copy keeps its partial file; sweep publishes without re-hashing; sweep copies
+    straight to its destination; sweep's publish overwrites; sweep leaves its staging folder.
 
 $ python -m pytest tests/ -m "not backtest_regression" -q   (with the first version of the tool)
 3227 passed, 28 skipped, 8 deselected, 20 xfailed in 864.33s    pytest exit 0

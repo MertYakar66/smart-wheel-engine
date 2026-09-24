@@ -1125,8 +1125,9 @@ def _drifted(plan: dict, remote: str, rows: list[dict]) -> list[tuple[dict, str]
     """The rows whose Drive object changed since the plan, each with what changed.
 
     The plan is a snapshot. A fresh census of its areas must show each object at the
-    same path, and still safe to read (``_unsafe_ids``): one renamed to a
-    credential-shaped name since, moved under one, or moved at all, has changed.
+    same path, with the same size and hashes wherever both list them, and still safe to
+    read (``_unsafe_ids``): one renamed to a credential-shaped name since, moved under
+    one, moved at all, or edited in place, has changed.
     """
     specs = []
     for a in plan["areas"]:
@@ -1135,19 +1136,25 @@ def _drifted(plan: dict, remote: str, rows: list[dict]) -> list[tuple[dict, str]
         specs.append({k: a[k] for k in ("name", "id", "parent", "folder", "mode")})
     fresh = census(remote, specs)
     bad = _unsafe_ids(fresh["areas"])
-    now = {}
+    now: dict[tuple[str, str], tuple[str, dict]] = {}
     for a in fresh["areas"]:
-        now.update({(a["name"], oid): path for oid, path in _area_tree(a)[0].items()})
+        paths = _area_tree(a)[0]
+        now.update({(a["name"], o["id"]): (paths[o["id"]], o) for o in a["objects"]})
     changed = []
     for r in rows:
-        where = now.get((r["area"], r["id"]))
+        where, o = now.get((r["area"], r["id"]), (None, None))
         if r["id"] in bad:  # a second folder can make it unsafe while its path stays
             changed.append((r, bad[r["id"]][0]))
         elif where != r["path"]:
             changed.append((r, f"now at {r['area']}/{where}" if where else "gone from the area"))
+        elif any(o[k] is not None and r[k] is not None and o[k] != r[k] for k in HASHED):
+            changed.append((r, "edited in place: its size or hashes differ from the plan's"))
     for r, why in changed[:40]:
         print(f"  CHANGED  {r['area']}/{r['path']}: {why}")
     return changed
+
+
+HASHED = ("size", "md5", "sha256")
 
 
 def _refuse_drift(plan: dict, remote: str, rows: list[dict], when: str) -> None:
@@ -1768,7 +1775,10 @@ def write_sums(root: Path) -> tuple[int, int, str]:
         for fn in filenames:
             rel = f"{rel_dir}/{fn}" if rel_dir else fn
             full = os.path.join(dirpath, fn)
-            ours = rel == SUMS or (rel.startswith(f".{SUMS}.") and rel.endswith(".tmp"))
+            key = _fold(rel)  # on Windows sha256sums is the same file as SHA256SUMS
+            ours = key == _fold(SUMS) or (
+                key.startswith(_fold(f".{SUMS}.")) and key.endswith(_fold(".tmp"))
+            )
             if ours or _is_link(full) or credential_shaped(rel):
                 continue
             size, _md5, sha = hash_file(full)

@@ -81,10 +81,22 @@ assert _SPEC.loader is not None
 _SPEC.loader.exec_module(dc)
 
 FAKE_RCLONE = r"""
-import json, os, re, sys
+import hashlib, json, os, re, sys
 state = json.load(open(os.environ["FAKE_DRIVE"], encoding="utf-8"))
 objs = state["objects"]
 args = sys.argv[1:]
+
+def edit_in_place(oid):
+    new = bytes.fromhex(state["content"][oid]) + b"edited on Drive\n"
+    for o in objs:
+        if o["id"] == oid:
+            o["size"] = str(len(new))
+            o["md5Checksum"] = hashlib.md5(new).hexdigest()
+            if "sha256Checksum" in o:
+                o["sha256Checksum"] = hashlib.sha256(new).hexdigest()
+    state["content"][oid] = new.hex()
+    with open(os.environ["FAKE_DRIVE"], "w", encoding="utf-8") as fh:
+        json.dump(state, fh)
 
 def wire(o):
     o = dict(o)
@@ -161,12 +173,17 @@ if args[:2] == ["backend", "copyid"]:
                 sys.stderr.write("ERROR : simulated interruption\n")
                 sys.exit(1)
             open(budget, "w").write(str(left - 1))
+        edit = os.environ.get("FAKE_EDIT_ON_FETCH", "")
+        if edit == oid + "|before":  # edited just before its download: new bytes arrive
+            edit_in_place(oid)
         data = bytes.fromhex(state["content"][oid])
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         with open(dest, "wb") as fh:
             fh.write(data)
         with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as fh:
             fh.write(oid + "\n")
+        if edit == oid + "|after":  # edited just after: the plan's bytes arrived
+            edit_in_place(oid)
         rename = os.environ.get("FAKE_RENAME_AFTER_FETCH", "")
         if rename.startswith(oid + "|"):  # changed on Drive while the tool runs
             for o in objs:
@@ -1429,6 +1446,13 @@ def _drift(d: FakeDrive, w: dict, oid: str, change: str) -> None:
         objs[oid]["parents"] = [d.folder("elsewhere", "areaA")]
     elif change == "removed":
         d.objects.remove(objs[oid])
+    elif change == "edited in place":  # same name and folder, other bytes
+        new = bytes.fromhex(d.content[oid]) + b"edited on Drive\n"
+        objs[oid]["size"] = str(len(new))
+        objs[oid]["md5Checksum"] = hashlib.md5(new).hexdigest()
+        if "sha256Checksum" in objs[oid]:
+            objs[oid]["sha256Checksum"] = hashlib.sha256(new).hexdigest()
+        d.content[oid] = new.hex()
     d.save(w["tmp"] / "drive.json")
 
 
@@ -1439,6 +1463,7 @@ DRIFTS = [
     "also filed under secrets/",
     "moved, harmlessly",
     "removed",
+    "edited in place",
 ]
 
 
@@ -1489,6 +1514,22 @@ def test_copy_publishes_nothing_that_changed_on_drive_while_it_ran(tmp_path, mon
     assert oid in _fetched(w)  # fetched before the change could be seen
     assert not (w["root"] / rows[oid]["dest"]).exists()  # but never published
     assert (w["root"] / rows[other]["dest"]).read_bytes() == b"also drive only\n"
+    staging = dc._staging(w["root"])
+    assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
+
+
+@pytest.mark.parametrize("when", ["before", "after"])
+def test_copy_publishes_nothing_edited_on_drive_while_it_ran(tmp_path, monkeypatch, when):
+    # Its path unchanged. Edited just before its download, new bytes arrive (a mismatch);
+    # just after, the plan's bytes arrive, but Drive holds others now. Neither is kept.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    rows = _by_id(_plan(w))
+    monkeypatch.setenv("FAKE_EDIT_ON_FETCH", f"{oid}|{when}")
+    assert _copy(w) == 3
+    assert oid in _fetched(w) and not (w["root"] / rows[oid]["dest"]).exists()
     staging = dc._staging(w["root"])
     assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
 
@@ -2028,6 +2069,17 @@ def test_sums_lists_the_root_but_not_logs_credentials_or_itself(world):
             text=True,
         )
         assert cp.returncode == 0, cp.stderr
+
+
+def test_sums_never_lists_its_own_list_in_another_case(world):
+    # On Windows sha256sums is the same file as SHA256SUMS: never a line of its own list.
+    root = world["root"]
+    (root / "sha256sums").write_text("0" * 64 + "  data/x.csv\n", encoding="utf-8")
+    (root / ".sha256sums.1234.TMP").write_text("partial\n", encoding="utf-8")
+    dc.write_sums(root)
+    paths = [line[66:] for line in (root / dc.SUMS).read_text(encoding="utf-8").splitlines()]
+    assert "sha256sums" not in paths and ".sha256sums.1234.TMP" not in paths
+    assert "data/x.csv" in paths
 
 
 def test_sums_never_writes_through_a_link(world, tmp_path):

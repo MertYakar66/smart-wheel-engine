@@ -64,9 +64,11 @@ fails if the destination exists: nothing is ever written over. A destination tha
 already holds the right bytes counts as done, so a rerun resumes; one holding other
 bytes stops the run before anything is copied. A failed batch is retried one object
 at a time, so one object that cannot be downloaded never blocks the others. The plan
-is a snapshot: just before downloading anything, ``copy`` and ``bytecheck`` census
-the plan's areas again, and an object gone, moved or renamed since the plan, or no
-longer safe to read, stops the run before anything is fetched.
+is a snapshot: ``copy`` and ``bytecheck`` census the plan's areas again before the
+first download, and an object gone, moved or renamed since the plan, or no longer
+safe to read, stops the run before anything is fetched. They census once more after
+the last download: ``copy`` publishes only what is unchanged (a changed object's
+download is removed, never published), and ``bytecheck`` keeps no verdict at all.
 ``sweep`` does the same for a local folder, by bytes, through the same staging
 folder; a root file the inventory lists counts only if it still holds its bytes.
 
@@ -1094,13 +1096,12 @@ def summarize(plan: dict, about: dict | None = None, limit: int = 40) -> list[st
 # ---------------------------------------------------------------- bytecheck
 
 
-def _refuse_drift(plan: dict, remote: str, rows: list[dict]) -> None:
-    """Stop before any download if Drive changed under the plan.
+def _drifted(plan: dict, remote: str, rows: list[dict]) -> list[tuple[dict, str]]:
+    """The rows whose Drive object changed since the plan, each with what changed.
 
-    The plan is a snapshot. A fresh census of its areas must show each object about to
-    be fetched at the same path, and still safe to read (``_unsafe_ids``): one renamed
-    to a credential-shaped name since, moved under one, or moved at all, is never
-    fetched on the plan's word.
+    The plan is a snapshot. A fresh census of its areas must show each object at the
+    same path, and still safe to read (``_unsafe_ids``): one renamed to a
+    credential-shaped name since, moved under one, or moved at all, has changed.
     """
     specs = []
     for a in plan["areas"]:
@@ -1119,12 +1120,17 @@ def _refuse_drift(plan: dict, remote: str, rows: list[dict]) -> None:
             changed.append((r, bad[r["id"]][0]))
         elif where != r["path"]:
             changed.append((r, f"now at {r['area']}/{where}" if where else "gone from the area"))
+    for r, why in changed[:40]:
+        print(f"  CHANGED  {r['area']}/{r['path']}: {why}")
+    return changed
+
+
+def _refuse_drift(plan: dict, remote: str, rows: list[dict], when: str) -> None:
+    """Stop if any of these rows' Drive objects changed since the plan."""
+    changed = _drifted(plan, remote, rows)
     if changed:
-        for r, why in changed[:40]:
-            print(f"  CHANGED  {r['area']}/{r['path']}: {why}")
         raise ToolError(
-            f"{len(changed)} object(s) changed on Drive since the plan; run census and plan "
-            "again. Nothing was fetched",
+            f"{len(changed)} object(s) changed on Drive {when}; run census and plan again",
             3,
         )
 
@@ -1159,7 +1165,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
         key=lambda r: (r["area"], r["path"]),
     )
     if todo:
-        _refuse_drift(plan, remote, todo)
+        _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
     tmp.mkdir(parents=True, exist_ok=True)
     made: list[str] = []
     try:
@@ -1235,6 +1241,8 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
                 os.remove(p)  # our own temporary download
         if tmp.exists() and not any(tmp.iterdir()):
             tmp.rmdir()  # the empty temporary folder
+    if todo:  # an object changed while it was checked keeps no verdict and no hash
+        _refuse_drift(plan, remote, todo, "during the byte check. The plan was not changed")
     _mirror(rows)
     _mark_deletable(rows)
     plan["bytechecked"] = utc_now()
@@ -1399,7 +1407,7 @@ def copy_all(
     if dry_run or not todo:
         return 0
     require_rclone()
-    _refuse_drift(plan, remote, todo)
+    _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
     guard_out(log, root)
     if _is_link(native(log)):
         raise ToolError(f"refusing to append to {log}: it is a link or junction")
@@ -1408,6 +1416,13 @@ def copy_all(
     staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
+    staged: list[tuple[dict, Path, str]] = []
+
+    def settle(rec: dict) -> None:
+        with lock:  # logged as each object settles, so a crash loses no record
+            results.append(rec)
+            with open(log, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps({**rec, "at": utc_now()}) + "\n")
 
     def fetch(pairs: list[tuple[dict, Path]]) -> str:
         args = [*RCLONE, "backend", "copyid", remote]
@@ -1433,30 +1448,42 @@ def copy_all(
                 rec["status"] = f"download failed: {errors.get(r['id']) or err or 'no file'}"
             else:
                 ok, why = _matches(s, r)
-                if not ok:
-                    rec["status"] = f"MISMATCH with Drive's listing: {why}; kept at {s}"
-                elif _link_on_path(root, r["dest"]):
-                    rec["status"] = f"conflict: a link appeared on the path; kept at {s}"
-                else:
-                    try:
-                        note = _publish(s, root / r["dest"])
-                        rec.update({"status": "ok", "sha256": why})
-                        if note:
-                            rec["note"] = note
-                    except FileExistsError:
-                        rec["status"] = f"conflict: the destination appeared; kept at {s}"
-                    except OSError as e:
-                        rec["status"] = f"publish failed: {e.strerror or e}; kept at {s}"
-            with lock:  # logged as each object settles, so a crash loses no record
-                results.append(rec)
-                with open(log, "a", encoding="utf-8") as fh:
-                    fh.write(json.dumps({**rec, "at": utc_now()}) + "\n")
+                if ok:
+                    with lock:
+                        staged.append((r, s, why))
+                    continue
+                rec["status"] = f"MISMATCH with Drive's listing: {why}; kept at {s}"
+            settle(rec)
 
     chunks = _batches(todo, batch, staging)
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
         for i, _ in enumerate(ex.map(run, chunks), 1):
             if i % 10 == 0 or i == len(chunks):
                 print(f"copy: {i}/{len(chunks)} batches", file=sys.stderr)
+    # The downloads took time: Drive is censused again, and only an object still at its
+    # path and still safe to read is published.
+    changed = {r["id"]: why for r, why in _drifted(plan, remote, [r for r, _s, _h in staged])}
+    for r, s, sha in sorted(staged, key=lambda x: x[0]["dest"]):
+        rec = {"id": r["id"], "dest": r["dest"]}
+        if r["id"] in changed:
+            rec["status"] = f"changed on Drive during the copy ({changed[r['id']]}); not published"
+            try:
+                os.remove(native(s))  # our own download of it, never published
+            except OSError as e:
+                rec["status"] += f"; kept at {s} ({e.strerror or e})"
+        elif _link_on_path(root, r["dest"]):
+            rec["status"] = f"conflict: a link appeared on the path; kept at {s}"
+        else:
+            try:
+                note = _publish(s, root / r["dest"])
+                rec.update({"status": "ok", "sha256": sha})
+                if note:
+                    rec["note"] = note
+            except FileExistsError:
+                rec["status"] = f"conflict: the destination appeared; kept at {s}"
+            except OSError as e:
+                rec["status"] = f"publish failed: {e.strerror or e}; kept at {s}"
+        settle(rec)
     _tidy(staging)
     bad = [x for x in results if x["status"] != "ok"]
     print(f"copy: {len(results) - len(bad)} copied and verified; {len(bad)} not")
@@ -1464,9 +1491,11 @@ def copy_all(
         print(f"  FAILED  {x['dest']}: {x['status']}")
     for x in [x for x in results if x.get("note")][:50]:
         print(f"  NOTE    {x['dest']}: {x['note']}")
-    if any(x["status"].startswith(("MISMATCH", "conflict")) for x in bad):
+    if any(x["status"].startswith(("MISMATCH", "conflict", "changed on Drive")) for x in bad):
         raise ToolError(
-            "a download does not match Drive, or a destination appeared; nothing was overwritten", 3
+            "a download does not match Drive, a destination appeared, or Drive changed during "
+            "the copy; nothing was overwritten",
+            3,
         )
     return 4 if bad else 0
 

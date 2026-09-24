@@ -156,6 +156,13 @@ if args[:2] == ["backend", "copyid"]:
             fh.write(data)
         with open(os.environ["FAKE_LOG"], "a", encoding="utf-8") as fh:
             fh.write(oid + "\n")
+        rename = os.environ.get("FAKE_RENAME_AFTER_FETCH", "")
+        if rename.startswith(oid + "|"):  # changed on Drive while the tool runs
+            for o in objs:
+                if o["id"] == oid:
+                    o["name"] = rename.split("|", 1)[1]
+            with open(os.environ["FAKE_DRIVE"], "w", encoding="utf-8") as fh:
+                json.dump(state, fh)
         squat_link = os.environ.get("FAKE_SQUAT_LINK")
         if squat_link:
             link, target = squat_link.split("|")
@@ -1304,6 +1311,41 @@ def test_bytecheck_fetches_nothing_that_changed_on_drive_since_the_plan(
     args += ["--root", str(w["root"]), "--remote", "fake:", "--tmp", str(t / "bc")]
     assert dc.main(args) == 3
     assert _fetched(w) == []
+
+
+@pytest.mark.parametrize("new_name", ["config", "prices-renamed.csv"])
+def test_copy_publishes_nothing_that_changed_on_drive_while_it_ran(tmp_path, monkeypatch, new_name):
+    # Renamed after the first census, while its bytes were on the way: the census after
+    # the downloads keeps it out of the root, and the unchanged file still comes home.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    data = d.folder("data", "areaA")
+    oid = d.file("prices.csv", data, b"drive only\n")
+    other = d.file("volumes.csv", data, b"also drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    rows = _by_id(_plan(w))
+    monkeypatch.setenv("FAKE_RENAME_AFTER_FETCH", f"{oid}|{new_name}")
+    assert _copy(w) == 3
+    assert oid in _fetched(w)  # fetched before the change could be seen
+    assert not (w["root"] / rows[oid]["dest"]).exists()  # but never published
+    assert (w["root"] / rows[other]["dest"]).read_bytes() == b"also drive only\n"
+    staging = dc._staging(w["root"])
+    assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
+
+
+def test_bytecheck_keeps_no_verdict_for_what_changed_on_drive_while_it_ran(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("prices.csv", d.folder("data", "areaA"), b"no sha-256\n", sha=False)
+    w = _one_area(tmp_path, monkeypatch, d, {"data/twin.csv": b"no sha-256\n"})
+    assert _by_id(_plan(w))[oid]["class"] == "needs-byte-check"
+    t = w["tmp"]
+    before = (t / "p.json").read_bytes()
+    monkeypatch.setenv("FAKE_RENAME_AFTER_FETCH", f"{oid}|config")
+    args = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(t / "i.json")]
+    args += ["--root", str(w["root"]), "--remote", "fake:", "--tmp", str(t / "bc")]
+    assert dc.main(args) == 3
+    assert (t / "p.json").read_bytes() == before  # no verdict and no hash kept
 
 
 def test_copy_refuses_a_plan_made_for_another_root(world, tmp_path):

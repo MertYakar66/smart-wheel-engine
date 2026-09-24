@@ -1246,6 +1246,10 @@ def test_no_output_is_one_of_its_own_inputs(world):
     base = ["plan", "--census", str(t / "c.json"), "--inventory", str(t / "i.json")]
     assert dc.main([*base, "--out", str(t / "c.json")]) == 2
     assert dc.main([*base, "--out", str(t / "p2.json"), "--ledger", str(t / "i.json")]) == 2
+    about = t / "about.json"  # rclone about's answer, which the plan's summary reads
+    about.write_text('{"free": 1000}', encoding="utf-8")
+    assert dc.main([*base, "--out", str(about), "--about", str(about)]) == 2
+    assert about.read_text(encoding="utf-8") == '{"free": 1000}'
     census = ["census", "--remote", "fake:", "--areas", str(world["areas"])]
     assert dc.main([*census, "--out", str(world["areas"])]) == 2
     # bytecheck's ledger, p_ledger.csv, naming the inventory it reads

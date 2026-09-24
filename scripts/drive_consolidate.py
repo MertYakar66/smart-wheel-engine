@@ -1978,7 +1978,7 @@ def _dispatch(args: argparse.Namespace) -> int:
             Path(args.ledger) if args.ledger else out.with_name(out.stem + "_ledger.csv"),
             inv["root"],
         )
-        _not_an_input([out, ledger], [args.census, args.inventory])
+        _not_an_input([out, ledger], [args.census, args.inventory, args.about])
         plan = build_plan(_load_doc(Path(args.census), "census"), inv)
         write_outputs([(ledger, ledger_text(plan["rows"])), (out, json_text(plan))])
         about = load_json(Path(args.about)) if args.about else None

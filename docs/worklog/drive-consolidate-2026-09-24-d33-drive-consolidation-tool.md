@@ -7,7 +7,7 @@ terminal: sandbox
 pr:
 decisions: [D33, D31]
 date: 2026-09-24
-headline: scripts/drive_consolidate.py makes D33's consolidation mechanical. It lists every object in the old Drive areas, cross-checked against rclone size listing one folder at a time, and classifies each by bytes only (size, MD5 and SHA-256; a missing hash never matches). It copies Drive-only files home by id into data_archive/drive-legacy/, publishing each verified download with a hard link that never overwrites. It sweeps local stray data the same way and writes SHA256SUMS. Only bytes already in the root make a Drive object deletable, a link is never a home, and verify re-hashes every root file the plan relies on. It has no command that deletes or uploads. Two independent reviews and Codex's review of #534 found two blockers between them, all fixed; 68 of 68 deliberate breaks of the safety rules fail the tests.
+headline: scripts/drive_consolidate.py makes D33's consolidation mechanical. It lists every object in the old Drive areas, cross-checked against rclone size listing one folder at a time, and classifies each by bytes only (size, MD5 and SHA-256; a missing hash never matches). It copies Drive-only files home by id into data_archive/drive-legacy/, publishing each verified download with a hard link that never overwrites. It sweeps local stray data the same way and writes SHA256SUMS. Only bytes already in the root make a Drive object deletable, a link is never a home, and verify re-hashes every root file the plan relies on. It has no command that deletes or uploads. Two independent reviews and two Codex reviews of #534 found two blockers between them, all fixed; 71 of 71 deliberate breaks of the safety rules fail the tests.
 surface: [scripts/drive_consolidate.py, tests/test_drive_consolidate.py, FILE_MANIFEST.md, TESTING.md, CHANGELOG.md]
 ---
 
@@ -87,6 +87,11 @@ The deliberate-break check pins every rule. Each rule was broken in turn, and ev
     - the copy log written per object.
   - **N-7, not taken:** the SmartWheelData area's parent id is written only in the tool. The census checks it on every run, and a wrong id stops the run before anything is planned.
 
+- **Codex's second review, of `abf9bed`,** found one more P1, which I reproduced. A link named `SHA256SUMS.tmp` in the root made `sums` write through it: a file outside the root lost its bytes to the checksum list, and `SHA256SUMS` became a link to it. The plan, ledger and census outputs used the same fixed temp name. Now:
+  - every output goes to a fresh name of the tool's own (an exclusive create), then replaces the destination;
+  - a destination that is a link is refused;
+  - the copy log refuses a link too.
+
 ## How we fixed it
 
 See above. The tool has no command that deletes, moves or uploads anything. The only files it removes or replaces are its own:
@@ -99,7 +104,7 @@ See above. The tool has no command that deletes, moves or uploads anything. The 
 
 ```
 $ python -m pytest tests/test_drive_consolidate.py -q
-60 passed
+92 passed
 
 $ deliberate breaks (each applied alone, then the suite run; the tool restored after)
 CAUGHT  36 of 36 (the runner: each break applied alone, then the file's tests with -x):

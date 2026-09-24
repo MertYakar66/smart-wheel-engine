@@ -36,10 +36,10 @@ has no command that deletes, moves or uploads anything.
   to, so a root file changed since the inventory fails the check.
 - **also:** `bytecheck`, `sums` (`SHA256SUMS`) and `filters`.
 
-`tests/test_drive_consolidate.py` has 89 tests against a fake Drive. Every safety
-rule was broken on purpose in turn, and all 68 breaks were caught. Two independent
-reviews each found a blocker, and Codex's review of #534 found three more defects;
-the worklog lists every finding and what became of it.
+`tests/test_drive_consolidate.py` has 92 tests against a fake Drive. Every safety
+rule was broken on purpose in turn, and all 71 breaks were caught. Two independent
+reviews each found a blocker, and Codex's two reviews of #534 found four more
+defects; the worklog lists every finding and what became of it.
 
 ---
 

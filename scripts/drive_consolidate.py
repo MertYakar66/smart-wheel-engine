@@ -40,8 +40,8 @@ neither count nor download it.
     needs-byte-check  Drive lists no size, MD5 or SHA-256 for it; ``bytecheck``
                       downloads it and settles it (``copy`` refuses to run before)
     unresolved        left where it is and listed: a shortcut, a Google-format
-                      file, a credential-shaped name, several parents, a
-                      destination that cannot be placed
+                      file, a credential-shaped name, a git folder's config,
+                      a destination that cannot be placed
 
 Only bytes count (D33): a missing hash never counts as a match, and a git object in
 the old ``.git`` upload is not a copy of the bundle that holds the same logical
@@ -105,7 +105,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-SCHEMA = 2
+SCHEMA = 3  # 3: deletable only for bytes already home; links listed; area-root parents
 LEGACY = "data_archive/drive-legacy"
 FOLDER = "application/vnd.google-apps.folder"
 SHORTCUT = "application/vnd.google-apps.shortcut"
@@ -270,6 +270,12 @@ def _fold(name: str) -> str:
     return name.upper().casefold()
 
 
+def _ntfs_key(name: str) -> str:
+    """Windows' own name equality: each character upcased one to one, as NTFS's table
+    does ("ß" stays "ß"). For "is this the same file", not for "might these clash"."""
+    return "".join(u if len(u := c.upper()) == 1 else c for c in name)
+
+
 def _rclone_rewrites(c: str) -> bool:
     """Characters rclone's local backend rewrites in a file name (its escape character,
     control pictures, full-width ASCII): such a file would not land where planned."""
@@ -350,15 +356,38 @@ def guard_out(path: Path, root: Path | str | None) -> Path:
 
 
 def write_outputs(pairs: list[tuple[Path, str]]) -> None:
-    """Write our own output files: every temp file first, then replace them all."""
-    temps = []
-    for path, text in pairs:
-        tmp = path.with_name(path.name + ".tmp")
-        with open(tmp, "w", encoding="utf-8", newline="") as fh:
-            fh.write(text)
-        temps.append((tmp, path))
-    for tmp, path in temps:
-        os.replace(tmp, path)
+    """Write our own output files: every temp file first, then replace them all.
+
+    Each temp file is a new name of our own (an exclusive create, so never an existing
+    file or link), and a destination that is a link is refused: an output never lands
+    in whatever a link points to.
+    """
+    temps: list[tuple[str, Path]] = []
+    try:
+        for path, text in pairs:
+            if _is_link(native(path)):
+                raise ToolError(f"refusing to write {path}: it is a link or junction")
+            fd, tmp = tempfile.mkstemp(
+                prefix=f".{path.name}.", suffix=".tmp", dir=native(path.parent)
+            )
+            temps.append((tmp, path))
+            with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+                fh.write(text)
+        for tmp, path in temps:
+            os.replace(tmp, native(path))
+    except BaseException:
+        for tmp, _path in temps:
+            if os.path.lexists(tmp):
+                os.remove(tmp)  # our own temporary output (mkstemp created it)
+        raise
+
+
+def _load_doc(path: Path, kind: str) -> dict:
+    """One of the tool's own documents, of this schema: an older one may mean other rules."""
+    doc = load_json(path)
+    if not isinstance(doc, dict) or doc.get("kind") != kind or doc.get("schema") != SCHEMA:
+        raise ToolError(f"{path} is not a {kind} of schema {SCHEMA}; make it again")
+    return doc
 
 
 def json_text(data) -> str:
@@ -373,6 +402,8 @@ def _check_areas(areas: list[dict]) -> None:
             raise ToolError(
                 f"area name {name!r} must be letters, digits, '.', '_', '-' and '/' only"
             )
+        if not all(win_safe(p) for p in name.split("/")):
+            raise ToolError(f"area name {name!r} holds a part Windows cannot keep")
         if name.casefold() in seen:
             raise ToolError(f"two areas share the name {name!r}")
         seen.add(name.casefold())
@@ -471,8 +502,6 @@ def slim(obj: dict) -> dict:
     size = int(size) if size not in (None, "") else None
     if size is None and md5 == EMPTY_MD5:
         size = 0  # rclone's JSON omits a zero size (``size,omitempty``)
-    if credential_shaped(obj.get("name", "")):
-        md5, sha = ("withheld" if md5 else None), None  # never kept for a credential
     return {
         "id": obj["id"],
         "name": obj.get("name", ""),
@@ -527,6 +556,8 @@ def census(remote: str, areas: list[dict]) -> dict:
                 f"area {area['name']}: no folder {area['folder']!r} with id {area['id']} under "
                 f"{area['parent']} (found {ids})"
             )
+        top = next(h for h in hits if h["id"] == area["id"])
+        root_parents = list(top.get("parents") or [])
         seen, objects, queue = {area["id"]}, [], [area["id"]]
         while queue:
             batch, queue = queue[:QUERY_BATCH], queue[QUERY_BATCH:]
@@ -538,6 +569,7 @@ def census(remote: str, areas: list[dict]) -> dict:
                 if obj.get("mimeType") == FOLDER:
                     queue.append(obj["id"])
         objects.sort(key=lambda o: o["id"])
+        _withhold_credential_hashes({**area, "objects": objects})
         mine = census_totals(objects, area["id"])
         walk = rclone_size(remote, area["id"])
         if mine != walk:
@@ -545,16 +577,21 @@ def census(remote: str, areas: list[dict]) -> dict:
                 (p, o["name"]) for o in objects if o["mime"] == FOLDER for p in o["parents"]
             )
             twins = sorted({n for (_p, n), k in names.items() if k > 1})
+            forks = sorted(
+                o["name"] for o in objects if o["mime"] == FOLDER and len(o["parents"]) > 1
+            )
             raise ToolError(
                 f"area {area['name']}: the census found {mine['count']} files, {mine['bytes']:,} B, "
                 f"but rclone size finds {walk['count']} files, {walk['bytes']:,} B. A listing is "
-                "incomplete, or two folders share a name under one parent, which rclone's walk "
-                "by path cannot tell apart"
+                "incomplete, or the area holds folders rclone's walk by path counts differently: "
+                "two folders that share a name under one parent"
                 + (f" (here: {', '.join(twins[:5])})" if twins else "")
+                + ", or a folder with two parents"
+                + (f" (here: {', '.join(forks[:5])})" if forks else "")
                 + "; nothing is planned from it"
             )
         nomd5 = sum(1 for o in objects if is_file(o) and not o["md5"])
-        out.append({**area, "objects": objects, "check": walk})
+        out.append({**area, "root_parents": root_parents, "objects": objects, "check": walk})
         print(
             f"census: {area['name']}: {len(objects)} objects; {walk['count']} files, "
             f"{walk['bytes']:,} B, equal to rclone size"
@@ -685,6 +722,9 @@ def _area_tree(area: dict) -> tuple[dict, dict, dict]:
     """Per object id: its path in the area, its chain of ids, and whether its path is unambiguous."""
     objs = {o["id"]: o for o in area["objects"]}
     top = area["id"]
+    # The area root itself in a second folder (another project's, say): every item in
+    # it is in that folder too, so none is ever cleaned by path.
+    top_own = len(area.get("root_parents") or [None]) == 1
     parent_of = {}
     for o in objs.values():
         inside = [p for p in o["parents"] if p == top or p in objs]
@@ -705,7 +745,7 @@ def _area_tree(area: dict) -> tuple[dict, dict, dict]:
         # even outside every area, is also in another folder: never cleaned by path.
         own = siblings[(par, name)] == 1 and len(objs[oid]["parents"]) == 1
         if par == top:
-            paths[oid], chains[oid], unique[oid] = name, [oid], own
+            paths[oid], chains[oid], unique[oid] = name, [oid], own and top_own
         else:
             resolve(par, depth + 1)
             paths[oid] = f"{paths[par]}/{name}"
@@ -735,7 +775,7 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
     for paths in by_full.values():
         paths.sort()
     empty_root = {
-        _fold(f["path"]) for f in usable if f["size"] == 0 and f["sha256"] == EMPTY_SHA256
+        _ntfs_key(f["path"]) for f in usable if f["size"] == 0 and f["sha256"] == EMPTY_SHA256
     }
     # A link is occupied too: nothing is placed at or under it.
     taken = Taken([f["path"] for f in root_files] + inv.get("links", []), inv.get("dirs", []))
@@ -856,8 +896,6 @@ def _classify(o, path, by_full, md5_count, first_copy, candidates, empty_root):
         return "unresolved", "Google-format file: no bytes to compare", ""
     if credential_shaped(path):
         return "unresolved", "credential-shaped name: never read or copied", ""
-    if len(o["parents"]) > 1:
-        return "unresolved", "several parents", ""
     if o["size"] is None:
         return "needs-byte-check", "Drive lists no size", ""
     if not o["md5"]:
@@ -866,7 +904,7 @@ def _classify(o, path, by_full, md5_count, first_copy, candidates, empty_root):
         if not _empty_ok(o):
             return "needs-byte-check", "empty, but Drive does not list the empty file's hashes", ""
         for cand in candidates:
-            if _fold(cand) in empty_root:
+            if _ntfs_key(cand) in empty_root:
                 return "redundant", "empty file already at its destination", cand
         return "copy", "empty file: kept at its own path", ""
     if o["sha256"]:
@@ -888,6 +926,17 @@ def _git_dirs(area: dict) -> set[str]:
         for p in o["parents"]:
             kids[p][o["name"].casefold()] = o["mime"]
     return {p for p, names in kids.items() if "head" in names and names.get("objects") == FOLDER}
+
+
+def _withhold_credential_hashes(area: dict) -> None:
+    """Keep no Drive hash of a credential: a credential-shaped path, or a git folder's config."""
+    paths, _chains, _unique = _area_tree(area)
+    gitdirs = _git_dirs(area)
+    for o in area["objects"]:
+        git_config = o["name"].casefold() == "config" and bool(set(o["parents"]) & gitdirs)
+        if credential_shaped(paths[o["id"]]) or git_config:
+            o["md5"] = "withheld" if o["md5"] else None
+            o["sha256"] = None
 
 
 def _mirror(rows: list[dict]) -> None:
@@ -994,7 +1043,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
         if not f.get("excluded") and f["size"]:
             by_full.setdefault((f["size"], f["md5"], f["sha256"]), f["path"])
     empty_root = {
-        _fold(f["path"])
+        _ntfs_key(f["path"])
         for f in inv["files"]
         if not f.get("excluded") and f["size"] == 0 and f["sha256"] == EMPTY_SHA256
     }
@@ -1051,7 +1100,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
                 continue
             r.update({"size": size, "md5": md5, "sha256": sha})
             key = (size, md5, sha)
-            empty_twin = next((c for c in r["candidates"] if _fold(c) in empty_root), None)
+            empty_twin = next((c for c in r["candidates"] if _ntfs_key(c) in empty_root), None)
             if size == 0 and empty_twin:
                 r.update(
                     {
@@ -1252,6 +1301,8 @@ def copy_all(
         return 0
     require_rclone()
     guard_out(log, root)
+    if _is_link(native(log)):
+        raise ToolError(f"refusing to append to {log}: it is a link or junction")
     staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
@@ -1447,6 +1498,13 @@ def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
         passed.extend(
             (f"{rel_dir}/{d}" if rel_dir else d, "a linked folder, not followed") for d in linked
         )
+        for d in sorted(d for d in dirnames if d in SWEEP_SKIP_NAMES and d not in linked):
+            n = sum(
+                len(fs) for _dp, _dn, fs in os.walk(os.path.join(dirpath, d), onerror=_walk_error)
+            )
+            passed.append(
+                (f"{rel_dir}/{d}" if rel_dir else d, f"a {d} folder, not data ({n} files)")
+            )
         dirnames[:] = sorted(d for d in dirnames if d not in SWEEP_SKIP_NAMES and d not in linked)
         for fn in sorted(filenames):
             rel = f"{rel_dir}/{fn}" if rel_dir else fn
@@ -1543,18 +1601,15 @@ def write_sums(root: Path) -> tuple[int, int, str]:
         for fn in filenames:
             rel = f"{rel_dir}/{fn}" if rel_dir else fn
             full = os.path.join(dirpath, fn)
-            if rel in (SUMS, SUMS + ".tmp") or _is_link(full) or credential_shaped(rel):
+            ours = rel == SUMS or (rel.startswith(f".{SUMS}.") and rel.endswith(".tmp"))
+            if ours or _is_link(full) or credential_shaped(rel):
                 continue
             size, _md5, sha = hash_file(full)
             total += size
             lines.append(f"{sha}  {rel}")
     lines.sort(key=lambda s: s[66:])
     body = ("\n".join(lines) + "\n") if lines else ""
-    out = root / SUMS
-    tmp = root / (SUMS + ".tmp")
-    with open(native(tmp), "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(body)
-    os.replace(native(tmp), native(out))  # our own list, regenerated
+    write_outputs([(root / SUMS, body)])  # our own list, regenerated; never through a link
     return len(lines), total, hashlib.sha256(body.encode("utf-8")).hexdigest()
 
 
@@ -1671,13 +1726,13 @@ def _dispatch(args: argparse.Namespace) -> int:
         )
         return 0
     if args.cmd == "plan":
-        inv = load_json(Path(args.inventory))
+        inv = _load_doc(Path(args.inventory), "inventory")
         out = guard_out(Path(args.out), inv["root"])
         ledger = guard_out(
             Path(args.ledger) if args.ledger else out.with_name(out.stem + "_ledger.csv"),
             inv["root"],
         )
-        plan = build_plan(load_json(Path(args.census)), inv)
+        plan = build_plan(_load_doc(Path(args.census), "census"), inv)
         write_outputs([(ledger, ledger_text(plan["rows"])), (out, json_text(plan))])
         about = load_json(Path(args.about)) if args.about else None
         print("\n".join(summarize(plan, about, args.limit)))
@@ -1689,7 +1744,11 @@ def _dispatch(args: argparse.Namespace) -> int:
         return 0
     if args.cmd == "sweep":
         return sweep(
-            Path(args.source), root, load_json(Path(args.inventory)), args.dest, args.dry_run
+            Path(args.source),
+            root,
+            _load_doc(Path(args.inventory), "inventory"),
+            args.dest,
+            args.dry_run,
         )
     plan_path = Path(args.plan)
     plan = load_json(plan_path)
@@ -1704,7 +1763,7 @@ def _dispatch(args: argparse.Namespace) -> int:
         tmp = Path(os.path.abspath(args.tmp or tempfile.mkdtemp(prefix="swe-bytecheck-")))
         if tmp.exists() and any(tmp.iterdir()):
             raise ToolError(f"the temporary folder {tmp} is not empty")
-        bytecheck(plan, load_json(Path(args.inventory)), root, args.remote, tmp)
+        bytecheck(plan, _load_doc(Path(args.inventory), "inventory"), root, args.remote, tmp)
         ledger = plan_path.with_name(plan_path.stem + "_ledger.csv")
         write_outputs([(ledger, ledger_text(plan["rows"])), (plan_path, json_text(plan))])
         print("\n".join(summarize(plan)))

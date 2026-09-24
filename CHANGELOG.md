@@ -14,6 +14,31 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-24 — D33: the data estate after the MacBook; Drive becomes a complete second copy
+
+**Docs** — D33 recorded. The Operator said "yes" after two Codex reviews, all of
+whose findings were accepted:
+- the MacBook is outside the data estate, and Theta is collected again later;
+- one Drive folder, `swe-data/`, is to mirror the desktop root, checked both ways;
+- old Drive copies are removed only when proven identical, after the restore
+  tests, from a named list;
+- the four data branches go only after the history bundle restores from Drive,
+  each still at its checked commit.
+
+D31 gets a status line (step 2b abandoned). Also updated:
+- `PROJECT_STATE.md` §0 A and B;
+- `docs/DATA_INVENTORY.md`: §A steps 2b, 6 and 7, the §C tier rows, §C.1, the 32
+  branch-only data versions, and a new §C.3 listing the four Drive areas with
+  their ids;
+- `docs/DATA_POLICY.md` §3 and §6;
+- `docs/deadlines.md`: the Theta subscription row is closed.
+
+**Fixed** — `docs/DATA_INVENTORY.md` §C's Tier R row showed an unrendered
+placeholder (`{tot/1e6:.1f} MB`). It now reads 312.8 MB, and its backup column
+records the Drive copy.
+
+---
+
 ## 2026-09-23 — working structure v4: four roles, marks from commands, the close (D32; #531, `8cf6389`)
 
 **Changed** — the working structure the Operator runs on the ORCA project,

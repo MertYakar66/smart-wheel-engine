@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-09-23 (close after #531: `main` at `8cf6389`, the v4 structure in force.
+**Last updated:** 2026-09-24 (D33: the MacBook is outside the data estate, Drive
+becomes a complete second copy, and the four data branches go once the history bundle
+restores from Drive; §0 A and B updated, reviewed twice by Codex.
+2026-09-23: close after #531, `main` at `8cf6389`, the v4 structure in force.
 Before it: working structure v4, D32: §0 now opens with the direction (A),
 the handoff (B) and the Branches line session-open measures drift from; the restart record is
 §0 C. Earlier the same day, D31 step 5: git tracks no market data; the desktop root
@@ -83,11 +86,16 @@ described here is no longer accurate.
     (Track B);
   - an advisory exit evaluator (Track C);
   - a strategist commentary layer (Track D).
-- **Data** (D29, D31):
+- **Data** (D29, D31, D33):
   - The Bloomberg Terminal is gone, and the frozen CSVs end 2026-07-02.
-  - New data subscriptions are deferred (Track A parked, 2026-09-17).
-  - Every dataset lives on the Operator's desktop under `SWE_DATA_ROOT`. Git
-    holds none, and Google Drive is a delayed backup.
+    Bloomberg data is kept "at all costs" (D33).
+  - New data subscriptions are deferred (Track A parked, 2026-09-17). The Theta
+    subscription is no longer active. Theta will be collected again from the
+    beginning, from a source chosen once the repository structure is settled.
+  - Every dataset lives on the Operator's desktop under `SWE_DATA_ROOT`, and git
+    holds none. Google Drive becomes the complete second copy, one folder
+    `swe-data/` laid out like the root (D33). The MacBook is outside the data
+    estate.
 - **Current focus.** Repository structure and efficiency (Track F), the data home
   (D31), and the working structure (D32).
 - **Brokerage.** Read-only everywhere. There is no order path.
@@ -105,31 +113,51 @@ described here is no longer accurate.
   - Working structure v4 adopted (D32) and merged (#531, `8cf6389`). Codex, as the
     second opinion, found two defects in `scripts/session_open.py` and
     `scripts/check_working_structure.py`; both were fixed before the merge.
+  - D33 (2026-09-24). The Operator dropped the MacBook and asked for Drive to hold
+    all the data, with no duplicates. Codex reviewed the consolidation plan twice
+    ("agree with changes" both times), and every finding was accepted. The
+    Operator approved the final plan and D33's wording ("yes").
 - **Remains.**
-  1. **D31 step 6:** delete the four data branches and close #507. The bundle
-     holds all four at their GitHub commits. The desktop's coverage check fired
-     only because `main` and the pen's branch moved during the run. Step 6 waits
-     for the Operator's yes.
-  2. **Step 2b:** the laptop's stores to the desktop, including the full Theta
-     corpus (~132,862 files). They travel on an exFAT drive and are checked
-     against a manifest built on the laptop.
-  3. **Retire the "SWE IBKR Morning Pull" task** (Operator: "delete the morning
-     pull"). Also, a stray `data_archive/drive-swe-local-only/ibkr$p` (a
-     byte-identical copy of `portfolio_history.json`) sits on the desktop and on
-     Drive, awaiting deletion by the Operator.
-  4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (about 7
-     MB), outside the data trees the step-5 guard covers.
-  5. **A complete Theta backup on Drive.** Drive holds 13% of the corpus.
-- **Next action.** The Operator's yes for step 6 (asked 2026-09-23). The desktop
-  runs card A′ and the MacBook card B′, the revised prompts that carry the v4
-  marks.
+  1. **The D33 consolidation tool** (next): a checking tool with tests, for the
+     Drive census, the plan and the ledger, copying by Drive id without
+     overwriting, and the checksum list.
+  2. **Desktop card 1, prove and plan.** Nothing is deleted, and nothing on Drive
+     changes. The card:
+     - merges `main` into the desktop branch with guards;
+     - retires the "SWE IBKR Morning Pull" task (Operator: "delete the morning
+       pull");
+     - archives the 7 older swe-ops copies;
+     - copies the 20 `staging/` data files into the root;
+     - restores the bundle locally;
+     - takes the Drive census of the four areas (`docs/DATA_INVENTORY.md` §C.3);
+     - writes the plan.
+  3. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
+     - copies home everything that exists only on Drive;
+     - builds `swe-data/` on Drive and checks it both ways, plus the checksum
+       list;
+     - runs the restore tests from Drive: the 144 manifest files into an empty
+       root, and the bundle into an empty repository.
+  4. **D31 step 6, under D33.** It runs after card 2. The four data branches are
+     deleted in one atomic push with a lease on each, and only with the Operator's
+     yes. #507 has been closed since 2026-09-23.
+  5. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
+     the card first. Proven duplicates in the old Drive areas go to the trash,
+     from a named list. The card also deletes the stray `ibkr$p` (a
+     byte-identical copy of `portfolio_history.json`), on the desktop and on
+     Drive.
+  6. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
+     B). Card 1 copies them into the root, so Drive gets them. Untracking them
+     remains proposed.
+- **Next action.** The pen writes the consolidation tool, then card 1.
 - **Authorized.**
-  - Step 6, once the bundle and Drive gates hold ("run steps 5 and 6 myself").
-  - The laptop transfer and the task deletion ("the laptop is here not broken.
-    delete the morning pull.").
+  - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
+    conditions, still with a yes at the push, and card 3 with a yes at its gate.
+  - Retiring the morning-pull task ("delete the morning pull").
   - v4 ("change it right away").
 - **Proposed, not authorized.** Purging the data from git history; the fixture
-  subset; Theta on Drive as tar chunks; untracking the `staging/` data.
+  subset; untracking the `staging/` data.
+- **Dropped.** The MacBook transfer (step 2b) and Theta on Drive as tar chunks
+  (D33).
 
 ### 0 C. Restart 2026-09-11 — the record
 

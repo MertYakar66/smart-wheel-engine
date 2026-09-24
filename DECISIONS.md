@@ -1869,6 +1869,14 @@ travel to the desktop on an exFAT drive and are checked against a sha256
 manifest built on the laptop. Step 6 still waits for the verified full-history
 bundle and the Drive copy of `data_archive/`.
 
+**Status 2026-09-24 (D33).** Step 2b is abandoned: the MacBook is outside the
+data estate, and Theta will be collected again later from a source not yet
+chosen. Step 6 now runs under D33's conditions:
+- the bundle restores from Drive's copy with a full integrity check;
+- each branch is deleted only if it is still at its checked commit.
+
+#507 was already closed, on 2026-09-23.
+
 ## D32. Working structure v4 — four roles, marks from commands, the close, the checklist files (2026-09-23)
 
 **Decision.** The project adopts the working structure the Operator runs on the
@@ -1954,6 +1962,115 @@ report sentence 5. change it right away and tell other agents about the change".
 - `tests/test_session_open.py` and `tests/test_check_working_structure.py`;
 - the frontier assertions in `tests/test_data_manifest.py`;
 - the governance scenarios in `TESTING.md`.
+
+## D33. The data estate after the MacBook: the desktop is the main copy, Drive a complete second copy, GitHub holds no data (2026-09-24)
+
+**Decision.** Confirmed by the Operator on 2026-09-24 ("yes"), after two reviews
+by the second opinion:
+
+1. **The MacBook is outside the data estate.** Nothing is copied from it or done
+   to it, and its Theta files (~132,862) are not recovered. D31 step 2b is
+   abandoned.
+2. **Theta** will be collected again from the beginning, from a source chosen
+   once the repository structure is settled. The Theta already on the desktop
+   (17,188 files, pulled from Drive and checked on 2026-09-23) and on Drive stays
+   as it is.
+3. **The desktop data root is the main copy. Drive is the second copy:** one
+   folder, `swe-data/` at the top of My Drive, laid out like the root. It holds
+   every file in the root except named exclusions: credential files and the
+   root's run logs (`_logs/`). Two checks prove the copy is complete: a two-way
+   checksum check (`rclone check --checksum`), and a checksum list kept in both
+   places (`SHA256SUMS`), whose own hash is recorded in git.
+4. **Old Drive folders.** Anything found only there is copied to the desktop,
+   into an archive folder (`data_archive/drive-legacy/<area>/<path>`), never over
+   an existing file. A ledger records where each file came from: its Drive id,
+   path, times and hashes.
+5. **No duplicates.**
+   - An old Drive copy is deleted only when it is proven identical to a file in
+     `swe-data/`: same size, same MD5 and same SHA-256.
+   - A file for which Drive has no SHA-256 is downloaded and hashed first, or
+     kept. A missing hash never counts as a match.
+   - Deletion happens only after the restore tests pass, from a named list, with
+     the Operator's yes, into Drive's trash.
+   - Files that cannot be proven stay, and are listed: Google-format files,
+     shortcuts, duplicate names and credential files.
+   - Another project's folders are only read, never cleaned (the day-bot
+     project's `_local_archive/vendor_swe_*`).
+6. **Bloomberg data is irreplaceable.** Every Bloomberg file exists on the
+   desktop and on Drive, checksum-verified. Nothing holding Bloomberg data is
+   deleted unless both copies are proven.
+7. **GitHub is not a data store** (D31 step 6).
+   - The four data branches are deleted only after the full-history bundle
+     restores from Drive's copy into an empty repository, with a full integrity
+     check (`git fsck --full`) and the four exact commits present.
+   - They are deleted only if each branch is still at its checked commit: one
+     atomic push, with a lease on each branch.
+   - Versions in `main`'s history or in closed #507 (`refs/pull/507/head`) stay
+     on GitHub until the history purge, which stays held.
+   - The 32 older data versions that only the branches' histories hold then live
+     in the bundle, on the desktop and on Drive.
+8. **Keeping it current.** After any future data change, the Drive copy is
+   refreshed and checked. The routine goes into `docs/DATA_INVENTORY.md` §C when
+   the consolidation lands.
+
+The work runs as three desktop cards, each checked before the next:
+1. prove and plan: nothing is deleted, and nothing on Drive changes;
+2. copy and prove: nothing is deleted;
+3. clean up.
+
+Step 6 runs between cards 2 and 3.
+
+**Why.** The Operator's words on 2026-09-24:
+- "we will forget the macbook exists. we will pull from Theta Data or anywhere
+  else from the beginning. However, we will keep Bloomberg data at all costs"
+- "1. if Desktop has them certainly, no need to leave it on the github. delete
+  them 2. Drive is our secondary source of storage, if something happens to
+  desktop, Drive should have all the data 3. Theta subscription is no longer
+  active. Once we are sure that our repo and working system/mechanism is
+  efficient, we will discuss about collecting which data from where..etc so
+  leave it as is until we figure out the repo structure 4. yes, start filling
+  google drive gaps, make sure there are no duplicates. and the folder structure
+  in the drive must also be clear/noted down for future agents/work"
+
+The Bloomberg Terminal is gone (D29), so Bloomberg data cannot be pulled again.
+Drive held project data in four overlapping places, and the repository recorded
+only part of two of them (`docs/DATA_INVENTORY.md` §C.3).
+
+Codex reviewed the plan twice.
+- **The first review** found two blockers in a design that moved the old Drive
+  files. A server-side move of a Drive shortcut re-parents the shortcut, not its
+  target (rclone v1.68.2, `backend/drive/drive.go`). And a passing mirror check
+  proves nothing about the files left in the old folders. So the design copies,
+  never moves, and deletes only named, proven files.
+- **The second review** corrected three claims:
+  - 32 older data versions exist only in the four branches' histories
+    (reproduced; for example `f7a8458` on `deep-history/bloomberg-raw`);
+  - Drive's SHA-256 is not guaranteed ("a small fraction of files uploaded may
+    not have SHA1 or SHA256 hashes", rclone's Drive documentation);
+  - copying must never replace a desktop file.
+
+**Rejected alternatives.**
+- **Keep the four branches as a third copy** (the pen's recommendation).
+  Overruled: "if Desktop has them certainly, no need to leave it on the github.
+  delete them".
+- **Carry the MacBook's stores to the desktop on an exFAT drive** (cards A and B,
+  reviewed). Dropped: "we will forget the macbook exists".
+- **Move the old Drive files into `swe-data/` server-side**, to save upload time
+  and quota. It was rejected for three reasons:
+  - a move can relocate a shortcut instead of its data;
+  - `--files-from` cannot rename;
+  - `--ignore-existing` skips a file on its name alone.
+
+  Copies leave the old folders intact until everything is proven.
+- **Treat everything left in the old folders as a duplicate once the mirror check
+  passes.** The check proves nothing about files it did not compare.
+- **Rely on the trash as the only rollback.** Trash counts against storage, and
+  Drive empties it after 30 days. The restore tests come first.
+
+**Pinned by.**
+- the consolidation tool and its tests (the next pull request);
+- the three cards' Run Summaries;
+- `docs/DATA_INVENTORY.md` §A (steps 6 and 7) and §C.3.
 
 ## How to add a decision
 

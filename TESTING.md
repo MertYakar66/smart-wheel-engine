@@ -165,6 +165,7 @@ the ranker is unsafe. **Run before every decision-layer change.**
 | `test_theta_connector.py` | Theta v3 connector |
 | `test_data_pipeline.py` | End-to-end pipeline |
 | `test_data_manifest.py` | Data manifest tool (build / check / census / materialize — never overwrites, byte-verified from git objects) + committed-manifest shape (D31) |
+| `test_drive_consolidate.py` | The D33 Drive consolidation tool on a fake Drive: census, plan classes, collision-safe destinations, a missing SHA-256 never matches, credential files never read, copy never overwrites and resumes, `SHA256SUMS`, the rclone filter |
 | `test_data_paths.py` | `SWE_DATA_ROOT` re-rooting of the data prefixes; override precedence; connector follows the trio default (D31) |
 | `test_session_open.py` | The session-open marks (D32): the pen's slots (main, docs drift, other branches, data age from the manifest frontier, nearest deadline with overdue-first), the Executor's and Codex's lines, `unknown` when a source fails |
 | `test_check_working_structure.py` | The working-structure check (D32): the `AGENTS.md` Appendix equals `CLAUDE.md` §1–§6, `PROJECT_STATE.md` records `main`, the deadlines table, the data frontier, the marks, cited paths; each failure names its fix |

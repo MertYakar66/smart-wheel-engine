@@ -1221,6 +1221,22 @@ def test_no_output_reaches_the_root_through_a_side_door_while_its_logs_is_a_link
     assert (root / "data/x.csv").read_bytes() == before
 
 
+def test_two_outputs_that_name_one_file_are_refused(world, tmp_path):
+    # --out and --ledger as the same file, directly or through a link: the ledger would
+    # be written and then silently replaced by the plan.
+    t = world["tmp"]
+    assert dc.main(["inventory", "--root", str(world["root"]), "--out", str(t / "i.json")]) == 0
+    assert _census(world) == 0
+    same = t / "same"
+    same.mkdir()
+    link = tmp_path / "same-link"
+    _symlink_or_skip(link, same, is_dir=True)
+    base = ["plan", "--census", str(t / "c.json"), "--inventory", str(t / "i.json")]
+    for ledger in (same / "p.json", link / "p.json"):
+        assert dc.main([*base, "--out", str(same / "p.json"), "--ledger", str(ledger)]) == 2
+    assert list(same.iterdir()) == []
+
+
 def test_extended_length_paths_are_compared_the_ordinary_way():
     assert dc._plain("\\\\?\\C:\\swe-data\\data\\x.csv") == "C:\\swe-data\\data\\x.csv"
     assert dc._plain("\\\\?\\UNC\\server\\share\\x") == "\\\\server\\share\\x"
@@ -2098,6 +2114,27 @@ def test_sweep_names_the_folders_it_passes_over(sweep_world, capsys):
     out = capsys.readouterr().out
     assert "PASSED    .git: a .git folder, not data (1 files)" in out
     assert "PASSED    _locks: a _locks folder, not data (1 files)" in out
+
+
+def test_sweep_passes_over_code_and_its_own_folders_in_any_case(sweep_world):
+    # On the Windows desktop .GIT is .git, and MODEL.PY is code.
+    src = sweep_world["src"]
+    for rel, data in {
+        ".GIT/objects/ab/cdef": b"git object\n",
+        "__PYCACHE__/cache.bin": b"cache\n",
+        "b/DATA_MANIFEST.JSON": b"{}\n",
+        "b/MODEL.PY": b"print(1)\n",
+        "b/prices.csv": b"only here too\n",
+    }.items():
+        p = src / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+    assert _sweep(sweep_world) == 0
+    out = sweep_world["root"] / "data_archive/old"
+    got = sorted(p.relative_to(out).as_posix() for p in out.rglob("*") if p.is_file())
+    assert "b/prices.csv" in got
+    assert not [x for x in got if x.upper().startswith((".GIT", "__PYCACHE__"))]
+    assert not [x for x in got if x.upper().endswith(("DATA_MANIFEST.JSON", ".PY"))]
 
 
 def test_sweep_notes_a_passed_folder_it_cannot_fully_read(sweep_world, monkeypatch, capsys):

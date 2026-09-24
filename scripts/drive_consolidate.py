@@ -400,6 +400,9 @@ def write_outputs(pairs: list[tuple[Path, str]]) -> None:
     file or link), and a destination that is a link is refused: an output never lands
     in whatever a link points to.
     """
+    names = [os.path.normcase(_plain(os.path.realpath(_plain(str(p))))) for p, _t in pairs]
+    if len(set(names)) < len(names):  # the second would silently replace the first
+        raise ToolError("two outputs name the same file: " + ", ".join(str(p) for p, _t in pairs))
     temps: list[tuple[str, Path]] = []
     try:
         for path, text in pairs:
@@ -1657,6 +1660,9 @@ def verify(plan: dict, root: Path) -> int:
 # What counts as a data file in a local folder, as scripts/data_manifest.py builds.
 SWEEP_SKIP_SUFFIXES = (".py", ".md", ".pyc", ".gitkeep", ".log", ".lock")
 SWEEP_SKIP_NAMES = ("__pycache__", "_locks", ".git", "DATA_MANIFEST.json", "_inventory_scan.json")
+# Compared by the Windows case rule: on the desktop .GIT is .git and MODEL.PY is code.
+_SKIP_NAMES = {_fold(n) for n in SWEEP_SKIP_NAMES}
+_SKIP_SUFFIXES = tuple(_fold(x) for x in SWEEP_SKIP_SUFFIXES)
 
 
 def _count_files(top: str) -> tuple[int, bool]:
@@ -1722,17 +1728,17 @@ def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
         passed.extend(
             (f"{rel_dir}/{d}" if rel_dir else d, "a linked folder, not followed") for d in linked
         )
-        for d in sorted(d for d in dirnames if d in SWEEP_SKIP_NAMES and d not in linked):
+        for d in sorted(d for d in dirnames if _fold(d) in _SKIP_NAMES and d not in linked):
             n, unreadable = _count_files(os.path.join(dirpath, d))
             more = "; some of it unreadable" if unreadable else ""
             passed.append(
                 (f"{rel_dir}/{d}" if rel_dir else d, f"a {d} folder, not data ({n} files{more})")
             )
-        dirnames[:] = sorted(d for d in dirnames if d not in SWEEP_SKIP_NAMES and d not in linked)
+        dirnames[:] = sorted(d for d in dirnames if _fold(d) not in _SKIP_NAMES and d not in linked)
         for fn in sorted(filenames):
             rel = f"{rel_dir}/{fn}" if rel_dir else fn
             full = os.path.join(dirpath, fn)
-            if fn in SWEEP_SKIP_NAMES or fn.endswith(SWEEP_SKIP_SUFFIXES):
+            if _fold(fn) in _SKIP_NAMES or _fold(fn).endswith(_SKIP_SUFFIXES):
                 code += 1
                 continue
             if _is_link(full):

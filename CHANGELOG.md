@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-09-24 — D33: the data estate after the MacBook; Drive becomes a complete second copy
+## 2026-09-24 — D33: the data estate after the MacBook; Drive becomes a complete second copy (#533, `249f913`)
 
 **Docs** — D33 recorded. The Operator said "yes" after two Codex reviews, all of
 whose findings were accepted:

@@ -1,6 +1,7 @@
 # Project State
 
-**Last updated:** 2026-09-24 (D33: the MacBook is outside the data estate, Drive
+**Last updated:** 2026-09-24 (close after #533: `main` at `249f913`, D33 in force.
+Before it: D33: the MacBook is outside the data estate, Drive
 becomes a complete second copy, and the four data branches go once the history bundle
 restores from Drive; §0 A and B updated, reviewed twice by Codex.
 2026-09-23: close after #531, `main` at `8cf6389`, the v4 structure in force.
@@ -68,7 +69,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `8cf6389` (2026-09-23). Others on `origin`:
+**Branches:** `main` is at `249f913` (2026-09-24). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -116,7 +117,10 @@ described here is no longer accurate.
   - D33 (2026-09-24). The Operator dropped the MacBook and asked for Drive to hold
     all the data, with no duplicates. Codex reviewed the consolidation plan twice
     ("agree with changes" both times), and every finding was accepted. The
-    Operator approved the final plan and D33's wording ("yes").
+    Operator approved the final plan and D33's wording ("yes"). Merged in #533
+    (`249f913`). Codex's automatic review of #533 found that a git object is not a
+    byte copy of the bundle, so the old `.git` upload comes home like any other
+    file (§C.3).
 - **Remains.**
   1. **The D33 consolidation tool** (next): a checking tool with tests, for the
      Drive census, the plan and the ledger, copying by Drive id without
@@ -148,7 +152,8 @@ described here is no longer accurate.
   6. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copies them into the root, so Drive gets them. Untracking them
      remains proposed.
-- **Next action.** The pen writes the consolidation tool, then card 1.
+- **Next action.** The consolidation tool's PR, which is written and tested and awaits an
+  independent review. Card 1 follows.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.

@@ -2,7 +2,7 @@
 id: drive-consolidate-2026-09-24
 title: "D33 Drive consolidation tool: census, plan, copy home by id, never overwrite, never delete"
 kind: feature
-status: in-flight
+status: merged
 terminal: sandbox
 pr: 534
 decisions: [D33, D31]

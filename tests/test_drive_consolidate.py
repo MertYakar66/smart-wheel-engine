@@ -1146,6 +1146,12 @@ def test_no_output_goes_inside_the_root_while_its_logs_folder_is_a_link(world, t
     assert not (root / "data" / "i.json").exists()
 
 
+def test_the_same_root_spelled_two_ways_is_the_same_root():
+    assert dc.same_path("\\\\?\\C:\\swe-data", "C:\\swe-data")
+    assert dc.same_path("\\\\?\\UNC\\srv\\share\\r", "\\\\srv\\share\\r")
+    assert not dc.same_path("\\\\?\\C:\\swe-data", "C:\\other")
+
+
 def test_extended_length_paths_are_compared_the_ordinary_way():
     assert dc._plain("\\\\?\\C:\\swe-data\\data\\x.csv") == "C:\\swe-data\\data\\x.csv"
     assert dc._plain("\\\\?\\UNC\\server\\share\\x") == "\\\\server\\share\\x"
@@ -1483,6 +1489,25 @@ def test_copy_publishes_nothing_that_changed_on_drive_while_it_ran(tmp_path, mon
     assert oid in _fetched(w)  # fetched before the change could be seen
     assert not (w["root"] / rows[oid]["dest"]).exists()  # but never published
     assert (w["root"] / rows[other]["dest"]).read_bytes() == b"also drive only\n"
+    staging = dc._staging(w["root"])
+    assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
+
+
+def test_copy_keeps_no_download_of_what_changed_on_drive_even_if_its_bytes_differ(
+    tmp_path, monkeypatch
+):
+    # Renamed to config with new bytes while the copy ran: a mismatch is normally kept
+    # for a look, but not one that changed on Drive. It may be a credential now.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    rows = _by_id(_plan(w))
+    d.content[oid] = b"[remote]\n\turl = https://x:token@example\n".hex()
+    d.save(w["tmp"] / "drive.json")
+    monkeypatch.setenv("FAKE_RENAME_AFTER_FETCH", f"{oid}|config")
+    assert _copy(w) == 3
+    assert oid in _fetched(w) and not (w["root"] / rows[oid]["dest"]).exists()
     staging = dc._staging(w["root"])
     assert not staging.exists() or not any(p.is_file() for p in staging.rglob("*"))
 

@@ -340,7 +340,8 @@ def resolve_root(arg: str | None) -> Path:
 
 
 def same_path(a: str, b: str) -> bool:
-    na, nb = os.path.normcase(os.path.abspath(a)), os.path.normcase(os.path.abspath(b))
+    na = os.path.normcase(_plain(os.path.abspath(_plain(a))))
+    nb = os.path.normcase(_plain(os.path.abspath(_plain(b))))
     return na == nb
 
 
@@ -1441,7 +1442,7 @@ def copy_all(
     staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
-    staged: list[tuple[dict, Path, str]] = []
+    fetched: list[tuple[dict, Path, bool, str]] = []  # (row, download, bytes match, why)
 
     def settle(rec: dict) -> None:
         with lock:  # logged as each object settles, so a crash loses no record
@@ -1468,17 +1469,13 @@ def copy_all(
         elif missing:
             errors[missing[0][0]["id"]] = err
         for r, s in pairs:
-            rec = {"id": r["id"], "dest": r["dest"]}
             if not os.path.isfile(native(s)):
-                rec["status"] = f"download failed: {errors.get(r['id']) or err or 'no file'}"
-            else:
-                ok, why = _matches(s, r)
-                if ok:
-                    with lock:
-                        staged.append((r, s, why))
-                    continue
-                rec["status"] = f"MISMATCH with Drive's listing: {why}; kept at {s}"
-            settle(rec)
+                why = errors.get(r["id"]) or err or "no file"
+                settle({"id": r["id"], "dest": r["dest"], "status": f"download failed: {why}"})
+                continue
+            ok, why = _matches(s, r)
+            with lock:
+                fetched.append((r, s, ok, why))
 
     chunks = _batches(todo, batch, staging)
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
@@ -1486,9 +1483,12 @@ def copy_all(
             if i % 10 == 0 or i == len(chunks):
                 print(f"copy: {i}/{len(chunks)} batches", file=sys.stderr)
     # The downloads took time: Drive is censused again, and only an object still at its
-    # path and still safe to read is published.
-    changed = {r["id"]: why for r, why in _drifted(plan, remote, [r for r, _s, _h in staged])}
-    for r, s, sha in sorted(staged, key=lambda x: x[0]["dest"]):
+    # path and still safe to read is published. What changed is not kept, whatever its
+    # bytes: it may be a credential now.
+    changed: dict[str, str] = {}
+    if fetched:
+        changed = {r["id"]: why for r, why in _drifted(plan, remote, [f[0] for f in fetched])}
+    for r, s, ok, sha in sorted(fetched, key=lambda f: f[0]["dest"]):
         rec = {"id": r["id"], "dest": r["dest"]}
         if r["id"] in changed:
             rec["status"] = f"changed on Drive during the copy ({changed[r['id']]}); not published"
@@ -1496,6 +1496,8 @@ def copy_all(
                 os.remove(native(s))  # our own download of it, never published
             except OSError as e:
                 rec["status"] += f"; kept at {s} ({e.strerror or e})"
+        elif not ok:
+            rec["status"] = f"MISMATCH with Drive's listing: {sha}; kept at {s}"
         elif _link_on_path(root, r["dest"]):
             rec["status"] = f"conflict: a link appeared on the path; kept at {s}"
         else:

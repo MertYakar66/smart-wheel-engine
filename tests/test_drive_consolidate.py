@@ -1303,6 +1303,25 @@ def test_no_output_goes_through_a_link_in_the_root_that_another_link_leads_to(
     assert sorted(p.name for p in outside.iterdir()) == ["i.json"]
 
 
+def test_an_output_under_a_volume_mounted_in_a_folder_is_allowed(world, tmp_path, monkeypatch):
+    # Windows marks a volume mounted in a folder with the junction tag, and readlink gives
+    # its \\\\?\\Volume{...} name: that folder is the volume's top, not a link elsewhere.
+    real = tmp_path / "second-disk"
+    (real / "d33").mkdir(parents=True)
+    mnt = tmp_path / "mnt"
+    _symlink_or_skip(mnt, real, is_dir=True)
+    guid = "\\\\?\\Volume{0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0}\\"
+    real_readlink = os.readlink
+
+    def readlink(p, *a, **k):
+        return guid if os.path.abspath(p) == str(mnt) else real_readlink(p, *a, **k)
+
+    monkeypatch.setattr(dc.os, "readlink", readlink)
+    out = mnt / "d33" / "i.json"
+    assert dc.main(["inventory", "--root", str(world["root"]), "--out", str(out)]) == 0
+    assert (real / "d33" / "i.json").is_file()
+
+
 def test_a_loop_of_links_on_the_way_to_an_output_is_refused(world, tmp_path, capsys):
     one, two = tmp_path / "one", tmp_path / "two"
     _symlink_or_skip(one, two, is_dir=True)
@@ -1345,9 +1364,10 @@ def test_the_copy_log_is_never_the_plan(tmp_path, monkeypatch):
     before = (t / "p.json").read_bytes()
     link = tmp_path / "t-link"
     _symlink_or_skip(link, t, is_dir=True)
-    for log in (t / "p.json", link / "p.json"):
-        assert _copy(w, "--log", str(log)) == 2
-    assert (t / "p.json").read_bytes() == before and _fetched(w) == []
+    for log in (link / "p.json", t / "p.json"):
+        assert _copy(w, "--log", str(log)) == 0  # the log is a new file beside it
+    assert (t / "p.json").read_bytes() == before
+    assert len(list(t.glob("p-*.jsonl"))) == 1  # the first run's; the second had nothing to do
 
 
 def test_no_output_is_one_of_its_own_inputs(world):
@@ -2530,9 +2550,9 @@ def test_copy_never_writes_its_log_to_a_hard_linked_file(world, tmp_path):
         os.link(victim, world["tmp"] / "log.jsonl")
     except OSError as e:
         pytest.skip(f"hard links are not available here: {e}")
-    before = _fetched(world)  # bytecheck's downloads
-    assert _copy(world, "--log", str(world["tmp"] / "log.jsonl")) == 2
-    assert victim.read_bytes() == b"precious bytes\n" and _fetched(world) == before
+    assert _copy(world, "--log", str(world["tmp"] / "log.jsonl")) == 0
+    assert victim.read_bytes() == b"precious bytes\n"
+    assert len(list(world["tmp"].glob("log-*.jsonl"))) == 1  # the log, a new file beside
 
 
 def test_copy_never_writes_its_log_through_a_link(world, tmp_path):
@@ -2541,13 +2561,42 @@ def test_copy_never_writes_its_log_through_a_link(world, tmp_path):
     victim = tmp_path / "victim.csv"
     victim.write_bytes(b"precious bytes\n")
     _symlink_or_skip(world["tmp"] / "log.jsonl", victim)
-    before = _fetched(world)  # bytecheck's downloads
-    assert _copy(world, "--log", str(world["tmp"] / "log.jsonl")) == 2
-    assert victim.read_bytes() == b"precious bytes\n" and _fetched(world) == before
     dangling = world["tmp"] / "dangling.jsonl"  # a link to a file not there yet
     _symlink_or_skip(dangling, tmp_path / "not-yet.jsonl")
-    assert _copy(world, "--log", str(dangling)) == 2
-    assert not (tmp_path / "not-yet.jsonl").exists() and _fetched(world) == before
+    assert _copy(world, "--log", str(world["tmp"] / "log.jsonl")) == 0
+    assert _copy(world, "--log", str(dangling)) == 0  # nothing left to fetch: no log at all
+    assert victim.read_bytes() == b"precious bytes\n" and not (tmp_path / "not-yet.jsonl").exists()
+    assert os.path.islink(world["tmp"] / "log.jsonl") and os.path.islink(dangling)
+
+
+@pytest.mark.parametrize("there", ["a file", "a dangling link", "a folder"])
+def test_the_copy_log_never_opens_a_path_that_exists(world, tmp_path, monkeypatch, there):
+    # The log's name carries the run's time and a random part; were it ever taken already,
+    # the run stops before any download. Windows's CREATE_NEW follows a dangling link at
+    # the last part of the path, so a link is refused before any open.
+    _plan(world)
+    _bytecheck(world)
+    taken = world["tmp"] / "taken.jsonl"
+    elsewhere = tmp_path / "not-yet.jsonl"
+    if there == "a file":
+        taken.write_bytes(b"their bytes\n")
+    elif there == "a folder":
+        taken.mkdir()
+    else:
+        _symlink_or_skip(taken, elsewhere)
+    monkeypatch.setattr(dc, "_log_name", lambda base: taken)
+    real_open = os.open
+
+    def create_new_as_on_windows(path, flags, *a, **k):
+        if flags & os.O_EXCL and os.path.islink(path) and not os.path.exists(path):
+            path = os.path.realpath(path)  # the I/O manager reparses to the target
+        return real_open(path, flags, *a, **k)
+
+    monkeypatch.setattr(dc.os, "open", create_new_as_on_windows)
+    before = _fetched(world)  # bytecheck's downloads
+    assert _copy(world) == 2
+    assert _fetched(world) == before and not elsewhere.exists()
+    assert there != "a file" or taken.read_bytes() == b"their bytes\n"
 
 
 LOG_TARGETS = [
@@ -2599,14 +2648,14 @@ def test_the_copy_log_is_always_a_new_file(tmp_path, monkeypatch, log):
         return real_open(file, *a, **k)
 
     monkeypatch.setattr(dc, "open", spy, raising=False)
-    assert _copy(w, "--log", str(target)) == 2
-    assert target.name not in opened and _fetched(w) == []
-    assert (target.is_dir() and list(target.iterdir()) == []) or target.read_bytes() == before
     monkeypatch.setenv("FAKE_FAIL_IDS", late)
-    assert _copy(w) == 4  # its own log, a new file
+    assert _copy(w, "--log", str(target)) == 4  # a new log beside it
     monkeypatch.delenv("FAKE_FAIL_IDS")
-    assert _copy(w) == 0  # a rerun starts another
-    first, second = (p.read_text(encoding="utf-8").splitlines() for p in _copy_logs(w))
+    assert _copy(w, "--log", str(target)) == 0  # the same command again starts another
+    assert target.name not in opened
+    assert (target.is_dir() and list(target.iterdir()) == []) or target.read_bytes() == before
+    logs = sorted(target.parent.glob(f"{target.stem}-*.jsonl"), key=lambda p: p.stat().st_mtime_ns)
+    first, second = (p.read_text(encoding="utf-8").splitlines() for p in logs)
     # a failed download is logged as it fails, before anything is published
     assert [json.loads(x)["status"][:2] for x in first] == ["do", "ok"]
     assert [json.loads(x)["status"][:2] for x in second] == ["ok"]
@@ -2615,14 +2664,21 @@ def test_the_copy_log_is_always_a_new_file(tmp_path, monkeypatch, log):
 def test_the_copy_log_never_lands_in_the_live_trees(tmp_path, monkeypatch):
     d = FakeDrive()
     d.folder("A", "root", "areaA")
-    d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    data = d.folder("data", "areaA")
+    d.file("prices.csv", data, b"drive only\n")
+    late = d.file("late.csv", data, b"fails the first time\n")
     w = _one_area(tmp_path, monkeypatch, d, {"data/keep.csv": b"keep\n"})
     _plan(w)
     assert _copy(w, "--log", str(w["root"] / "data" / "copy.jsonl")) == 2
-    assert not (w["root"] / "data" / "copy.jsonl").exists() and _fetched(w) == []
+    assert list((w["root"] / "data").glob("copy*")) == [] and _fetched(w) == []
     (w["root"] / "_logs").mkdir(exist_ok=True)
-    assert _copy(w, "--log", str(w["root"] / "_logs" / "copy.jsonl")) == 0  # its own place
-    assert (w["root"] / "_logs" / "copy.jsonl").read_text(encoding="utf-8").count("\n") == 1
+    command = ["--log", str(w["root"] / "_logs" / "copy.jsonl")]  # its own place
+    monkeypatch.setenv("FAKE_FAIL_IDS", late)
+    assert _copy(w, *command) == 4
+    monkeypatch.delenv("FAKE_FAIL_IDS")
+    assert _copy(w, *command) == 0  # the same command again: a rerun resumes
+    logs = list((w["root"] / "_logs").glob("copy-*.jsonl"))
+    assert sorted(len(p.read_text(encoding="utf-8").splitlines()) for p in logs) == [1, 2]
 
 
 def test_one_download_the_tool_cannot_read_fails_alone(tmp_path, monkeypatch):

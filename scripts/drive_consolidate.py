@@ -394,9 +394,12 @@ def _link_in_root_on(path: Path, root: Path | str, hops: int = 0) -> str | None:
         if hops >= MAX_HOPS:
             raise ToolError(f"refusing {path}: more than {MAX_HOPS} links on the way")
         try:
-            target = Path(_plain(os.readlink(native(cur))))
+            raw = os.readlink(native(cur))
         except OSError as e:
             raise ToolError(f"refusing {path}: cannot follow {cur} ({e.strerror or e})") from None
+        if raw.upper().startswith(("\\\\?\\VOLUME{", "\\\\?\\GLOBALROOT\\")):
+            continue  # a volume mounted in a folder outside the root: that volume's top
+        target = Path(_plain(raw))
         if not target.is_absolute():
             target = cur.parent / target
         # The OS goes on from where the link leads: every earlier part was no link.
@@ -1550,6 +1553,7 @@ def copy_all(
     require_rclone()
     _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
     log = _start_log(log, root)
+    print(f"copy: log {log}")
     staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
@@ -1664,6 +1668,17 @@ def copy_all(
     return 4 if bad else 0
 
 
+def _log_name(base: Path) -> Path:
+    """The copy log for this run: base's name with the run's UTC time and a random part.
+
+    So a rerun of the same command, --log included, starts a new log of its own.
+    """
+    if base.name in ("", ".", ".."):
+        raise ToolError(f"--log {base}: name a file")
+    stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+    return base.with_name(f"{base.stem}-{stamp}-{os.urandom(3).hex()}.jsonl")
+
+
 def _start_log(log: Path, root: Path) -> Path:
     """Create the copy log: always a new file of this run's own (an exclusive create).
 
@@ -1672,6 +1687,8 @@ def _start_log(log: Path, root: Path) -> Path:
     the run before any download. Each run writes its own log; a rerun starts a new one.
     """
     log = guard_out(log, root)
+    if os.path.lexists(native(log)):  # Windows would create where a dangling link points
+        raise ToolError(f"{log} exists already; the copy log is always a new file")
     try:
         fd = os.open(native(log), os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0))
     except FileExistsError:
@@ -2007,7 +2024,9 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--reserve-gb", type=float, default=10.0)
     sp.add_argument("--dry-run", action="store_true")
     sp.add_argument(
-        "--log", help="JSON-lines log, a new file (default: <plan>_copy-<UTC time>-<random>.jsonl)"
+        "--log",
+        help="JSON-lines log; each run writes <name>-<UTC time>-<random>.jsonl beside it "
+        "(default name: <plan>_copy)",
     )
     sp = sub.add_parser("verify", help="re-hash every copy against the plan")
     sp.add_argument("--plan", required=True)
@@ -2108,9 +2127,8 @@ def _dispatch(args: argparse.Namespace) -> int:
         print("\n".join(summarize(plan)))
         return 0
     if args.cmd == "copy":
-        stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
-        own = plan_path.with_name(f"{plan_path.stem}_copy-{stamp}-{os.urandom(3).hex()}.jsonl")
-        log = Path(args.log) if args.log else own  # created new, so never the plan or its ledger
+        base = Path(args.log) if args.log else plan_path.with_name(f"{plan_path.stem}_copy.jsonl")
+        log = _log_name(base)  # a new file each run, so never the plan, its ledger or a rerun's
         return copy_all(
             plan,
             root,

@@ -120,6 +120,7 @@ QUERY_BATCH = 50  # parent ids per Drive query, as rclone groups them itself
 RETRY_SLEEP = 2.0  # seconds, times the attempt number, between query retries
 MAX_DEST = 400  # characters under the root; beyond this the object stays on Drive
 MAX_CMDLINE = 20000  # characters per rclone call; Windows allows 32,767
+MAX_PATHS = 64  # paths to one object through folders with two parents; beyond, left on Drive
 STAGING_SUFFIX = ".d33-staging"
 
 RCLONE: list[str] = ["rclone"]  # the command; tests substitute a fake
@@ -270,12 +271,6 @@ def _fold(name: str) -> str:
     return name.upper().casefold()
 
 
-def _ntfs_key(name: str) -> str:
-    """Windows' own name equality: each character upcased one to one, as NTFS's table
-    does ("ß" stays "ß"). For "is this the same file", not for "might these clash"."""
-    return "".join(u if len(u := c.upper()) == 1 else c for c in name)
-
-
 def _rclone_rewrites(c: str) -> bool:
     """Characters rclone's local backend rewrites in a file name (its escape character,
     control pictures, full-width ASCII): such a file would not land where planned."""
@@ -352,6 +347,13 @@ def guard_out(path: Path, root: Path | str | None) -> Path:
         raise ToolError(
             f"refusing to write {path} inside the data root; use {LOGS}/ or a folder outside it"
         )
+    if root is not None:
+        ap, ar = os.path.abspath(path), os.path.abspath(str(root))
+        if os.path.normcase(ap).startswith(os.path.normcase(ar.rstrip("\\/")) + os.sep):
+            rel = os.path.relpath(os.path.dirname(ap), ar).replace(os.sep, "/")
+            link = _link_on_path(Path(ar), rel) if rel != "." else None
+            if link:  # a linked _logs could lead into the live trees
+                raise ToolError(f"refusing to write {path}: {link} is a link or junction")
     return path
 
 
@@ -373,8 +375,10 @@ def write_outputs(pairs: list[tuple[Path, str]]) -> None:
             temps.append((tmp, path))
             with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
                 fh.write(text)
-        for tmp, path in temps:
+        while temps:
+            tmp, path = temps[0]
             os.replace(tmp, native(path))
+            temps.pop(0)  # replaced: that name is the output now, not ours to clean up
     except BaseException:
         for tmp, _path in temps:
             if os.path.lexists(tmp):
@@ -724,14 +728,16 @@ def _area_tree(area: dict) -> tuple[dict, dict, dict]:
     top = area["id"]
     # The area root itself in a second folder (another project's, say): every item in
     # it is in that folder too, so none is ever cleaned by path.
-    top_own = len(area.get("root_parents") or [None]) == 1
-    parent_of = {}
+    # A census without the root's parents cannot show it has only one: ambiguous.
+    top_own = len(area.get("root_parents") or []) == 1
+    parent_of, inside_of = {}, {}
     for o in objs.values():
         inside = [p for p in o["parents"] if p == top or p in objs]
         if not inside:
             raise ToolError(f"area {area['name']}: object {o['id']} has no parent inside the area")
-        parent_of[o["id"]] = inside[0]
-    siblings = Counter((parent_of[i], objs[i]["name"]) for i in objs)
+        parent_of[o["id"]], inside_of[o["id"]] = inside[0], inside
+    # A name counts under every folder it is in, so a second parent's clash is seen too.
+    siblings = Counter((p, objs[i]["name"]) for i in objs for p in inside_of[i])
     paths, chains, unique = {}, {}, {}
 
     def resolve(oid: str, depth: int = 0):
@@ -743,7 +749,9 @@ def _area_tree(area: dict) -> tuple[dict, dict, dict]:
         name = objs[oid]["name"]
         # One parent and no sibling of the same name. An item with a second parent,
         # even outside every area, is also in another folder: never cleaned by path.
-        own = siblings[(par, name)] == 1 and len(objs[oid]["parents"]) == 1
+        own = len(objs[oid]["parents"]) == 1 and all(
+            siblings[(p, name)] == 1 for p in inside_of[oid]
+        )
         if par == top:
             paths[oid], chains[oid], unique[oid] = name, [oid], own and top_own
         else:
@@ -755,6 +763,38 @@ def _area_tree(area: dict) -> tuple[dict, dict, dict]:
     for oid in objs:
         resolve(oid)
     return paths, chains, unique
+
+
+def _every_path(area: dict) -> dict[str, list[str]]:
+    """Per object id: its path through every in-area parent chain (up to MAX_PATHS + 1).
+
+    A folder with two parents gives what is under it two paths; a rule that reads a
+    path (a credential-shaped name) must hold on every one of them.
+    """
+    objs = {o["id"]: o for o in area["objects"]}
+    top = area["id"]
+    memo: dict[str, list[str]] = {}
+    visiting: set[str] = set()
+
+    def walk(oid: str) -> list[str]:
+        if oid in memo:
+            return memo[oid]
+        if oid in visiting:  # a loop of folders: no path through it
+            return []
+        visiting.add(oid)
+        name, out = objs[oid]["name"], []
+        for p in objs[oid]["parents"]:
+            if p == top:
+                out.append(name)
+            elif p in objs:
+                out.extend(f"{q}/{name}" for q in walk(p))
+            if len(out) > MAX_PATHS:
+                break
+        visiting.discard(oid)
+        memo[oid] = out[: MAX_PATHS + 1]
+        return memo[oid]
+
+    return {oid: walk(oid) for oid in objs}
 
 
 def _empty_ok(o: dict) -> bool:
@@ -774,9 +814,7 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
             md5_count[(f["size"], f["md5"])] += 1
     for paths in by_full.values():
         paths.sort()
-    empty_root = {
-        _ntfs_key(f["path"]) for f in usable if f["size"] == 0 and f["sha256"] == EMPTY_SHA256
-    }
+    empty_root = {f["path"] for f in usable if f["size"] == 0 and f["sha256"] == EMPTY_SHA256}
     # A link is occupied too: nothing is placed at or under it.
     taken = Taken([f["path"] for f in root_files] + inv.get("links", []), inv.get("dirs", []))
     trees = {a["id"]: _area_tree(a) for a in census_doc["areas"]}
@@ -790,6 +828,7 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
         paths, chains, unique = trees[a["id"]]
         names = {o["id"]: o["name"] for o in a["objects"]}
         gitdirs = _git_dirs(a)
+        every = _every_path(a)
         for o in sorted(a["objects"], key=lambda o: (paths[o["id"]], o["id"])):
             path = paths[o["id"]]
             kind = (
@@ -835,7 +874,7 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
                 )
             else:
                 cls, reason, twin = _classify(
-                    o, path, by_full, md5_count, first_copy, row["candidates"], empty_root
+                    o, every[o["id"]], by_full, md5_count, first_copy, row["candidates"], empty_root
                 )
             row.update({"class": cls, "reason": reason, "twin": twin})
             prev = first_row.get(o["id"])
@@ -881,7 +920,7 @@ def _place(row: dict, taken: Taken) -> None:
         row["dest"] = dest
 
 
-def _classify(o, path, by_full, md5_count, first_copy, candidates, empty_root):
+def _classify(o, every, by_full, md5_count, first_copy, candidates, empty_root):
     if o["mime"] == FOLDER:
         return "folder", "", ""
     if o["mime"] == SHORTCUT:
@@ -892,7 +931,9 @@ def _classify(o, path, by_full, md5_count, first_copy, candidates, empty_root):
         )
     if o["mime"].startswith(GOOGLE):
         return "unresolved", "Google-format file: no bytes to compare", ""
-    if credential_shaped(path):
+    if len(every) > MAX_PATHS:
+        return "unresolved", f"reached through more than {MAX_PATHS} paths", ""
+    if any(credential_shaped(p) for p in every):  # on every path, not just the first
         return "unresolved", "credential-shaped name: never read or copied", ""
     if o["size"] is None:
         return "needs-byte-check", "Drive lists no size", ""
@@ -902,7 +943,7 @@ def _classify(o, path, by_full, md5_count, first_copy, candidates, empty_root):
         if not _empty_ok(o):
             return "needs-byte-check", "empty, but Drive does not list the empty file's hashes", ""
         for cand in candidates:
-            if _ntfs_key(cand) in empty_root:
+            if cand in empty_root:  # exactly this name: a case variant is copied beside it
                 return "redundant", "empty file already at its destination", cand
         return "copy", "empty file: kept at its own path", ""
     if o["sha256"]:
@@ -928,11 +969,12 @@ def _git_dirs(area: dict) -> set[str]:
 
 def _withhold_credential_hashes(area: dict) -> None:
     """Keep no Drive hash of a credential: a credential-shaped path, or a git folder's config."""
-    paths, _chains, _unique = _area_tree(area)
+    every = _every_path(area)
     gitdirs = _git_dirs(area)
     for o in area["objects"]:
         git_config = o["name"].casefold() == "config" and bool(set(o["parents"]) & gitdirs)
-        if credential_shaped(paths[o["id"]]) or git_config:
+        many = len(every[o["id"]]) > MAX_PATHS
+        if many or git_config or any(credential_shaped(p) for p in every[o["id"]]):
             o["md5"] = "withheld" if o["md5"] else None
             o["sha256"] = None
 
@@ -1041,7 +1083,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
         if not f.get("excluded") and f["size"]:
             by_full.setdefault((f["size"], f["md5"], f["sha256"]), f["path"])
     empty_root = {
-        _ntfs_key(f["path"])
+        f["path"]
         for f in inv["files"]
         if not f.get("excluded") and f["size"] == 0 and f["sha256"] == EMPTY_SHA256
     }
@@ -1098,7 +1140,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
                 continue
             r.update({"size": size, "md5": md5, "sha256": sha})
             key = (size, md5, sha)
-            empty_twin = next((c for c in r["candidates"] if _ntfs_key(c) in empty_root), None)
+            empty_twin = next((c for c in r["candidates"] if c in empty_root), None)
             if size == 0 and empty_twin:
                 r.update(
                     {
@@ -1301,6 +1343,8 @@ def copy_all(
     guard_out(log, root)
     if _is_link(native(log)):
         raise ToolError(f"refusing to append to {log}: it is a link or junction")
+    if os.path.exists(native(log)) and os.stat(native(log)).st_nlink > 1:
+        raise ToolError(f"refusing to append to {log}: another name is hard-linked to it")
     staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
@@ -1443,6 +1487,16 @@ SWEEP_SKIP_SUFFIXES = (".py", ".md", ".pyc", ".gitkeep", ".log", ".lock")
 SWEEP_SKIP_NAMES = ("__pycache__", "_locks", ".git", "DATA_MANIFEST.json", "_inventory_scan.json")
 
 
+def _count_files(top: str) -> tuple[int, bool]:
+    """Files under a folder sweep passes over, for its report: never a stop, never a link."""
+    errors: list[OSError] = []
+    n = 0
+    for dirpath, dirnames, filenames in os.walk(top, onerror=errors.append):
+        dirnames[:] = [d for d in dirnames if not _is_link(os.path.join(dirpath, d))]
+        n += len(filenames)
+    return n, bool(errors)
+
+
 def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
     """Copy the data files of a local folder whose bytes the root lacks to root/dest.
 
@@ -1497,11 +1551,10 @@ def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
             (f"{rel_dir}/{d}" if rel_dir else d, "a linked folder, not followed") for d in linked
         )
         for d in sorted(d for d in dirnames if d in SWEEP_SKIP_NAMES and d not in linked):
-            n = sum(
-                len(fs) for _dp, _dn, fs in os.walk(os.path.join(dirpath, d), onerror=_walk_error)
-            )
+            n, unreadable = _count_files(os.path.join(dirpath, d))
+            more = "; some of it unreadable" if unreadable else ""
             passed.append(
-                (f"{rel_dir}/{d}" if rel_dir else d, f"a {d} folder, not data ({n} files)")
+                (f"{rel_dir}/{d}" if rel_dir else d, f"a {d} folder, not data ({n} files{more})")
             )
         dirnames[:] = sorted(d for d in dirnames if d not in SWEEP_SKIP_NAMES and d not in linked)
         for fn in sorted(filenames):

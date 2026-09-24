@@ -11,8 +11,8 @@ Pins:
     clash, a duplicate name, a Windows-unsafe, reserved or rclone-rewritten name;
   - duplicate (a second Drive copy of the same bytes);
   - needs-byte-check (a missing hash never matches);
-  - unresolved: a shortcut, a Google-format file, a credential name (``.git/config``
-    and ``rclone.conf`` included), several parents;
+  - unresolved: a shortcut, a Google-format file, a credential name on any of an
+    object's paths (``.git/config`` and ``rclone.conf`` included);
 - a second round after copying plans nothing new;
 - a read-only area is never deletable, and a Drive id is deletable only if every row
   naming it is;
@@ -706,6 +706,83 @@ def test_a_folder_with_a_second_parent_outside_every_area_is_never_cleaned(tmp_p
     assert row["class"] == "redundant" and not row["path_unique"] and not row["deletable"]
 
 
+@pytest.mark.parametrize("first", ["data", "secrets"])
+def test_a_file_in_two_folders_is_judged_on_every_path(tmp_path, monkeypatch, first):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    data, secrets = d.folder("data", "areaA"), d.folder("secrets", "areaA")
+    parents = [data, secrets] if first == "data" else [secrets, data]
+    oid = d.file("keys.csv", data, b"a secret\n", parents=parents)
+    w = _one_area(tmp_path, monkeypatch, d)
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "unresolved" and row["dest"] == "" and not row["deletable"]
+    census = json.loads((w["tmp"] / "c.json").read_text(encoding="utf-8"))
+    o = next(o for o in census["areas"][0]["objects"] if o["id"] == oid)
+    assert o["sha256"] is None and o["md5"] == "withheld"
+
+
+def test_what_a_two_parent_folder_holds_is_judged_on_every_path(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    data, tokens = d.folder("data", "areaA"), d.folder("tokens", "areaA")
+    shared = d.folder("shared", data, parents=[data, tokens])
+    oid = d.file("x.csv", shared, b"reached through tokens/ too\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "unresolved" and "credential" in row["reason"]
+
+
+def test_an_object_with_too_many_paths_stays_on_drive(tmp_path, monkeypatch):
+    # Seven levels of folders with two parents each: 2**7 = 128 paths to the file below.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    level = [d.folder("a0", "areaA"), d.folder("b0", "areaA")]
+    for i in range(1, 8):
+        level = [d.folder(f"{c}{i}", level[0], parents=list(level)) for c in "ab"]
+    oid = d.file("deep.csv", level[0], b"deep\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "unresolved" and "more than 64 paths" in row["reason"]
+
+
+def test_a_census_without_its_area_roots_parents_makes_nothing_deletable(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("x.csv", d.folder("data", "areaA"), b"x-bytes\n")
+    w = _one_area(tmp_path, monkeypatch, d, {"data/x.csv": b"x-bytes\n"})
+    _plan(w)
+    t = w["tmp"]
+    doc = json.loads((t / "c.json").read_text(encoding="utf-8"))
+    for area in doc["areas"]:
+        del area["root_parents"]
+    (t / "c.json").write_text(json.dumps(doc), encoding="utf-8")
+    args = ["plan", "--census", str(t / "c.json"), "--inventory", str(t / "i.json")]
+    assert dc.main([*args, "--out", str(t / "p.json")]) == 0
+    row = _by_id(json.loads((t / "p.json").read_text(encoding="utf-8")))[oid]
+    assert row["class"] == "redundant" and not row["path_unique"] and not row["deletable"]
+
+
+def test_a_name_is_counted_under_every_folder_it_is_in(tmp_path, monkeypatch):
+    # X sits in p1 and p2; Y, in p2 only, has X's name: p2/x.csv names two objects.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    p1, p2 = d.folder("p1", "areaA"), d.folder("p2", "areaA")
+    d.file("x.csv", p1, b"x one\n", parents=[p1, p2])
+    y = d.file("x.csv", p2, b"x two\n")
+    w = _one_area(tmp_path, monkeypatch, d, {"data/y.csv": b"x two\n"})
+    row = _by_id(_plan(w))[y]
+    assert row["class"] == "redundant" and not row["path_unique"] and not row["deletable"]
+
+
+def test_an_empty_file_is_home_only_under_its_exact_name(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("done.flag", "areaA", b"")
+    w = _one_area(tmp_path, monkeypatch, d, {"data_archive/drive-legacy/A/Done.flag": b""})
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "copy" and not row["deletable"]  # a case variant: copied beside it
+
+
 def test_a_git_folder_uploaded_without_its_name_keeps_its_config_on_drive(tmp_path, monkeypatch):
     d = FakeDrive()
     d.folder("G", "root", "areaA")
@@ -1104,6 +1181,31 @@ def test_documents_of_an_older_schema_are_refused(world):
     assert _copy(world) == 2 and _verify(world) == 2
     args = ["plan", "--census", str(t / "c.json"), "--inventory", str(t / "i.json")]
     assert dc.main([*args, "--out", str(t / "p2.json")]) == 2
+    src = t / "src"
+    src.mkdir()
+    sweep = [
+        "sweep",
+        "--source",
+        str(src),
+        "--root",
+        str(world["root"]),
+        "--dest",
+        "data_archive/x",
+    ]
+    assert dc.main([*sweep, "--inventory", str(t / "i.json")]) == 2  # an older inventory
+    _plan(world)  # fresh documents again; then an older census alone
+    doc = json.loads((t / "c.json").read_text(encoding="utf-8"))
+    doc["schema"] = dc.SCHEMA - 1
+    (t / "c.json").write_text(json.dumps(doc), encoding="utf-8")
+    assert dc.main([*args, "--out", str(t / "p3.json")]) == 2
+    inv = json.loads((t / "i.json").read_text(encoding="utf-8"))
+    inv["schema"] = dc.SCHEMA - 1
+    (t / "i.json").write_text(json.dumps(inv), encoding="utf-8")
+    bc = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(t / "i.json")]
+    assert (
+        dc.main([*bc, "--root", str(world["root"]), "--remote", "fake:", "--tmp", str(t / "bc")])
+        == 2
+    )
 
 
 def test_bytecheck_places_nothing_on_a_link(tmp_path, monkeypatch):
@@ -1416,6 +1518,20 @@ def test_sweep_names_the_folders_it_passes_over(sweep_world, capsys):
     assert "PASSED    _locks: a _locks folder, not data (1 files)" in out
 
 
+def test_sweep_notes_a_passed_folder_it_cannot_fully_read(sweep_world, monkeypatch, capsys):
+    (sweep_world["src"] / ".git" / "sub").mkdir()
+    real = os.scandir
+
+    def scandir(path="."):
+        if os.path.basename(str(path)) == "sub":
+            raise PermissionError(errno.EACCES, "Permission denied", str(path))
+        return real(path)
+
+    monkeypatch.setattr(dc.os, "scandir", scandir)
+    assert _sweep(sweep_world) == 0
+    assert "a .git folder, not data (1 files; some of it unreadable)" in capsys.readouterr().out
+
+
 def test_a_folder_that_cannot_be_listed_stops_the_run(sweep_world, monkeypatch):
     real = os.scandir
 
@@ -1550,6 +1666,32 @@ def test_outputs_never_write_through_a_link(world, tmp_path):
     assert dc.main([*args, str(world["tmp"] / "plain.json")]) == 0
     assert victim.read_bytes() == b"precious bytes\n"
     assert not [p for p in world["tmp"].iterdir() if p.name.startswith(".plain.json.")]
+
+
+def test_outputs_never_go_through_a_linked_logs_folder(world):
+    root = world["root"]
+    before = _root_hashes(root)
+    shutil.rmtree(root / "_logs")
+    _symlink_or_skip(root / "_logs", root / "data", is_dir=True)  # a link into a live tree
+    out = root / "_logs" / "x.csv"
+    assert dc.main(["inventory", "--root", str(root), "--out", str(out)]) == 2
+    after = _root_hashes(root)
+    assert {k: v for k, v in after.items() if k.startswith("data/")} == {
+        k: v for k, v in before.items() if k.startswith("data/")
+    }
+
+
+def test_copy_never_appends_its_log_to_a_hard_linked_file(world, tmp_path):
+    _plan(world)
+    _bytecheck(world)
+    victim = tmp_path / "victim.csv"
+    victim.write_bytes(b"precious bytes\n")
+    try:
+        os.link(victim, world["tmp"] / "p_copy.jsonl")
+    except OSError as e:
+        pytest.skip(f"hard links are not available here: {e}")
+    assert _copy(world) == 2
+    assert victim.read_bytes() == b"precious bytes\n"
 
 
 def test_copy_never_appends_its_log_through_a_link(world, tmp_path):

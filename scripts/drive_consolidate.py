@@ -375,6 +375,8 @@ def _inside(path: Path | str, folder: Path | str) -> bool:
 
 # Links followed on the way to one path before it is refused (Linux stops at 40 too).
 MAX_HOPS = 40
+# What readlink gives for a volume mounted in a folder: that volume's top, and nothing below.
+_VOLUME_ROOT = re.compile(r"\\\\\?\\Volume\{[0-9a-f-]+\}\\?", re.IGNORECASE)
 
 
 def _link_in_root_on(path: Path, root: Path | str, hops: int = 0) -> str | None:
@@ -397,9 +399,9 @@ def _link_in_root_on(path: Path, root: Path | str, hops: int = 0) -> str | None:
             raw = os.readlink(native(cur))
         except OSError as e:
             raise ToolError(f"refusing {path}: cannot follow {cur} ({e.strerror or e})") from None
-        if raw.upper().startswith(("\\\\?\\VOLUME{", "\\\\?\\GLOBALROOT\\")):
-            continue  # a volume mounted in a folder outside the root: that volume's top
-        target = Path(_plain(raw))
+        if _VOLUME_ROOT.fullmatch(raw):
+            continue  # a volume mounted in a folder outside the root: walk on from its top
+        target = Path(_plain(raw))  # a place inside a volume, or GLOBALROOT: refused there
         if not target.is_absolute():
             target = cur.parent / target
         # The OS goes on from where the link leads: every earlier part was no link.

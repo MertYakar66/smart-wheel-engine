@@ -1322,6 +1322,32 @@ def test_an_output_under_a_volume_mounted_in_a_folder_is_allowed(world, tmp_path
     assert (real / "d33" / "i.json").is_file()
 
 
+@pytest.mark.parametrize("target", ["a folder inside a volume", "GLOBALROOT"])
+def test_a_link_to_a_place_inside_a_volume_is_refused(world, tmp_path, monkeypatch, target):
+    # Only a volume's own top is walked past. A link to a folder inside a volume, or to a
+    # GLOBALROOT name, cannot be followed here, so it is refused: here it hides a link in
+    # the root that leads out.
+    root = world["root"]
+    outside = tmp_path / "someone-else"
+    outside.mkdir()
+    (outside / "i.json").write_bytes(b"their bytes\n")
+    _symlink_or_skip(root / "_logs" / "sub", outside, is_dir=True)
+    alias = tmp_path / "alias"
+    _symlink_or_skip(alias, root / "_logs" / "sub", is_dir=True)
+    raw = {
+        "a folder inside a volume": "\\\\?\\Volume{0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0}\\r\\_logs\\sub",
+        "GLOBALROOT": "\\\\?\\GLOBALROOT\\Device\\HarddiskVolume3\\r\\_logs\\sub",
+    }[target]
+    real_readlink = os.readlink
+
+    def readlink(p, *a, **k):
+        return raw if os.path.abspath(p) == str(alias) else real_readlink(p, *a, **k)
+
+    monkeypatch.setattr(dc.os, "readlink", readlink)
+    assert dc.main(["inventory", "--root", str(root), "--out", str(alias / "i.json")]) == 2
+    assert (outside / "i.json").read_bytes() == b"their bytes\n"
+
+
 def test_a_loop_of_links_on_the_way_to_an_output_is_refused(world, tmp_path, capsys):
     one, two = tmp_path / "one", tmp_path / "two"
     _symlink_or_skip(one, two, is_dir=True)

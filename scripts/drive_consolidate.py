@@ -686,10 +686,25 @@ def census(remote: str, areas: list[dict]) -> dict:
 # ---------------------------------------------------------------- inventory
 
 
+# A Windows junction's reparse tag (stat.IO_REPARSE_TAG_MOUNT_POINT, defined on Windows only).
+JUNCTION_TAG = 0xA0000003
+
+
 def _is_link(path: str) -> bool:
-    """A symbolic link, or on Windows a junction: never part of the root's own tree."""
+    """A symbolic link, or on Windows a junction: never part of the root's own tree.
+
+    os.path.isjunction is Python 3.12's. On 3.11 a junction is known by its reparse tag,
+    which os.lstat reports on Windows since 3.8.
+    """
+    if os.path.islink(path):
+        return True
     isjunction = getattr(os.path, "isjunction", None)
-    return os.path.islink(path) or bool(isjunction and isjunction(path))
+    if isjunction is not None:
+        return bool(isjunction(path))
+    try:
+        return getattr(os.lstat(path), "st_reparse_tag", 0) == JUNCTION_TAG
+    except OSError:
+        return False
 
 
 def _link_on_path(root: Path, rel: str) -> str | None:

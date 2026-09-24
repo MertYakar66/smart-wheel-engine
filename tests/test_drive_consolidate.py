@@ -2029,13 +2029,34 @@ def test_nothing_is_placed_under_a_linked_folder(tmp_path, monkeypatch):
     assert "drive-legacy" not in (w["root"] / dc.SUMS).read_text(encoding="utf-8")
 
 
-def test_the_inventory_never_follows_a_junction(tmp_path, monkeypatch):
-    # os.walk follows a Windows junction (os.path.islink says no), so the tool prunes it.
+@pytest.mark.parametrize("python", ["3.12 (os.path.isjunction)", "3.11 (the reparse tag)"])
+def test_the_inventory_never_follows_a_junction(tmp_path, monkeypatch, python):
+    # os.walk follows a Windows junction (os.path.islink says no), so the tool prunes it,
+    # on either Python the repository supports.
     w, oid = _new_only_on_drive(tmp_path, monkeypatch, {"data/mount/new.csv": b"only on drive\n"})
     mount = os.path.abspath(w["root"] / "data" / "mount")
-    monkeypatch.setattr(
-        dc.os.path, "isjunction", lambda p: os.path.abspath(p) == mount, raising=False
-    )
+    if python.startswith("3.12"):
+        monkeypatch.setattr(
+            dc.os.path, "isjunction", lambda p: os.path.abspath(p) == mount, raising=False
+        )
+    else:
+        monkeypatch.delattr(dc.os.path, "isjunction", raising=False)
+        real_lstat = os.lstat
+
+        class Tagged:  # what os.lstat reports for a junction on Windows
+            st_reparse_tag = dc.JUNCTION_TAG
+
+            def __init__(self, st):
+                self._st = st
+
+            def __getattr__(self, name):
+                return getattr(self._st, name)
+
+        def lstat(p, *a, **k):
+            st = real_lstat(p, *a, **k)
+            return Tagged(st) if os.path.abspath(p) == mount else st
+
+        monkeypatch.setattr(dc.os, "lstat", lstat)
     row = _by_id(_plan(w))[oid]
     inv = json.loads((w["tmp"] / "i.json").read_text(encoding="utf-8"))
     assert inv["links"] == ["data/mount"] and inv["files"] == []

@@ -373,17 +373,34 @@ def _inside(path: Path | str, folder: Path | str) -> bool:
     return p == f or p.startswith(f.rstrip("\\/") + os.sep)
 
 
-def _link_in_root_on(path: Path, root: Path | str) -> str | None:
-    """A link or junction on path whose own folder is inside the root, however either is spelled.
+# Links followed on the way to one path before it is refused (Linux stops at 40 too).
+MAX_HOPS = 40
+
+
+def _link_in_root_on(path: Path, root: Path | str, hops: int = 0) -> str | None:
+    """A link or junction in the root that the way to path passes through, however spelled.
 
     An output meant for the root's _logs/ must land there, not wherever a link under the
-    root leads (outside it, where it could replace a file of someone else's). That holds
-    when the path reaches the root, or a folder in it, through another name. A link above
+    root leads (outside it, where it could replace a file of someone else's). Links are
+    followed hop by hop, as the OS follows them, so such a link is found also when the
+    path reaches it by another name, or through where another link leads. A link above
     the root, or the root itself reached through one, is not refused.
     """
     for cur in (*reversed(path.parents), path):
-        if cur.parent != cur and _is_link(native(cur)) and _inside(cur.parent, root):
+        if cur.parent == cur or not _is_link(native(cur)):
+            continue
+        if _inside(cur.parent, root):
             return str(cur)
+        if hops >= MAX_HOPS:
+            raise ToolError(f"refusing {path}: more than {MAX_HOPS} links on the way")
+        try:
+            target = Path(_plain(os.readlink(native(cur))))
+        except OSError as e:
+            raise ToolError(f"refusing {path}: cannot follow {cur} ({e.strerror or e})") from None
+        if not target.is_absolute():
+            target = cur.parent / target
+        # The OS goes on from where the link leads: every earlier part was no link.
+        return _link_in_root_on(target / path.relative_to(cur), root, hops + 1)
     return None
 
 

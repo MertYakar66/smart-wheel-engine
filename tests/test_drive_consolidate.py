@@ -1278,6 +1278,39 @@ def test_no_output_goes_through_a_link_in_the_root_reached_by_another_name(
     assert sorted(p.name for p in outside.iterdir()) == ["i.json"]
 
 
+@pytest.mark.parametrize(
+    "hops", ["a link to a link in the root", "two links, then one in the root"]
+)
+def test_no_output_goes_through_a_link_in_the_root_that_another_link_leads_to(
+    world, tmp_path, hops
+):
+    # The link in the root is never part of the spelled path, only of where another
+    # link leads: the OS follows it all the same.
+    root = world["root"]
+    outside = tmp_path / "someone-else"
+    outside.mkdir()
+    (outside / "i.json").write_bytes(b"their bytes\n")
+    _symlink_or_skip(root / "_logs" / "sub", outside, is_dir=True)
+    alias = tmp_path / "logs-sub"
+    _symlink_or_skip(alias, root / "_logs" / "sub", is_dir=True)
+    if hops.startswith("two"):
+        first = tmp_path / "first"
+        _symlink_or_skip(first, alias, is_dir=True)
+        alias = first
+    for out in (alias / "i.json", alias / "new.json"):
+        assert dc.main(["inventory", "--root", str(root), "--out", str(out)]) == 2
+    assert (outside / "i.json").read_bytes() == b"their bytes\n"
+    assert sorted(p.name for p in outside.iterdir()) == ["i.json"]
+
+
+def test_a_loop_of_links_on_the_way_to_an_output_is_refused(world, tmp_path, capsys):
+    one, two = tmp_path / "one", tmp_path / "two"
+    _symlink_or_skip(one, two, is_dir=True)
+    _symlink_or_skip(two, one, is_dir=True)
+    assert dc.main(["inventory", "--root", str(world["root"]), "--out", str(one / "i.json")]) == 2
+    assert "links on the way" in capsys.readouterr().err
+
+
 @pytest.mark.parametrize("where", ["in the root's data", "outside the root"])
 def test_no_output_path_has_a_dotdot_after_a_link(world, tmp_path, where):
     # Linux takes lnk/.. as the folder above where the link leads; the tool writes by name,
@@ -2115,6 +2148,8 @@ def test_the_inventory_never_follows_a_junction(tmp_path, monkeypatch, python, s
     # on either Python the repository supports. On Windows native() spells every path
     # with \\?\, which os.path.abspath keeps; here a leading // stands in for it.
     if spelling.startswith("prefixed"):
+        if os.name == "nt":
+            pytest.skip("native() spells paths with \\\\?\\ here already: the plain cases")
         real_native = dc.native
         monkeypatch.setattr(
             dc,

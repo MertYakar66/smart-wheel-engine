@@ -2679,8 +2679,13 @@ def test_the_copy_log_is_always_a_new_file(tmp_path, monkeypatch, log):
     monkeypatch.delenv("FAKE_FAIL_IDS")
     assert _copy(w, "--log", str(target)) == 0  # the same command again starts another
     assert target.name not in opened
-    assert (target.is_dir() and list(target.iterdir()) == []) or target.read_bytes() == before
-    logs = sorted(target.parent.glob(f"{target.stem}-*.jsonl"), key=lambda p: p.stat().st_mtime_ns)
+    if target.is_dir():  # a folder takes the logs, and nothing else changes in it
+        logs = list(target.glob("p_copy-*.jsonl"))
+        assert sorted(target.iterdir()) == sorted(logs)
+    else:
+        assert target.read_bytes() == before
+        logs = list(target.parent.glob(f"{target.stem}-*.jsonl"))
+    logs.sort(key=lambda p: p.stat().st_mtime_ns)
     first, second = (p.read_text(encoding="utf-8").splitlines() for p in logs)
     # a failed download is logged as it fails, before anything is published
     assert [json.loads(x)["status"][:2] for x in first] == ["do", "ok"]
@@ -2705,6 +2710,25 @@ def test_the_copy_log_never_lands_in_the_live_trees(tmp_path, monkeypatch):
     assert _copy(w, *command) == 0  # the same command again: a rerun resumes
     logs = list((w["root"] / "_logs").glob("copy-*.jsonl"))
     assert sorted(len(p.read_text(encoding="utf-8").splitlines()) for p in logs) == [1, 2]
+
+
+@pytest.mark.parametrize("spelled", ["the folder", "the folder and a separator"])
+def test_a_log_named_by_its_folder_goes_in_that_folder(tmp_path, monkeypatch, spelled):
+    # A card may name the root's _logs folder; the log goes in it, not beside it at the
+    # root's top. A folder that is not there stops the run before the census.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    _plan(w)
+    logs = w["root"] / "_logs"
+    logs.mkdir(exist_ok=True)
+    sep = os.sep if spelled.endswith("separator") else ""
+    assert _copy(w, "--log", str(tmp_path / "no-such-folder") + os.sep) == 2
+    assert _fetched(w) == []
+    assert _copy(w, "--log", str(logs) + sep) == 0
+    assert len(list(logs.glob("p_copy-*.jsonl"))) == len(list(logs.iterdir())) == 1
+    assert list(w["root"].glob("_logs-*")) == []
 
 
 def test_one_download_the_tool_cannot_read_fails_alone(tmp_path, monkeypatch):

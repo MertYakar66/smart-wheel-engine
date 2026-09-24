@@ -2027,8 +2027,8 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--dry-run", action="store_true")
     sp.add_argument(
         "--log",
-        help="JSON-lines log; each run writes <name>-<UTC time>-<random>.jsonl beside it "
-        "(default name: <plan>_copy)",
+        help="JSON-lines log: a file name, or a folder to put it in; each run writes "
+        "<name>-<UTC time>-<random>.jsonl there (default name: <plan>_copy)",
     )
     sp = sub.add_parser("verify", help="re-hash every copy against the plan")
     sp.add_argument("--plan", required=True)
@@ -2129,8 +2129,14 @@ def _dispatch(args: argparse.Namespace) -> int:
         print("\n".join(summarize(plan)))
         return 0
     if args.cmd == "copy":
-        base = Path(args.log) if args.log else plan_path.with_name(f"{plan_path.stem}_copy.jsonl")
+        own = f"{plan_path.stem}_copy.jsonl"
+        base = Path(args.log) if args.log else plan_path.with_name(own)
+        if args.log and (args.log.endswith(("/", os.sep)) or os.path.isdir(args.log)):
+            if not os.path.isdir(args.log):
+                raise ToolError(f"--log {args.log}: no such folder")
+            base = Path(args.log) / own  # a folder: the log goes in it
         log = _log_name(base)  # a new file each run, so never the plan, its ledger or a rerun's
+        guard_out(log, root)  # before the census: a wrong place stops the run at once
         return copy_all(
             plan,
             root,

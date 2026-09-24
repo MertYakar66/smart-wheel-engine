@@ -504,9 +504,8 @@ def test_plan_classifies_every_case(world):
     assert cls["twin_a"] == cls["twin_b"] == "copy"
     assert rows[ids["twin_a"]]["dest"] != rows[ids["twin_b"]]["dest"]
     assert not rows[ids["twin_a"]]["deletable"] and not rows[ids["twin_b"]]["deletable"]
-    # Two parents: its bytes come home like any file's, but it is never cleaned by path.
-    assert cls["multi"] == "copy" and not rows[ids["multi"]]["path_unique"]
-    assert not rows[ids["multi"]]["deletable"]
+    # A second parent outside the area: a path that cannot be checked, so it stays on Drive.
+    assert cls["multi"] == "unresolved" and "outside the area" in rows[ids["multi"]]["reason"]
     for key in ("shortcut", "gdoc", "cred", "rclone_conf", "gitcfg"):
         assert cls[key] == "unresolved" and rows[ids[key]]["dest"] == "", key
     assert "credential" in rows[ids["gitcfg"]]["reason"]
@@ -547,7 +546,15 @@ def test_sha256_decides_even_when_size_and_md5_agree(tmp_path):
     }
     census_doc = {
         "generated": "g",
-        "areas": [{"name": "A", "id": "areaA", "mode": "consolidate", "objects": [obj]}],
+        "areas": [
+            {
+                "name": "A",
+                "id": "areaA",
+                "mode": "consolidate",
+                "root_parents": ["root"],
+                "objects": [obj],
+            }
+        ],
     }
     root_file = {
         "path": "data/f.csv",
@@ -561,7 +568,40 @@ def test_sha256_decides_even_when_size_and_md5_agree(tmp_path):
     assert row["class"] == "copy"
 
 
-def test_a_drive_id_is_deletable_only_if_every_row_naming_it_is(tmp_path, monkeypatch):
+def test_an_object_whose_hashes_the_census_withheld_is_never_classed(tmp_path):
+    # Whatever the reason the census kept no hash, the plan never copies or matches it.
+    obj = {
+        "id": "o1",
+        "name": "f.csv",
+        "mime": "text/csv",
+        "size": 3,
+        "md5": "withheld",
+        "sha256": None,
+        "parents": ["areaA"],
+        "created": None,
+        "modified": None,
+        "target": None,
+        "target_mime": None,
+    }
+    census_doc = {
+        "generated": "t",
+        "areas": [
+            {
+                "name": "A",
+                "id": "areaA",
+                "mode": "consolidate",
+                "root_parents": ["root"],
+                "objects": [obj],
+            }
+        ],
+    }
+    inv = {"generated": "t", "root": str(tmp_path), "files": [], "dirs": [], "links": []}
+    row = dc.build_plan(census_doc, inv)["rows"][0]
+    assert row["class"] == "unresolved" and row["dest"] == "" and not row["deletable"]
+
+
+def test_what_a_folder_shared_by_two_areas_holds_stays_on_drive(tmp_path, monkeypatch):
+    # Seen from each area, the folder's other parent is outside it: a path not checked.
     d = FakeDrive()
     d.folder("A", "root", "areaA")
     d.folder("B", "root", "areaB")
@@ -573,9 +613,21 @@ def test_a_drive_id_is_deletable_only_if_every_row_naming_it_is(tmp_path, monkey
     ]
     w = _env(tmp_path, monkeypatch, d, areas, {"data/other.csv": b"other\n"})
     rows = [r for r in _plan(w)["rows"] if r["id"] == child]
-    assert [r["class"] for r in rows] == ["copy", "duplicate"]  # it comes home once
-    assert "the same Drive object" in rows[1]["reason"] and rows[1]["twin"] == rows[0]["dest"]
-    assert not any(r["deletable"] for r in rows)
+    assert [r["class"] for r in rows] == ["unresolved", "unresolved"]
+    assert not any(r["dest"] or r["deletable"] for r in rows)
+
+
+def test_a_file_whose_other_parent_is_outside_every_area_stays_on_drive(tmp_path, monkeypatch):
+    # Its other folder could be anyone's "credentials/": the census never saw its path.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("data.csv", "areaA", b"two homes\n", parents=["areaA", "external-credentials"])
+    w = _one_area(tmp_path, monkeypatch, d)
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "unresolved" and row["dest"] == ""
+    census = json.loads((w["tmp"] / "c.json").read_text(encoding="utf-8"))
+    o = next(o for o in census["areas"][0]["objects"] if o["id"] == oid)
+    assert o["sha256"] is None and o["md5"] == "withheld"
 
 
 def test_a_destination_that_cannot_be_placed_is_listed_not_fatal(tmp_path, monkeypatch):
@@ -634,7 +686,7 @@ def test_an_area_whose_root_has_a_second_parent_is_never_cleaned(tmp_path, monke
     oid = d.file("x.csv", d.folder("data", "areaA"), b"x-bytes\n")
     w = _one_area(tmp_path, monkeypatch, d, {"data/x.csv": b"x-bytes\n"})
     row = _by_id(_plan(w))[oid]
-    assert row["class"] == "redundant" and not row["path_unique"] and not row["deletable"]
+    assert row["class"] == "unresolved" and not row["path_unique"] and not row["deletable"]
 
 
 def test_an_empty_file_drive_lists_without_a_sha256_needs_a_byte_check(tmp_path, monkeypatch):
@@ -658,33 +710,33 @@ def test_an_empty_file_is_home_only_under_its_own_name(tmp_path, monkeypatch):
 
 
 def test_a_later_row_of_the_same_object_mirrors_the_first(tmp_path, monkeypatch):
+    # Area B nested in A under "tokens/": the object's first row (A) is unresolved.
     d = FakeDrive()
     d.folder("A", "root", "areaA")
-    d.folder("B", "root", "areaB")
     tokens = d.folder("tokens", "areaA")
-    shared = d.folder("shared", tokens, parents=[tokens, "areaB"])
-    oid = d.file("prices.csv", shared, b"in two areas\n")
+    d.folder("vendor", tokens, "areaB")
+    oid = d.file("prices.csv", "areaB", b"in two areas\n")
     areas = [
         {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"},
-        {"name": "B", "id": "areaB", "parent": "root", "folder": "B", "mode": "consolidate"},
+        {"name": "B", "id": "areaB", "parent": tokens, "folder": "vendor", "mode": "consolidate"},
     ]
     w = _env(tmp_path, monkeypatch, d, areas, {"data/keep.csv": b"keep\n"})
     rows = [r for r in _plan(w)["rows"] if r["id"] == oid]
     assert [(r["area"], r["class"]) for r in rows] == [("A", "unresolved"), ("B", "unresolved")]
-    assert "the same Drive object as A/tokens/shared/prices.csv" in rows[1]["reason"]
+    assert "the same Drive object as A/tokens/vendor/prices.csv" in rows[1]["reason"]
     assert not any(r["dest"] or r["deletable"] for r in rows)
 
 
 def test_bytecheck_settles_an_object_reached_through_two_areas_once(tmp_path, monkeypatch):
+    # Area B nested in A: the same object, fully censused through both.
     d = FakeDrive()
     d.folder("A", "root", "areaA")
-    d.folder("B", "root", "areaB")
-    shared = d.folder("shared", "areaA", parents=["areaA", "areaB"])
+    d.folder("vendor", "areaA", "areaB")
     body = b"no SHA-256, and its MD5 is not unique\n"
-    oid = d.file("f.csv", shared, body, sha=False)
+    oid = d.file("f.csv", "areaB", body, sha=False)
     areas = [
         {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"},
-        {"name": "B", "id": "areaB", "parent": "root", "folder": "B", "mode": "consolidate"},
+        {"name": "B", "id": "areaB", "parent": "areaA", "folder": "vendor", "mode": "consolidate"},
     ]
     w = _env(tmp_path, monkeypatch, d, areas, {"data/f.csv": body})
     rows = [r for r in _plan(w)["rows"] if r["id"] == oid]
@@ -703,7 +755,7 @@ def test_a_folder_with_a_second_parent_outside_every_area_is_never_cleaned(tmp_p
     oid = d.file("x.csv", f, b"x-bytes\n")
     w = _one_area(tmp_path, monkeypatch, d, {"data/x.csv": b"x-bytes\n"})
     row = _by_id(_plan(w))[oid]
-    assert row["class"] == "redundant" and not row["path_unique"] and not row["deletable"]
+    assert row["class"] == "unresolved" and not row["path_unique"] and not row["deletable"]
 
 
 @pytest.mark.parametrize("first", ["data", "secrets"])
@@ -759,7 +811,7 @@ def test_a_census_without_its_area_roots_parents_makes_nothing_deletable(tmp_pat
     args = ["plan", "--census", str(t / "c.json"), "--inventory", str(t / "i.json")]
     assert dc.main([*args, "--out", str(t / "p.json")]) == 0
     row = _by_id(json.loads((t / "p.json").read_text(encoding="utf-8")))[oid]
-    assert row["class"] == "redundant" and not row["path_unique"] and not row["deletable"]
+    assert row["class"] == "unresolved" and not row["path_unique"] and not row["deletable"]
 
 
 def test_a_name_is_counted_under_every_folder_it_is_in(tmp_path, monkeypatch):

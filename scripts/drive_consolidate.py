@@ -121,6 +121,7 @@ RETRY_SLEEP = 2.0  # seconds, times the attempt number, between query retries
 MAX_DEST = 400  # characters under the root; beyond this the object stays on Drive
 MAX_CMDLINE = 20000  # characters per rclone call; Windows allows 32,767
 MAX_PATHS = 64  # paths to one object through folders with two parents; beyond, left on Drive
+OUTSIDE = "\x00outside"  # a path segment no Drive name holds: a parent the census never listed
 STAGING_SUFFIX = ".d33-staging"
 
 RCLONE: list[str] = ["rclone"]  # the command; tests substitute a fake
@@ -573,7 +574,7 @@ def census(remote: str, areas: list[dict]) -> dict:
                 if obj.get("mimeType") == FOLDER:
                     queue.append(obj["id"])
         objects.sort(key=lambda o: o["id"])
-        _withhold_credential_hashes({**area, "objects": objects})
+        _withhold_credential_hashes({**area, "root_parents": root_parents, "objects": objects})
         mine = census_totals(objects, area["id"])
         walk = rclone_size(remote, area["id"])
         if mine != walk:
@@ -769,10 +770,12 @@ def _every_path(area: dict) -> dict[str, list[str]]:
     """Per object id: its path through every in-area parent chain (up to MAX_PATHS + 1).
 
     A folder with two parents gives what is under it two paths; a rule that reads a
-    path (a credential-shaped name) must hold on every one of them.
+    path (a credential-shaped name) must hold on every one of them. A parent outside
+    the census gives a path starting with OUTSIDE: its names are not known.
     """
     objs = {o["id"]: o for o in area["objects"]}
     top = area["id"]
+    top_single = len(area.get("root_parents") or []) == 1
     memo: dict[str, list[str]] = {}
     visiting: set[str] = set()
 
@@ -786,8 +789,12 @@ def _every_path(area: dict) -> dict[str, list[str]]:
         for p in objs[oid]["parents"]:
             if p == top:
                 out.append(name)
+                if not top_single:  # the area root is in another folder too
+                    out.append(f"{OUTSIDE}/{name}")
             elif p in objs:
                 out.extend(f"{q}/{name}" for q in walk(p))
+            else:  # a parent this census never listed: that path is not known
+                out.append(f"{OUTSIDE}/{name}")
             if len(out) > MAX_PATHS:
                 break
         visiting.discard(oid)
@@ -935,6 +942,10 @@ def _classify(o, every, by_full, md5_count, first_copy, candidates, empty_root):
         return "unresolved", f"reached through more than {MAX_PATHS} paths", ""
     if any(credential_shaped(p) for p in every):  # on every path, not just the first
         return "unresolved", "credential-shaped name: never read or copied", ""
+    if any(p.startswith(OUTSIDE) for p in every):  # a path whose names cannot be checked
+        return "unresolved", "also in a folder outside the area, whose path is not known", ""
+    if o["md5"] == "withheld":  # any other reason the census kept no hash
+        return "unresolved", "hashes withheld by the census: never read or copied", ""
     if o["size"] is None:
         return "needs-byte-check", "Drive lists no size", ""
     if not o["md5"]:
@@ -974,7 +985,8 @@ def _withhold_credential_hashes(area: dict) -> None:
     for o in area["objects"]:
         git_config = o["name"].casefold() == "config" and bool(set(o["parents"]) & gitdirs)
         many = len(every[o["id"]]) > MAX_PATHS
-        if many or git_config or any(credential_shaped(p) for p in every[o["id"]]):
+        unknown = any(p.startswith(OUTSIDE) for p in every[o["id"]])
+        if many or unknown or git_config or any(credential_shaped(p) for p in every[o["id"]]):
             o["md5"] = "withheld" if o["md5"] else None
             o["sha256"] = None
 

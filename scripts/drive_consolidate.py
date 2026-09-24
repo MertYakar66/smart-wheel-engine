@@ -40,8 +40,8 @@ neither count nor download it.
     needs-byte-check  Drive lists no size, MD5 or SHA-256 for it; ``bytecheck``
                       downloads it and settles it (``copy`` refuses to run before)
     unresolved        left where it is and listed: a shortcut, a Google-format
-                      file, a credential-shaped name, a git folder's config,
-                      a path through a folder the census never listed,
+                      file, a credential-shaped name (any file named config
+                      among them), a path through a folder the census never listed,
                       a destination that cannot be placed
 
 A Drive id is one object wherever it is seen, and areas can overlap: a path that
@@ -219,8 +219,10 @@ CREDENTIAL_PATTERNS: tuple[str, ...] = (
     "id_ecdsa*",
     "id_ed25519*",
 )
-# Whole path tails treated the same way: a git config can carry a token in a remote URL.
-CREDENTIAL_PATHS: tuple[str, ...] = (".git/config",)
+# Whole file names, in any folder: a git config can carry a token in a remote URL, and a
+# git folder can come under any name (a bare mirror, an upload without its ".git" name).
+# A folder named config is not affected.
+CREDENTIAL_PATHS: tuple[str, ...] = ("config", "config.worktree")
 
 LEDGER_FIELDS = (
     "area",
@@ -970,27 +972,17 @@ def _classify(o, by_full, md5_count, first_copy, candidates, empty_root):
     return "copy", "no SHA-256 on Drive; its MD5 matches nothing else", ""
 
 
-def _git_dirs(area: dict) -> set[str]:
-    """Folders (the area root included) that hold a HEAD file and an objects/ folder."""
-    kids: dict[str, dict[str, str]] = defaultdict(dict)
-    for o in area["objects"]:
-        for p in o["parents"]:
-            kids[p][o["name"].casefold()] = o["mime"]
-    return {p for p, names in kids.items() if "head" in names and names.get("objects") == FOLDER}
-
-
 def _unsafe_ids(areas: list[dict]) -> dict[str, tuple[str, str]]:
     """Drive ids the tool must never read or copy: id -> (reason, the area that showed it).
 
     Judged on every path in every area, since areas can overlap (one nested in
     another) and an object is one Drive id wherever it is seen: a credential-shaped
-    name on any path, a path through a parent no census listed, more than MAX_PATHS
-    paths, or a git folder's config.
+    name on any path (a file named config among them), a path through a parent no
+    census listed, or more than MAX_PATHS paths.
     """
     bad: dict[str, tuple[str, str]] = {}
     for area in areas:
         every = _every_path(area)
-        gitdirs = _git_dirs(area)
         for o in area["objects"]:
             paths = every[o["id"]]
             if len(paths) > MAX_PATHS:
@@ -999,10 +991,6 @@ def _unsafe_ids(areas: list[dict]) -> dict[str, tuple[str, str]]:
                 reason = "credential-shaped name: never read or copied"
             elif any(p.startswith(OUTSIDE) for p in paths):  # names that cannot be checked
                 reason = "also in a folder outside the area, whose path is not known"
-            elif o["name"].casefold() == "config" and set(o["parents"]) & gitdirs:
-                # A git folder uploaded without its ".git" name: its config can carry a
-                # token in a remote URL, as .git/config can.
-                reason = "git config (beside HEAD and objects/): never read or copied"
             else:
                 continue
             bad.setdefault(o["id"], (reason, area["name"]))

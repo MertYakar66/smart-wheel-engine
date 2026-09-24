@@ -865,15 +865,23 @@ def test_an_empty_file_is_home_only_under_its_exact_name(tmp_path, monkeypatch):
     assert row["class"] == "copy" and not row["deletable"]  # a case variant: copied beside it
 
 
-def test_a_git_folder_uploaded_without_its_name_keeps_its_config_on_drive(tmp_path, monkeypatch):
+@pytest.mark.parametrize("layout", ["git folder", "a second objects, listed last", "no HEAD"])
+def test_a_file_named_config_stays_on_drive_whatever_its_folder_holds(
+    tmp_path, monkeypatch, layout
+):
+    # A git folder can come without its ".git" name, and Drive lets two children share a
+    # name: judged by what sits beside it, its config could pass as data.
     d = FakeDrive()
     d.folder("G", "root", "areaA")
-    d.file("HEAD", "areaA", b"ref: refs/heads/main\n")
+    if layout != "no HEAD":
+        d.file("HEAD", "areaA", b"ref: refs/heads/main\n")
+    d.folder("objects", "areaA", "objM")
+    if layout == "a second objects, listed last":
+        d.file("objects", "areaA", b"a file named objects\n", oid="objZ")
     cfg = d.file("config", "areaA", b"[core]\n\tbare = false\n")
-    d.folder("objects", "areaA")
     w = _one_area(tmp_path, monkeypatch, d, name="G")
     row = _by_id(_plan(w))[cfg]
-    assert row["class"] == "unresolved" and row["reason"].startswith("git config")
+    assert row["class"] == "unresolved" and row["reason"].startswith("credential-shaped")
     assert row["dest"] == "" and row["sha256"] is None
 
 
@@ -1007,12 +1015,18 @@ def test_inventory_never_reads_a_credential_file(world, monkeypatch):
         seen.append(str(path))
         return real(path)
 
+    mirror = world["root"] / "backup" / "mirror.git" / "config"  # a bare mirror's config
+    mirror.parent.mkdir(parents=True)
+    mirror.write_bytes(b"[remote]\n")
     monkeypatch.setattr(dc, "hash_file", spy)
     doc = dc.inventory(world["root"])
-    assert not any("credential" in s for s in seen)
-    cred = next(f for f in doc["files"] if f["path"].endswith("flex_credentials.json"))
-    assert cred["excluded"] and "sha256" not in cred
+    assert not any("credential" in s or s.endswith("config") for s in seen)
+    for name in ("flex_credentials.json", "mirror.git/config"):
+        cred = next(f for f in doc["files"] if f["path"].endswith(name))
+        assert cred["excluded"] and "sha256" not in cred
     assert not any(f["path"].startswith("_logs/") for f in doc["files"])
+    dc.write_sums(world["root"])
+    assert "mirror.git" not in (world["root"] / dc.SUMS).read_text(encoding="utf-8")
 
 
 def test_bytecheck_settles_by_download_and_never_trusts_a_missing_hash(world):
@@ -1816,6 +1830,11 @@ def test_the_rclone_filter_agrees_with_the_tool(tmp_path):
         "cfg/server.pem",
         "cfg/rclone.conf",
         "cfg/config",
+        "cfg/CONFIG",
+        "mirror.git/config",
+        "repo/.git/worktrees/w/config.worktree",
+        "config/settings.csv",
+        "data/config.csv",
         "repo/.git/config",
         "repo/.git/HEAD",
         "keys/id_rsa",
@@ -1892,7 +1911,11 @@ def test_credential_shaped_matches_any_component():
     assert dc.credential_shaped("ibkr/flex_credentials.json")
     assert dc.credential_shaped("cfg/rclone.conf") and dc.credential_shaped("repo/.git/config")
     assert not dc.credential_shaped("data/bloomberg/sp500_credit_risk.csv")
-    assert not dc.credential_shaped("data/keys.csv") and not dc.credential_shaped("cfg/config")
+    assert not dc.credential_shaped("data/keys.csv")
+    assert dc.credential_shaped("cfg/config") and dc.credential_shaped("mirror.git/CONFIG")
+    assert dc.credential_shaped("repo/.git/worktrees/w/config.worktree")
+    assert not dc.credential_shaped("config/settings.csv")  # a folder named config: data
+    assert not dc.credential_shaped("data/config.csv")
     assert dc.credential_shaped("deploy/prod.env") and dc.credential_shaped("x/.env.local")
 
 

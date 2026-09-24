@@ -1532,12 +1532,7 @@ def copy_all(
         return 0
     require_rclone()
     _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
-    log = guard_out(log, root)
-    if _is_link(native(log)):
-        raise ToolError(f"refusing to append to {log}: it is a link or junction")
-    if os.path.exists(native(log)) and os.stat(native(log)).st_nlink > 1:
-        raise ToolError(f"refusing to append to {log}: another name is hard-linked to it")
-    _own_log(log)
+    log = _start_log(log, root)
     staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
@@ -1652,33 +1647,22 @@ def copy_all(
     return 4 if bad else 0
 
 
-LOG_KEYS = frozenset({"id", "dest", "status", "at"})
+def _start_log(log: Path, root: Path) -> Path:
+    """Create the copy log: always a new file of this run's own (an exclusive create).
 
-
-def _own_log(log: Path) -> None:
-    """Refuse to append to a file that is not one of this tool's copy logs.
-
-    A rerun appends to its log, so the record stays whole. Appended to anything else (a
-    ledger, a census, a file of someone else's), the lines would corrupt it.
+    So nothing that was there before is ever read, followed or appended to: a file of any
+    kind (a ledger, someone else's, an empty one), a link or a folder at that path refuses
+    the run before any download. Each run writes its own log; a rerun starts a new one.
     """
-    if credential_shaped(log.name):
-        raise ToolError(f"refusing to append to {log}: a credential-shaped name, never read")
-    if not os.path.lexists(native(log)):
-        return
-    if not os.path.isfile(native(log)):
-        raise ToolError(f"refusing to append to {log}: it is not a file")
-    if os.path.getsize(native(log)) == 0:
-        return
+    log = guard_out(log, root)
     try:
-        with open(native(log), encoding="utf-8") as fh:
-            for line in fh:
-                rec = json.loads(line)
-                if not isinstance(rec, dict) or not LOG_KEYS <= rec.keys():
-                    raise ValueError(line)
-    except ValueError:  # not JSON (json.JSONDecodeError), not text, or not our record
-        raise ToolError(
-            f"refusing to append to {log}: it is not a copy log of this tool; pass a new --log"
-        ) from None
+        fd = os.open(native(log), os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0))
+    except FileExistsError:
+        raise ToolError(f"{log} exists already; the copy log is always a new file") from None
+    except OSError as e:  # a folder there (Windows may say "access denied"), or no such folder
+        raise ToolError(f"cannot start the copy log {log}: {e.strerror or e}") from None
+    os.close(fd)
+    return log
 
 
 def _check_home(root: Path, rel: str, r: dict) -> str:
@@ -2005,7 +1989,9 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--jobs", type=int, default=4)
     sp.add_argument("--reserve-gb", type=float, default=10.0)
     sp.add_argument("--dry-run", action="store_true")
-    sp.add_argument("--log", help="JSON-lines log (default: <plan>_copy.jsonl)")
+    sp.add_argument(
+        "--log", help="JSON-lines log, a new file (default: <plan>_copy-<UTC time>-<random>.jsonl)"
+    )
     sp = sub.add_parser("verify", help="re-hash every copy against the plan")
     sp.add_argument("--plan", required=True)
     sp.add_argument("--root")
@@ -2105,8 +2091,9 @@ def _dispatch(args: argparse.Namespace) -> int:
         print("\n".join(summarize(plan)))
         return 0
     if args.cmd == "copy":
-        log = Path(args.log) if args.log else plan_path.with_name(plan_path.stem + "_copy.jsonl")
-        _not_an_input([log], [plan_path])  # appended lines would corrupt the plan
+        stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+        own = plan_path.with_name(f"{plan_path.stem}_copy-{stamp}-{os.urandom(3).hex()}.jsonl")
+        log = Path(args.log) if args.log else own  # created new, so never the plan or its ledger
         return copy_all(
             plan,
             root,

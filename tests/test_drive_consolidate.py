@@ -408,6 +408,15 @@ def _by_id(plan: dict) -> dict:
     return {r["id"]: r for r in plan["rows"]}
 
 
+def _copy_logs(w) -> list[Path]:
+    """Every copy log the runs made beside the plan, oldest first (each run starts its own)."""
+    return sorted(w["tmp"].glob("p_copy-*.jsonl"), key=lambda p: p.stat().st_mtime_ns)
+
+
+def _copy_log_lines(w) -> list[str]:
+    return [x for p in _copy_logs(w) for x in p.read_text(encoding="utf-8").splitlines()]
+
+
 def _fetched(w) -> list[str]:
     return w["log"].read_text(encoding="utf-8").split()
 
@@ -1581,8 +1590,7 @@ def test_one_undownloadable_object_does_not_block_its_batch(world, monkeypatch):
     for r in plan["rows"]:
         if r["class"] == "copy" and r["id"] != blocked:
             assert (root / r["dest"]).is_file(), r["dest"]
-    log = (world["tmp"] / "p_copy.jsonl").read_text(encoding="utf-8")
-    assert "cannotDownloadAbusiveFile" in log
+    assert any("cannotDownloadAbusiveFile" in line for line in _copy_log_lines(world))
 
 
 def test_an_interrupted_copy_resumes_without_copying_twice(world, monkeypatch):
@@ -1769,7 +1777,7 @@ def test_a_stop_while_publishing_leaves_no_changed_download(tmp_path, monkeypatc
         real_open = open
 
         def locked(file, mode="r", *a, **k):
-            if str(file).endswith("_copy.jsonl") and "a" in mode:
+            if os.path.basename(str(file)).startswith("p_copy-") and "a" in mode:
                 raise PermissionError(errno.EACCES, "held by another program", str(file))
             return real_open(file, mode, *a, **k)
 
@@ -1969,7 +1977,7 @@ def test_a_publish_that_fails_is_a_failure_not_a_crash(world, monkeypatch):
     monkeypatch.setattr(dc.os, "link", busy)
     assert _copy(world) == 4  # a rerun resumes
     assert _root_hashes(root) == before  # nothing written straight into the root
-    log = (world["tmp"] / "p_copy.jsonl").read_text(encoding="utf-8").splitlines()
+    log = _copy_log_lines(world)
     copies = [r for r in plan["rows"] if r["class"] == "copy"]
     assert len(log) == len(copies) and all("publish failed" in line for line in log)
     monkeypatch.setattr(dc.os, "link", real_link)
@@ -2478,37 +2486,51 @@ def test_outputs_never_go_through_a_linked_logs_folder(world):
     }
 
 
-def test_copy_never_appends_its_log_to_a_hard_linked_file(world, tmp_path):
+def test_copy_never_writes_its_log_to_a_hard_linked_file(world, tmp_path):
     _plan(world)
     _bytecheck(world)
     victim = tmp_path / "victim.csv"
     victim.write_bytes(b"precious bytes\n")
     try:
-        os.link(victim, world["tmp"] / "p_copy.jsonl")
+        os.link(victim, world["tmp"] / "log.jsonl")
     except OSError as e:
         pytest.skip(f"hard links are not available here: {e}")
-    assert _copy(world) == 2
-    assert victim.read_bytes() == b"precious bytes\n"
+    before = _fetched(world)  # bytecheck's downloads
+    assert _copy(world, "--log", str(world["tmp"] / "log.jsonl")) == 2
+    assert victim.read_bytes() == b"precious bytes\n" and _fetched(world) == before
 
 
-def test_copy_never_appends_its_log_through_a_link(world, tmp_path):
+def test_copy_never_writes_its_log_through_a_link(world, tmp_path):
     _plan(world)
     _bytecheck(world)
     victim = tmp_path / "victim.csv"
     victim.write_bytes(b"precious bytes\n")
-    _symlink_or_skip(world["tmp"] / "p_copy.jsonl", victim)
-    before = len(_fetched(world))
-    assert _copy(world) == 2
-    assert victim.read_bytes() == b"precious bytes\n" and len(_fetched(world)) == before
+    _symlink_or_skip(world["tmp"] / "log.jsonl", victim)
+    before = _fetched(world)  # bytecheck's downloads
+    assert _copy(world, "--log", str(world["tmp"] / "log.jsonl")) == 2
+    assert victim.read_bytes() == b"precious bytes\n" and _fetched(world) == before
+    dangling = world["tmp"] / "dangling.jsonl"  # a link to a file not there yet
+    _symlink_or_skip(dangling, tmp_path / "not-yet.jsonl")
+    assert _copy(world, "--log", str(dangling)) == 2
+    assert not (tmp_path / "not-yet.jsonl").exists() and _fetched(world) == before
 
 
-@pytest.mark.parametrize(
-    "log",
-    ["the plan's ledger", "the inventory", "someone else's notes", "someone else's JSON lines"],
-)
-def test_copy_appends_only_to_its_own_log(tmp_path, monkeypatch, log):
-    # The ledger is card 3's forecast; copy does not read it, so only this check keeps
-    # the log's lines out of it (and out of any other file that is not a copy log).
+LOG_TARGETS = [
+    "the plan's ledger",
+    "the inventory",
+    "someone else's notes",
+    "someone else's JSON lines",
+    "an empty file",
+    "a file in a secrets folder",
+    "rclone.conf",
+    "a folder",
+]
+
+
+@pytest.mark.parametrize("log", LOG_TARGETS)
+def test_the_copy_log_is_always_a_new_file(tmp_path, monkeypatch, log):
+    # Nothing that was there is read, followed or appended to: not card 3's ledger, not an
+    # empty file of someone else's, not a file in a credential-shaped folder.
     d = FakeDrive()
     d.folder("A", "root", "areaA")
     data = d.folder("data", "areaA")
@@ -2519,40 +2541,53 @@ def test_copy_appends_only_to_its_own_log(tmp_path, monkeypatch, log):
     t = w["tmp"]
     target = {"the plan's ledger": t / "p_ledger.csv", "the inventory": t / "i.json"}.get(log)
     if target is None:
-        target = tmp_path / ("events.jsonl" if "JSON" in log else "notes.txt")
-        target.write_bytes(b'{"event": "login"}\n' if "JSON" in log else b"their notes\n")
-    before = target.read_bytes()
-    assert _copy(w, "--log", str(target)) == 2
-    assert target.read_bytes() == before and _fetched(w) == []
-    (t / "a-folder").mkdir()
-    assert _copy(w, "--log", str(t / "a-folder")) == 2 and _fetched(w) == []
-    monkeypatch.setenv("FAKE_FAIL_IDS", late)
-    assert _copy(w) == 4  # its own log, from nothing
-    monkeypatch.delenv("FAKE_FAIL_IDS")
-    assert _copy(w) == 0  # a rerun reads its own lines there, and appends
-    lines = (t / "p_copy.jsonl").read_text(encoding="utf-8").splitlines()
-    # a failed download is logged as it fails, before anything is published
-    assert [json.loads(x)["status"][:2] for x in lines] == ["do", "ok", "ok"]
-
-
-def test_copy_never_reads_a_credential_shaped_log(tmp_path, monkeypatch):
-    d = FakeDrive()
-    d.folder("A", "root", "areaA")
-    d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
-    w = _one_area(tmp_path, monkeypatch, d)
-    _plan(w)
-    conf = tmp_path / "rclone.conf"
-    conf.write_bytes(b"[gdrive]\ntoken = x\n")
+        name = {
+            "someone else's JSON lines": "events.jsonl",
+            "an empty file": "done.flag",
+            "a file in a secrets folder": "secrets/copy.jsonl",
+            "rclone.conf": "rclone.conf",
+            "a folder": "a-folder",
+        }.get(log, "notes.txt")
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if log == "a folder":
+            target.mkdir()
+        else:
+            body = {"an empty file": b"", "someone else's JSON lines": b'{"event": "x"}\n'}
+            target.write_bytes(body.get(log, b"[gdrive]\ntoken = x\n"))
+    before = None if target.is_dir() else target.read_bytes()
     opened = []
     real_open = open
 
     def spy(file, *a, **k):
-        opened.append(str(file))
+        opened.append(os.path.basename(str(file)))
         return real_open(file, *a, **k)
 
     monkeypatch.setattr(dc, "open", spy, raising=False)
-    assert _copy(w, "--log", str(conf)) == 2
-    assert not any("rclone.conf" in f for f in opened) and _fetched(w) == []
+    assert _copy(w, "--log", str(target)) == 2
+    assert target.name not in opened and _fetched(w) == []
+    assert (target.is_dir() and list(target.iterdir()) == []) or target.read_bytes() == before
+    monkeypatch.setenv("FAKE_FAIL_IDS", late)
+    assert _copy(w) == 4  # its own log, a new file
+    monkeypatch.delenv("FAKE_FAIL_IDS")
+    assert _copy(w) == 0  # a rerun starts another
+    first, second = (p.read_text(encoding="utf-8").splitlines() for p in _copy_logs(w))
+    # a failed download is logged as it fails, before anything is published
+    assert [json.loads(x)["status"][:2] for x in first] == ["do", "ok"]
+    assert [json.loads(x)["status"][:2] for x in second] == ["ok"]
+
+
+def test_the_copy_log_never_lands_in_the_live_trees(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d, {"data/keep.csv": b"keep\n"})
+    _plan(w)
+    assert _copy(w, "--log", str(w["root"] / "data" / "copy.jsonl")) == 2
+    assert not (w["root"] / "data" / "copy.jsonl").exists() and _fetched(w) == []
+    (w["root"] / "_logs").mkdir(exist_ok=True)
+    assert _copy(w, "--log", str(w["root"] / "_logs" / "copy.jsonl")) == 0  # its own place
+    assert (w["root"] / "_logs" / "copy.jsonl").read_text(encoding="utf-8").count("\n") == 1
 
 
 def test_one_download_the_tool_cannot_read_fails_alone(tmp_path, monkeypatch):
@@ -2579,8 +2614,7 @@ def test_one_download_the_tool_cannot_read_fails_alone(tmp_path, monkeypatch):
     assert dc._staging(w["root"]).exists() is False or not any(
         p.is_file() for p in dc._staging(w["root"]).rglob("*")
     )
-    log = (w["tmp"] / "p_copy.jsonl").read_text(encoding="utf-8")
-    assert "download unreadable" in log
+    assert any("download unreadable" in line for line in _copy_log_lines(w))
     monkeypatch.setattr(dc, "hash_file", real)
     first = len(_fetched(w))
     assert _copy(w) == 0 and _verify(w) == 0

@@ -85,7 +85,8 @@ Theta-native), so there is **no** Theta greeks/IV history time series.
 panels, not the deep slices, not the day-bot ticks, not the feature
 shards, not the Theta corpus, and not any future collection. The data
 lives under the data root on the operator's desktop; Google Drive is
-the backup (delayed, not a source of truth). The only data-shaped files
+the backup, never a source of truth. D33 (2026-09-24) makes it a complete
+second copy, one folder `swe-data/` laid out like the root. The only data-shaped files
 git holds are `data/DATA_MANIFEST.json` (hashes, not bytes) and the small
 synthetic fixtures under `tests/fixtures/`. A refresh therefore ends
 with `python scripts/data_manifest.py build --root <root>` and a commit
@@ -299,8 +300,10 @@ never touched by it. A data file committed again fails
 **Backup.** Google Drive holds a verified copy of the served monoliths and
 the deep slices and a copy of the local-only stores (`DATA_INVENTORY.md`
 §C); the day-bot ticks got theirs on 2026-09-23 (`swe-local-only/ticks`,
-`rclone check` clean), and `data_archive/` and the full-history bundle get
-theirs before any branch is deleted. Drive is a backup, never a source of truth: the engine
+`rclone check` clean), and `data_archive/` and the full-history bundle got
+theirs the same day. D33 (2026-09-24) turns these scattered copies into one:
+`swe-data/`, laid out like the root, checked both ways, with a checksum list
+kept in both places (`DATA_INVENTORY.md` §A step 7). Drive is a backup, never a source of truth: the engine
 reads the desktop root, and `check` — not a folder listing — is what
 "the copy is complete" means.
 

@@ -21,20 +21,24 @@ exact bytes, this census for structure and coverage._
 
 Operator ruling 2026-09-18 (D31): every dataset, past and future, must be
 accessible on the main Windows desktop; git is not a data store; Google Drive
-stays the (delayed) backup, never a source of truth. `SWE_DATA_ROOT` names the
+stays the (delayed) backup, never a source of truth. **Ruling 2026-09-24 (D33):**
+the MacBook is outside the data estate. Drive becomes the complete second copy:
+one folder, `swe-data/`, laid out like the root and checked both ways. Old Drive
+copies are removed only when proven identical (§A step 7, §C.3). `SWE_DATA_ROOT` names the
 data root (`engine/paths.py` re-roots `data/`, `data_raw/`, `data_processed/`
 under it; unset = the repository folder, the old behaviour — `docs/DATA_POLICY.md`
 §6). The campaign runs in verified steps:
 
-| Step | What | Status (2026-09-23) |
+| Step | What | Status (2026-09-24) |
 |---|---|---|
 | 1 | Manifest of everything GitHub holds | **done** — 99 files at ruling time; **144 files / 1.74 GB** since 2026-09-23, after the desktop audit (#527) found two gaps: the 16 tracked feature sidecars (`data/features/*/ticker=AAPL/{metadata,stats}.json`) and the data that exists only on non-`main` branches (the 29-file archive, §C.2). `tests/test_data_manifest.py` now fails if any tracked data file lacks a row |
 | 2 | Bring the git-held datasets onto the desktop | **done** — `C:\Users\merty\Desktop\swe-data`, 2026-09-23 (#527, then the 45 rows #528 added) |
 | 3 | Verify the desktop root by checksum | **done** — `checked 144 manifest files: 144 ok, 0 missing, 0 mismatched` (2026-09-23, after #528; the first pass read 99/99 and was confirmed by an independent three-way byte audit, #527) |
 | 4 | CI / sandbox posture without data (`requires_data` skips, no data root) | **done** |
 | 5 | Untrack the data from git (no history rewrite) | **done 2026-09-23** — the 87 tracked data files left the index (`git rm --cached`; every earlier commit still holds them, so `materialize` can still read them from history); `.gitignore` keeps data out, and `tests/test_data_manifest.py` fails if a data file is tracked again; CI runs without data, with the two per-file floors that only held with data recalibrated to the no-data measurement (`scripts/check_coverage_floors.py`). A `git pull` of this change removes the tracked copies from a checkout's working tree — expected; the root holds them |
-| 6 | Delete the four non-`main` branches, close #507 | **held** until (a) a full-history git bundle of every branch sits on the desktop, verified (`git bundle verify`; its heads equal `git ls-remote`) — the only copy of 36 superseded file versions (603 MB) on `deep-history/bloomberg-raw` and of the branches' scripts and docs; (b) Drive holds `data_archive/` and the bundle, `rclone check` clean. The ticks' Drive copy is done (2026-09-23: `swe-local-only/ticks`, 15 matching, 0 differences) |
-| 2b | The data laptop's local-only stores onto the desktop | **open — from the laptop** (round 3, 2026-09-23). The desktop is not the data laptop (#527). The laptop is available (Operator, 2026-09-23; an earlier entry here called it gone, wrongly). It is the origin of the Theta corpus (~132,862 files, ~11 GB), the feature shards, and the fuller `option_premium` and `ibkr`. Drive `swe-local-only` (§C.1) is not a full copy: its `theta` holds 17,188 files, 1.245 GiB. The transfer: (1) the laptop writes its data trees, without code or credentials, to an exFAT drive, together with a sha256 manifest built on the laptop; (2) the desktop checks the drive against that manifest; (3) it copies into the root with `rclone copy --ignore-existing`, so nothing already in the root is overwritten; (4) it checks the root against the manifest. Two kinds of file are kept side by side instead of in the live tree. Where the root already held a file with other bytes, the laptop's version goes to `data_archive/laptop-2026-09-23/<path>`. A Drive version the root lacks goes to `data_archive/drive-swe-local-only/<child>/<path>`. The partial Drive `theta` pull from the morning of 2026-09-23 is set aside whole under `_drive_copy/`, which is outside the manifest. `corporate_actions` and `edgar` never existed on the laptop. `sim` is regenerable |
+| 6 | Delete the four non-`main` branches | **held, under D33.** Three conditions: (a) the root checks 144/0/0; (b) Drive's `swe-data/` equals the root, checked both ways (step 7, card 2); (c) the full-history bundle restores from Drive's copy into an empty repository, with `git fsck --full` clean and the four exact commits present. Then one atomic push deletes the four, with a lease on each; it refuses if any branch has moved. Afterwards, 32 older data versions that only the branches' histories hold (not `main`'s history, not #507's retained head) live only in the bundle, on the desktop and on Drive. #507 has been closed since 2026-09-23. The ticks' Drive copy is done (2026-09-23: `swe-local-only/ticks`, 15 matching, 0 differences) |
+| 2b | The data laptop's local-only stores onto the desktop | **abandoned 2026-09-24 (D33):** "we will forget the macbook exists". The MacBook's Theta corpus (~132,862 files, ~11 GB), its feature shards and `sim` are not recovered; Theta is collected again later, from a source not yet chosen. The root holds everything Drive's `swe-local-only` held, checked on 2026-09-23 (the desktop's round 3, recorded on `claude/data-home-desktop-round3`): `theta` 17,188 files, `features` 11,858, `option_premium` 155 and `ibkr` 19. Two `ibkr` files differed, so both versions are kept, Drive's under `data_archive/drive-swe-local-only/ibkr/` |
+| 7 | Drive consolidation (D33): one folder, `swe-data/`, laid out like the root; the old Drive areas (§C.3) checked object by object | **approved 2026-09-24.** The checking tool comes first, then three desktop cards: (1) prove and plan, with no deletions and no Drive writes; (2) copy home what only Drive holds, build `swe-data/`, check it both ways and run the restore tests from Drive, with no deletions; (3) clean up the proven duplicates from a named list, with the Operator's yes |
 
 ## §B. Fill and verify the desktop root (once)
 
@@ -66,8 +70,8 @@ desktop root, Drive and the full-history bundle are where those bytes live.
 | **B — deep** | 13 gz slices, 1994→2026 + delisted — 373 MB (§2) | `data/bloomberg/deep/` | branch `deep-history/bloomberg-raw` @ `68a48b2` only (gitignored on `main`) | Drive `deep` (`1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`): 13/13 present, byte-exact sizes 2026-09-18 |
 | **B′ — ticks** | 15 SPY/QQQ day-bot tick files — 491 MB | `data_raw/bloomberg/ticks/` | branch `claude/daybot-bloomberg-pull` @ `2abf850` only | the desktop root (verified 2026-09-23, #527) and Drive `swe-local-only/ticks` (`1wnhr4kLZt6FBpuhUCSbc6hk7Igz7JFop`): 15/15, `rclone check --checksum --one-way` clean 2026-09-23 |
 | **A′ — small samples** | `data/features` AAPL sample (26 files: 10 parquet + the 16 `metadata.json` / `stats.json` sidecars `FeatureStore` reads), `data_raw` yfinance/ohlcv/constituents (11), `data_processed/trade_universe` (1) | as named | untracked 2026-09-23 (step 5); in `main`'s history | Drive `swe-local-only/` (§C.1) |
-| **R — branch archive** | every distinct data file at the tip of a non-`main` branch that no other row carries — 29 files, {tot/1e6:.1f} MB (§C.2); read by no code | `data_archive/<branch>/<path>` | the four non-`main` branches only | none yet — Drive after the rclone re-auth |
-| **C — local-only** | Theta corpus (~11 GB), option-premium rail, feature shards, vol_indices, validation, ibkr (credentials excluded), sim | `data_processed/**`, `data/features/**` | never | Drive `swe-local-only/` (§C.1) — `theta` upload unverified. **On the desktop root** (moved 2026-09-23, #527): `option_premium` (15 files), `validation` (23), `ibkr` (5), `vol_indices*.parquet`, loose `*.json` — 50 files, 219 MB. **Only on the data laptop:** the Theta corpus, the feature shards, `sim`, `corporate_actions`, `edgar`, and the laptop's fuller `option_premium` (155 files) and `ibkr` (19) |
+| **R — branch archive** | every distinct data file at the tip of a non-`main` branch that no other row carries — 29 files, 312.8 MB (§C.2); read by no code | `data_archive/<branch>/<path>` | the four non-`main` branches only | Drive `swe-local-only/data_archive` (`1hCmngYyGwSHvkCT_BmF-EC-t8fkUA7xi`), together with the full-history bundle: `rclone check --checksum --one-way` 0 differences, 33 matching (2026-09-23, the desktop's round 3) |
+| **C — local-only** | Theta corpus (partial), option-premium rail, feature shards, vol_indices, validation, ibkr (credentials excluded) | `data_processed/**`, `data/features/**` | never | **On the desktop root, checked 2026-09-23** (#527 and the desktop's round 3): everything Drive's `swe-local-only/` held (§C.1), including `theta` (17,188 files, 1,337,169,896 B), `features` (11,858), `option_premium` (155) and `ibkr` (19). Drive `swe-local-only/` still holds the older copies (§C.1, §C.3). **Not recovered, by D33:** the MacBook's full Theta corpus (~132,862 files, ~11 GB), its feature shards and `sim`; Theta is collected again later. `corporate_actions` and `edgar` never existed on the laptop |
 
 ### §C.1 — `swe-local-only/` Tier-C backup record (root `1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`)
 
@@ -75,7 +79,7 @@ _Salvaged verbatim on 2026-09-18 from branch `backup/drive-tier-c-2026-07-22` (i
 content) so the branch can be deleted. The `theta` row was still uploading on 2026-07-22 and has
 **not** been re-verified since; every other row was `rclone check --checksum` clean that day.
 2026-09-23: that upload never finished. Drive holds 17,188 of the ~132,862 files (1.245 GiB of ~11 GB),
-so the full corpus exists only on the data laptop until §A step 2b lands it in the desktop root._
+The desktop pulled all 17,188 home and checked them on 2026-09-23 (0 differences). The rest stays on the MacBook, which is outside the data estate (D33)._
 
 Copied with `rclone copy … gdrive: --drive-root-folder-id <child-id> --checksum` (explicit-ID
 addressing, empty remote path) and verified with `rclone check … --checksum --one-way`
@@ -84,7 +88,7 @@ independent). Backed up / verified **2026-07-22**.
 
 | Child (folder id) | Local source | `rclone check --checksum` |
 |---|---|---|
-| `theta` (`13sjqmRt389zaGi4iiA6xFSoDeRd1QzSp`) | `data_processed/theta/` (~11 GB, ~132,862 files) | ⏳ **upload in progress** — file-by-file over a ~1 Mbps uplink; **verification PENDING** |
+| `theta` (`13sjqmRt389zaGi4iiA6xFSoDeRd1QzSp`) | `data_processed/theta/` | the July upload never finished: 17,188 files, 1,337,169,896 B. Pulled to the desktop root and checked 2026-09-23: ✅ 0 differences · 17,188 files |
 | `option_premium` (`1s9ARxD8EDKUG_vRVdD4C-nGjGdkjNO9-`) | `data_processed/option_premium/` (1.8 GB) | ✅ 0 differences · 155 files |
 | `features` (`1DFNY72PZBUcbQOxyvBX0BwPIrBCZe1A4`) | `data/features/` (~1.2 GB, 11,858 files; `_locks/`, `_backfill_log.csv`, `*.log` excluded) | ✅ 0 differences · 11,858 files |
 | `vol_indices` (`1qHskhi0NOuwUuGHgQGAh6CKpbdzoE7us`) | `data_processed/vol_indices.parquet` + `_wide.parquet` | ✅ 0 differences · 2 files |
@@ -150,6 +154,25 @@ transcripts). Those live only in git history, so before any branch is deleted th
 desktop writes a full-history bundle of every branch
 (`data_archive/git/<name>.bundle`, `git bundle verify` clean, its heads equal to
 `git ls-remote`) and Drive gets a copy (§A step 6).
+
+Done on 2026-09-23 (the desktop's round 3): `data_archive/git/smart-wheel-engine-all-refs-2026-09-23.bundle` (1,698,024,795 B), proved by reading data back out of it, with a copy on Drive. Counted exactly on 2026-09-24: **32** data versions are reachable only from the four branches' histories. Neither `main`'s history nor #507's retained head (`refs/pull/507/head`) holds them. After step 6 the bundle is their only copy, which is why D33 requires it to restore from Drive's copy first.
+
+### §C.3 — Google Drive before the consolidation: four areas (2026-09-24)
+
+_Found by the pen on 2026-09-24 through a read-only Drive connector, by searching
+folder names (D33). Card 1's census lists every object in them. Folders unrelated
+to this project are not recorded._
+
+| Area | Folder (id) | What it holds | Treatment (D33) |
+|---|---|---|---|
+| 1 | `swe-local-only/`, top of My Drive (`1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`) | the Tier-C backup of 2026-07-22 (§C.1); `ticks` (2026-09-23); `data_archive/` (`1hCmngYyGwSHvkCT_BmF-EC-t8fkUA7xi`), holding the 29-file branch archive, the full-history bundle and `drive-swe-local-only/` | consolidate: copy home anything unique, then remove the proven duplicates |
+| 2 | `SmartWheelData/`, in The_Works › Projects › OptionsEngine_Project (`1wCFPBf0o9PJMy2f2vy34S316XFc1Sq3e`, created 2026-07-12) | `data/`, with the Tier-A `bloomberg` mirror (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`, its `deep` child `1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`) and `features/`. `data_processed/` (`1vsBgmmRX0W9au30MQeEl0ha9kQld2vo7`), with a second, older `theta` upload (`1tUUfH_Ogq1RL2rubTKf5rzUWDBKIKo3i`), `option_premium`, `ibkr`, `validation` and `trade_universe`. `data_raw/`. `archive/` (`186O38w7OD0_QjPcsjGRaCOKG-0DJGPVD`), with `bloomberg_snapshot_2026-03-20`. `swe-deep-history/` (`13b5QUa-KV0fsaf0_f8N5n7ykqZ6m1Jd-`, §5), whose `sp500_vol_iv_full__1994_2026_FULL.csv.gz` (58,316,365 B) no manifest row carries. `staging/`, three checksum lists and some code files | consolidate |
+| 3 | `smart-wheel-engine/`, top of My Drive (`1dA_fq1MorvsqUWeVxqR0aAaJ9XMwEjUY`, 2026-04-23) | a partial upload of the repository's `.git` folder | consolidate, like areas 1 and 2: its files come home under `data_archive/drive-legacy/`, and the old copies go only once proven byte-identical to files in `swe-data/`. A git object is not byte-identical to the bundle that holds it, so the bundle does not count as a copy |
+| 4 | `_local_archive/`, inside Projects › Day_Trading_Bot (`1BBSXZIZBF8xwqIvkybN9WK8GOSVDiwo0`, 2026-07-21) | `vendor_swe_data` (`1EewDv70haKPVzjmhTDvo27lLsMjlqyzY`), `vendor_swe_data_raw` (`1_u85pi25w-H5HynRH3-WvGv1tMd8MW71`), `vendor_swe_data_processed` (`1WXeonbDMTT_VsGDizQD32Rw0V14xLxHE`) and `data_raw` (`1uHSbrEaZoyW_Tgn1BimSz02KOJ18e616`): copies of this project's data, with folder dates of 2026-06-02 | read only: copy home anything unique, and delete nothing, because the folder belongs to the day-bot project |
+
+After the consolidation (card 2), this project has one Drive folder: `swe-data/`
+at the top of My Drive, laid out exactly like the desktop root. Card 2 records its
+id and layout here, with the routine that keeps it current.
 
 ---
 
@@ -332,6 +355,9 @@ on-disk deep slice), and `sp500_vol_iv_full__1994_2026_FULL.csv.gz` (58,316,365 
 convenience concat, **not** in git, **not** byte-reproducible from the current monolith).
 The complete 13-file deep set in §2 is the superset (restored from
 `deep-history/bloomberg-raw`). _Remote not accessed during this regeneration._
+
+**2026-09-24:** this folder sits in Drive area 2 (§C.3). The consolidation checks each file,
+and copies `…_FULL.csv.gz` home if the root lacks it (D33).
 
 ---
 

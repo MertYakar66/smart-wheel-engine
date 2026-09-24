@@ -197,7 +197,13 @@ if args[:2] == ["backend", "copyid"]:
             link, target = squat_link.split("|")
             if not os.path.lexists(link):
                 os.makedirs(os.path.dirname(link), exist_ok=True)
-                os.symlink(target, link, target_is_directory=True)
+                try:
+                    os.symlink(target, link, target_is_directory=True)
+                except OSError:  # Windows without the symlink privilege: a junction, as the
+                    if os.name != "nt":  # tests' own probe makes
+                        raise
+                    import _winapi
+                    _winapi.CreateJunction(target, link)
         squat = os.environ.get("FAKE_SQUAT")
         if squat and not os.path.exists(squat):
             os.makedirs(os.path.dirname(squat), exist_ok=True)
@@ -1183,6 +1189,28 @@ def test_the_same_root_spelled_two_ways_is_the_same_root():
     assert not dc.same_path("\\\\?\\C:\\swe-data", "C:\\other")
 
 
+def test_only_the_two_extended_forms_are_spelled_the_ordinary_way(world, tmp_path, monkeypatch):
+    # Without its prefix, a volume GUID or GLOBALROOT path reads as a relative one, and the
+    # checks would compare the wrong place.
+    assert dc._plain("\\\\?\\C:\\swe-data\\x") == "C:\\swe-data\\x"
+    assert dc._plain("\\\\?\\UNC\\srv\\share\\x") == "\\\\srv\\share\\x"
+    assert dc._plain("\\\\?\\unc\\srv\\share\\x") == "\\\\srv\\share\\x"
+    guid = "\\\\?\\Volume{01234567-89ab-cdef-0123-456789abcdef}\\swe-data\\data\\i.json"
+    for odd in (
+        guid,
+        "\\\\?\\GLOBALROOT\\Device\\HarddiskVolume3\\swe-data\\data\\i.json",
+        "\\\\.\\C:\\swe-data\\data\\i.json",
+        "\\\\?\\C:",
+    ):
+        with pytest.raises(dc.ToolError):
+            dc._plain(odd)
+    cwd = tmp_path / "cwd"  # where the stripped path would have landed, as a relative one
+    cwd.mkdir()
+    monkeypatch.chdir(cwd)
+    assert dc.main(["inventory", "--root", str(world["root"]), "--out", guid]) == 2
+    assert list(cwd.iterdir()) == []
+
+
 @pytest.mark.parametrize("where", ["_logs", "_logs/sub", "_logs, through another name"])
 def test_no_output_goes_through_a_link_under_the_root_to_somewhere_else(world, tmp_path, where):
     # A link under the root that leads outside it: an output there would replace a file of
@@ -1219,6 +1247,49 @@ def test_no_output_reaches_the_root_through_a_side_door_while_its_logs_is_a_link
     _symlink_or_skip(side, root / "data", is_dir=True)
     assert dc.main(["inventory", "--root", str(root), "--out", str(side / "x.csv")]) == 2
     assert (root / "data/x.csv").read_bytes() == before
+
+
+@pytest.mark.parametrize("alias_to", ["_logs", "_logs/deeper"])
+def test_no_output_goes_through_a_link_in_the_root_reached_by_another_name(
+    world, tmp_path, alias_to
+):
+    # Another name for _logs (or a folder in it), and a link in there that leads out: no
+    # part of the spelled path is the root itself, but the link still lives inside it.
+    root = world["root"]
+    outside = tmp_path / "someone-else"
+    outside.mkdir()
+    (outside / "i.json").write_bytes(b"their bytes\n")
+    (root / alias_to).mkdir(parents=True, exist_ok=True)
+    _symlink_or_skip(root / alias_to / "sub", outside, is_dir=True)
+    alias = tmp_path / "alias"
+    _symlink_or_skip(alias, root / alias_to, is_dir=True)
+    for out in (alias / "sub" / "i.json", alias / "sub" / "new.json"):
+        assert dc.main(["inventory", "--root", str(root), "--out", str(out)]) == 2
+    assert (outside / "i.json").read_bytes() == b"their bytes\n"
+    assert sorted(p.name for p in outside.iterdir()) == ["i.json"]
+
+
+@pytest.mark.parametrize("where", ["in the root's data", "outside the root"])
+def test_no_output_path_has_a_dotdot_after_a_link(world, tmp_path, where):
+    # Linux takes lnk/.. as the folder above where the link leads; the tool writes by name,
+    # to the folder the link sits in. A path that names two places is refused.
+    if where == "outside the root" and os.name == "nt":
+        pytest.skip("Windows takes '..' by name, as the tool does: one place")
+    root = world["root"]
+    deep = tmp_path / "elsewhere" / "deep"
+    deep.mkdir(parents=True)
+    if where == "in the root's data":
+        base, name = root / "data", "x.csv"
+    else:
+        base, name = tmp_path / "mine", "i.json"
+        base.mkdir()
+        (base / name).write_bytes(b"mine\n")
+    before = (base / name).read_bytes()
+    _symlink_or_skip(base / "lnk", deep, is_dir=True)
+    out = str(base / "lnk") + os.sep + ".." + os.sep + name
+    assert dc.main(["inventory", "--root", str(root), "--out", out]) == 2
+    assert (base / name).read_bytes() == before
+    assert not (tmp_path / "elsewhere" / name).exists()
 
 
 def test_the_copy_log_is_never_the_plan(tmp_path, monkeypatch):
@@ -2029,16 +2100,27 @@ def test_nothing_is_placed_under_a_linked_folder(tmp_path, monkeypatch):
     assert "drive-legacy" not in (w["root"] / dc.SUMS).read_text(encoding="utf-8")
 
 
+@pytest.mark.parametrize("spelling", ["plain", "prefixed, as native() spells it on Windows"])
 @pytest.mark.parametrize("python", ["3.12 (os.path.isjunction)", "3.11 (the reparse tag)"])
-def test_the_inventory_never_follows_a_junction(tmp_path, monkeypatch, python):
+def test_the_inventory_never_follows_a_junction(tmp_path, monkeypatch, python, spelling):
     # os.walk follows a Windows junction (os.path.islink says no), so the tool prunes it,
-    # on either Python the repository supports.
-    w, oid = _new_only_on_drive(tmp_path, monkeypatch, {"data/mount/new.csv": b"only on drive\n"})
-    mount = os.path.abspath(w["root"] / "data" / "mount")
-    if python.startswith("3.12"):
+    # on either Python the repository supports. On Windows native() spells every path
+    # with \\?\, which os.path.abspath keeps; here a leading // stands in for it.
+    if spelling.startswith("prefixed"):
+        real_native = dc.native
         monkeypatch.setattr(
-            dc.os.path, "isjunction", lambda p: os.path.abspath(p) == mount, raising=False
+            dc,
+            "native",
+            lambda p: real_native(p) if real_native(p).startswith("//") else "/" + real_native(p),
         )
+    w, oid = _new_only_on_drive(tmp_path, monkeypatch, {"data/mount/new.csv": b"only on drive\n"})
+    mount = w["root"] / "data" / "mount"
+
+    def is_mount(p) -> bool:  # by identity, however the tool spells the path
+        return os.path.isdir(p) and os.path.samefile(p, mount)
+
+    if python.startswith("3.12"):
+        monkeypatch.setattr(dc.os.path, "isjunction", is_mount, raising=False)
     else:
         monkeypatch.delattr(dc.os.path, "isjunction", raising=False)
         real_lstat = os.lstat
@@ -2054,7 +2136,7 @@ def test_the_inventory_never_follows_a_junction(tmp_path, monkeypatch, python):
 
         def lstat(p, *a, **k):
             st = real_lstat(p, *a, **k)
-            return Tagged(st) if os.path.abspath(p) == mount else st
+            return Tagged(st) if is_mount(p) else st
 
         monkeypatch.setattr(dc.os, "lstat", lstat)
     row = _by_id(_plan(w))[oid]
@@ -2119,6 +2201,30 @@ def test_sweep_stops_on_a_destination_with_other_bytes(sweep_world):
     assert _sweep(sweep_world) == 3
     assert squat.read_bytes() == b"other bytes\n"
     assert not (root / "data_archive/old/a/empty.flag").exists()
+
+
+@pytest.mark.parametrize("folder", ["gdrive_credentials", "secrets/export", "a link to secrets/"])
+def test_sweep_never_reads_under_a_credential_shaped_source(sweep_world, monkeypatch, folder):
+    # The name rule applies to the source's own path as well as to the files below it: a
+    # file under it would come home under a harmless path, and card 2 would upload it.
+    real_folder = sweep_world["tmp"] / ("secrets/held" if folder.startswith("a link") else folder)
+    real_folder.mkdir(parents=True)
+    (real_folder / "gdrive.json").write_bytes(b'{"refresh_token": "x"}\n')
+    src = real_folder
+    if folder.startswith("a link"):
+        src = sweep_world["tmp"] / "export"  # a harmless name, leading into secrets/
+        _symlink_or_skip(src, real_folder, is_dir=True)
+    seen = []
+    real = dc.hash_file
+
+    def spy(path):
+        seen.append(str(path))
+        return real(path)
+
+    monkeypatch.setattr(dc, "hash_file", spy)
+    assert _sweep(sweep_world, dest="data_archive/rescued", source=src) == 2
+    assert not (sweep_world["root"] / "data_archive/rescued").exists()
+    assert not any("gdrive.json" in p for p in seen)
 
 
 def _staged(root):
@@ -2394,6 +2500,91 @@ def test_copy_never_appends_its_log_through_a_link(world, tmp_path):
     before = len(_fetched(world))
     assert _copy(world) == 2
     assert victim.read_bytes() == b"precious bytes\n" and len(_fetched(world)) == before
+
+
+@pytest.mark.parametrize(
+    "log",
+    ["the plan's ledger", "the inventory", "someone else's notes", "someone else's JSON lines"],
+)
+def test_copy_appends_only_to_its_own_log(tmp_path, monkeypatch, log):
+    # The ledger is card 3's forecast; copy does not read it, so only this check keeps
+    # the log's lines out of it (and out of any other file that is not a copy log).
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    data = d.folder("data", "areaA")
+    d.file("prices.csv", data, b"drive only\n")
+    late = d.file("late.csv", data, b"fails the first time\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    _plan(w)
+    t = w["tmp"]
+    target = {"the plan's ledger": t / "p_ledger.csv", "the inventory": t / "i.json"}.get(log)
+    if target is None:
+        target = tmp_path / ("events.jsonl" if "JSON" in log else "notes.txt")
+        target.write_bytes(b'{"event": "login"}\n' if "JSON" in log else b"their notes\n")
+    before = target.read_bytes()
+    assert _copy(w, "--log", str(target)) == 2
+    assert target.read_bytes() == before and _fetched(w) == []
+    (t / "a-folder").mkdir()
+    assert _copy(w, "--log", str(t / "a-folder")) == 2 and _fetched(w) == []
+    monkeypatch.setenv("FAKE_FAIL_IDS", late)
+    assert _copy(w) == 4  # its own log, from nothing
+    monkeypatch.delenv("FAKE_FAIL_IDS")
+    assert _copy(w) == 0  # a rerun reads its own lines there, and appends
+    lines = (t / "p_copy.jsonl").read_text(encoding="utf-8").splitlines()
+    # a failed download is logged as it fails, before anything is published
+    assert [json.loads(x)["status"][:2] for x in lines] == ["do", "ok", "ok"]
+
+
+def test_copy_never_reads_a_credential_shaped_log(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.file("prices.csv", d.folder("data", "areaA"), b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    _plan(w)
+    conf = tmp_path / "rclone.conf"
+    conf.write_bytes(b"[gdrive]\ntoken = x\n")
+    opened = []
+    real_open = open
+
+    def spy(file, *a, **k):
+        opened.append(str(file))
+        return real_open(file, *a, **k)
+
+    monkeypatch.setattr(dc, "open", spy, raising=False)
+    assert _copy(w, "--log", str(conf)) == 2
+    assert not any("rclone.conf" in f for f in opened) and _fetched(w) == []
+
+
+def test_one_download_the_tool_cannot_read_fails_alone(tmp_path, monkeypatch):
+    # Say an antivirus holds one fresh download: that object fails, the others come home,
+    # and a rerun fetches only it.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    data = d.folder("data", "areaA")
+    held = d.file("flagged.bin", data, b"a false positive\n")
+    good = d.file("prices.csv", data, b"drive only\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    rows = _by_id(_plan(w))
+    real = dc.hash_file
+
+    def antivirus(path):
+        if os.path.basename(str(path)) == held:
+            raise PermissionError(errno.EACCES, "the file contains a virus", str(path))
+        return real(path)
+
+    monkeypatch.setattr(dc, "hash_file", antivirus)
+    assert _copy(w) == 4
+    assert (w["root"] / rows[good]["dest"]).read_bytes() == b"drive only\n"
+    assert not (w["root"] / rows[held]["dest"]).exists()
+    assert dc._staging(w["root"]).exists() is False or not any(
+        p.is_file() for p in dc._staging(w["root"]).rglob("*")
+    )
+    log = (w["tmp"] / "p_copy.jsonl").read_text(encoding="utf-8")
+    assert "download unreadable" in log
+    monkeypatch.setattr(dc, "hash_file", real)
+    first = len(_fetched(w))
+    assert _copy(w) == 0 and _verify(w) == 0
+    assert _fetched(w)[first:] == [held]
 
 
 def test_the_rclone_filter_agrees_with_the_tool(tmp_path):

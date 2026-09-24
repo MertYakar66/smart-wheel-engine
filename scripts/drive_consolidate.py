@@ -345,11 +345,25 @@ def same_path(a: str, b: str) -> bool:
     return na == nb
 
 
+# The two extended-length forms native() writes: a drive letter, and a server share.
+_EXTENDED_DRIVE = re.compile(r"\\\\\?\\[A-Za-z]:\\")
+_EXTENDED_UNC = re.compile(r"\\\\\?\\UNC\\", re.IGNORECASE)
+
+
 def _plain(path: str) -> str:
-    """A Windows extended-length path (\\\\?\\...) spelled the ordinary way, for comparing."""
-    if path.startswith("\\\\?\\UNC\\"):
+    """A Windows extended-length path (\\\\?\\C:\\... or \\\\?\\UNC\\...) spelled the ordinary way.
+
+    Any other such form (a volume GUID, GLOBALROOT, a \\\\.\\ device path) is refused:
+    without its prefix it would read as a relative path, and be compared as one.
+    """
+    if _EXTENDED_UNC.match(path):
         return "\\\\" + path[8:]
-    return path[4:] if path.startswith("\\\\?\\") else path
+    if _EXTENDED_DRIVE.match(path):
+        return path[4:]
+    odd = ("\\\\?\\", "\\\\.\\") + (("//?/", "//./") if os.name == "nt" else ())
+    if path.startswith(odd):
+        raise ToolError(f"unsupported path form {path!r}: spell it with a drive letter or a share")
+    return path
 
 
 def _inside(path: Path | str, folder: Path | str) -> bool:
@@ -359,38 +373,49 @@ def _inside(path: Path | str, folder: Path | str) -> bool:
     return p == f or p.startswith(f.rstrip("\\/") + os.sep)
 
 
-def _link_below_root(path: Path, root: Path | str) -> str | None:
-    """A link or junction on the part of path below the root, however the root is spelled.
+def _link_in_root_on(path: Path, root: Path | str) -> str | None:
+    """A link or junction on path whose own folder is inside the root, however either is spelled.
 
-    An output meant for the root's _logs/ must land there, not wherever a link under
-    the root leads (outside it, where it could replace a file of someone else's).
+    An output meant for the root's _logs/ must land there, not wherever a link under the
+    root leads (outside it, where it could replace a file of someone else's). That holds
+    when the path reaches the root, or a folder in it, through another name. A link above
+    the root, or the root itself reached through one, is not refused.
     """
-    ap = Path(_plain(os.path.abspath(_plain(str(path)))))
-    real_root = os.path.normcase(_plain(os.path.realpath(_plain(str(root)))))
-    for anc in ap.parents:
-        if os.path.normcase(_plain(os.path.realpath(str(anc)))) == real_root:
-            rel = ap.parent.relative_to(anc).as_posix()
-            return _link_on_path(anc, rel) if rel != "." else None
+    for cur in (*reversed(path.parents), path):
+        if cur.parent != cur and _is_link(native(cur)) and _inside(cur.parent, root):
+            return str(cur)
     return None
 
 
 def guard_out(path: Path, root: Path | str | None) -> Path:
-    """Our own output files never land inside the data root, except under its _logs/."""
+    """Our own output files never land inside the data root, except under its _logs/.
+
+    Returns the path to write: absolute, as native() spells it. Every check is made on
+    that path, so the caller must write there.
+    """
+    spelled = _plain(str(path))
+    out = Path(os.path.abspath(spelled))
+    if os.path.realpath(spelled) != os.path.realpath(out):
+        # A ".." after a link: the OS goes up from where the link leads, native() from the
+        # link's own folder. The checks and the write must mean one place.
+        raise ToolError(f"refusing to write {path}: a '..' in it follows a link")
     if root is None:
         env = os.environ.get("SWE_DATA_ROOT", "").strip()
         root = env or None
-    link = _link_below_root(path, root) if root is not None else None
+    if root is None:
+        return out
+    link = _link_in_root_on(out, root)
     if link:
-        raise ToolError(f"refusing to write {path}: {link} is a link or junction")
-    if root is not None and _inside(path, root) and _is_link(native(Path(root) / LOGS)):
+        raise ToolError(f"refusing to write {path}: {link} is a link or junction in the data root")
+    if _inside(out, root) and _is_link(native(Path(root) / LOGS)):
         # However the output is spelled, a linked _logs could lead into the live trees.
         raise ToolError(f"refusing to write {path}: {Path(root) / LOGS} is a link or junction")
-    if root is not None and _inside(path, root) and not _inside(path, Path(root) / LOGS):
+    if _inside(out, root) and not _inside(out, Path(root) / LOGS):
         # Links resolved: a link inside _logs that leads into the live trees is refused too.
         raise ToolError(
             f"refusing to write {path} inside the data root; use {LOGS}/ or a folder outside it"
         )
-    return path
+    return out
 
 
 def _file_key(path: Path | str) -> str:
@@ -1507,11 +1532,12 @@ def copy_all(
         return 0
     require_rclone()
     _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
-    guard_out(log, root)
+    log = guard_out(log, root)
     if _is_link(native(log)):
         raise ToolError(f"refusing to append to {log}: it is a link or junction")
     if os.path.exists(native(log)) and os.stat(native(log)).st_nlink > 1:
         raise ToolError(f"refusing to append to {log}: another name is hard-linked to it")
+    _own_log(log)
     staging = _run_folder(root, "copy")
     lock = threading.Lock()
     results: list[dict] = []
@@ -1546,7 +1572,19 @@ def copy_all(
                 why = errors.get(r["id"]) or err or "no file"
                 settle({"id": r["id"], "dest": r["dest"], "status": f"download failed: {why}"})
                 continue
-            ok, why = _matches(s, r)
+            try:
+                ok, why = _matches(s, r)
+            except OSError as e:  # say an antivirus holds the fresh download: it alone fails
+                rec = {"id": r["id"], "dest": r["dest"]}
+                rec["status"] = f"download unreadable: {e.strerror or e}"
+                try:
+                    os.remove(native(s))  # this run's own download, never published
+                except FileNotFoundError:
+                    pass  # gone already (quarantined, say)
+                except OSError as e2:
+                    rec["status"] += f"; kept at {s} ({e2.strerror or e2})"
+                settle(rec)
+                continue
             with lock:
                 fetched.append((r, s, ok, why))
 
@@ -1612,6 +1650,35 @@ def copy_all(
             3,
         )
     return 4 if bad else 0
+
+
+LOG_KEYS = frozenset({"id", "dest", "status", "at"})
+
+
+def _own_log(log: Path) -> None:
+    """Refuse to append to a file that is not one of this tool's copy logs.
+
+    A rerun appends to its log, so the record stays whole. Appended to anything else (a
+    ledger, a census, a file of someone else's), the lines would corrupt it.
+    """
+    if credential_shaped(log.name):
+        raise ToolError(f"refusing to append to {log}: a credential-shaped name, never read")
+    if not os.path.lexists(native(log)):
+        return
+    if not os.path.isfile(native(log)):
+        raise ToolError(f"refusing to append to {log}: it is not a file")
+    if os.path.getsize(native(log)) == 0:
+        return
+    try:
+        with open(native(log), encoding="utf-8") as fh:
+            for line in fh:
+                rec = json.loads(line)
+                if not isinstance(rec, dict) or not LOG_KEYS <= rec.keys():
+                    raise ValueError(line)
+    except ValueError:  # not JSON (json.JSONDecodeError), not text, or not our record
+        raise ToolError(
+            f"refusing to append to {log}: it is not a copy log of this tool; pass a new --log"
+        ) from None
 
 
 def _check_home(root: Path, rel: str, r: dict) -> str:
@@ -1723,6 +1790,12 @@ def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
         )
     if not source.is_dir():
         raise ToolError(f"source {source} is not a directory")
+    for spelled in (os.path.abspath(source), os.path.realpath(source)):
+        for part in Path(spelled).parts:
+            if any(fnmatch.fnmatchcase(part.lower(), pat) for pat in CREDENTIAL_PATTERNS):
+                raise ToolError(
+                    f"refusing source {source}: {part!r} is a credential-shaped name, never read"
+                )
     if _inside(source, root) or _inside(root, source):
         raise ToolError("the source and the root must not contain each other")
     if not same_path(inv["root"], str(root)):
@@ -2019,16 +2092,16 @@ def _dispatch(args: argparse.Namespace) -> int:
     if args.cmd == "bytecheck":
         if not same_path(plan["root"], str(root)):
             raise ToolError(f"the plan was made for root {plan['root']}, not {root}")
-        guard_out(plan_path, root)
+        out = guard_out(plan_path, root)  # the plan is rewritten in place
         require_rclone()
         # Absolute, so rclone never reads a colon in it as a remote name.
         tmp = Path(os.path.abspath(args.tmp)) if args.tmp else None
         if tmp is not None and tmp.exists() and any(tmp.iterdir()):
             raise ToolError(f"the temporary folder {tmp} is not empty")
-        ledger = plan_path.with_name(plan_path.stem + "_ledger.csv")
+        ledger = out.with_name(out.stem + "_ledger.csv")
         _not_an_input([ledger], [args.inventory])
         bytecheck(plan, _load_doc(Path(args.inventory), "inventory"), root, args.remote, tmp)
-        write_outputs([(ledger, ledger_text(plan["rows"])), (plan_path, json_text(plan))])
+        write_outputs([(ledger, ledger_text(plan["rows"])), (out, json_text(plan))])
         print("\n".join(summarize(plan)))
         return 0
     if args.cmd == "copy":

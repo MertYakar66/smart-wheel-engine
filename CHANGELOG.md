@@ -14,6 +14,26 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-24 — the D33 Drive consolidation tool
+
+**Added** — `scripts/drive_consolidate.py`: the tool the D33 desktop cards run. It
+has no command that deletes, moves or uploads anything.
+- **census:** every object in the old Drive areas by raw query. Shortcuts are
+  never followed. An empty answer over several parents is asked again one at a
+  time, and the totals must equal `rclone size`.
+- **plan:** classifies by bytes only (size, MD5 and SHA-256; a missing hash never
+  matches), with collision-safe destinations under `data_archive/drive-legacy/`.
+- **copy:** by Drive id into a staging folder beside the root. Each file is
+  re-hashed, then published with a hard link that never overwrites. A failed batch
+  is retried one object at a time.
+- **also:** `bytecheck`, `verify`, `sweep`, `sums` (`SHA256SUMS`) and `filters`.
+
+`tests/test_drive_consolidate.py` has 46 tests against a fake Drive. Every safety
+rule was broken on purpose in turn, and all 22 breaks were caught. An independent
+review found one blocker and four should-fixes, all fixed before this entry.
+
+---
+
 ## 2026-09-24 — D33: the data estate after the MacBook; Drive becomes a complete second copy (#533, `249f913`)
 
 **Docs** — D33 recorded. The Operator said "yes" after two Codex reviews, all of

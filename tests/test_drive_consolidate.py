@@ -28,10 +28,24 @@ Pins:
   - runs batches in parallel;
   - handles long paths;
 - a copy that fails part-way leaves no partial file;
-- verify re-hashes and fails while byte checks are pending;
+- verify re-hashes every copy and every root file a Drive object matched, refuses
+  another root, and fails while byte checks are pending;
+- a link or junction in the root is never a home for Drive bytes: the inventory does
+  not follow it, the plan places nothing at or under it, and copy, sweep and verify
+  refuse it;
 - sweep copies a local folder's missing bytes, and only those, through the staging
-  folder: a bad copy never reaches the root, and a file that appears mid-run is
-  never replaced;
+  folder: a bad copy never reaches the root, a file that appears mid-run is never
+  replaced, and a stale inventory is re-checked;
+- review 2 (#534): deletable only for bytes already in the root; a later row of the
+  same object mirrors the first and is downloaded once; a folder with a second parent
+  is never cleaned by path; a file without an MD5 is listed, not fatal; the census
+  check lists one folder at a time; a git folder's config stays on Drive; no hash of a
+  credential is kept; a destination never looks credential-shaped; ``_logs`` in any
+  case; bytecheck carries on past one object and hands rclone absolute paths; a hard
+  link falls back only where the volume cannot hold one; a staging name that cannot be
+  removed is noted; a staging folder linked into the root is refused; sweep names what
+  it passes over and stops on an unsafe name or an unreadable folder; a read-only
+  source makes no read-only copy; an unexpected failure never exits 1;
 - outputs never land inside the root;
 - SHA256SUMS excludes the logs, credential names and itself;
 - the rclone filter agrees with the tool's own exclusion rule (when rclone is
@@ -45,9 +59,11 @@ needed.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import importlib.util
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -92,6 +108,9 @@ if args[:2] == ["backend", "query"]:
     print(json.dumps(out or None))
     sys.exit(0)
 if args[:1] == ["size"]:
+    if "--disable" not in args or args[args.index("--disable") + 1] != "ListR":
+        sys.stderr.write("fake: the check must list one folder at a time (--disable ListR)\n")
+        sys.exit(3)
     top = args[args.index("--drive-root-folder-id") + 1]
     folders, frontier = {top}, [top]
     while frontier:
@@ -103,8 +122,8 @@ if args[:1] == ["size"]:
                 frontier.append(o["id"])
     count = size = 0
     for o in objs:
-        if o["mimeType"].startswith("application/vnd.google-apps."):
-            continue
+        if o["mimeType"].startswith("application/vnd.google-apps.") or not o.get("md5Checksum"):
+            continue  # rclone skips a non-Google file without an MD5, as it skips Google files
         k = sum(1 for p in o.get("parents", []) if p in folders)
         count += k
         size += k * int(o.get("size", "0"))
@@ -117,7 +136,11 @@ if args[:2] == ["backend", "copyid"]:
     fail = set(filter(None, os.environ.get("FAKE_FAIL_IDS", "").split(",")))
     for i in range(0, len(pairs), 2):
         oid, dest = pairs[i], pairs[i + 1]
-        if oid in fail:
+        if not os.path.isabs(dest):
+            sys.stderr.write(f"fake: {dest!r} is not absolute; rclone may read it as a remote\n")
+            sys.exit(2)
+        nomd5 = any(o["id"] == oid and not o.get("md5Checksum") for o in objs)
+        if oid in fail or nomd5:
             sys.stderr.write(f'ERROR : failed copying "{oid}" to "{dest}": cannotDownloadAbusiveFile\n')
             sys.exit(1)
         if budget:
@@ -159,8 +182,10 @@ class FakeDrive:
         )
         return oid
 
-    def file(self, name, parent, data: bytes, *, sha=True, md5=None, sha256=None, parents=None):
-        oid = self._id()
+    def file(
+        self, name, parent, data: bytes, *, sha=True, md5=None, sha256=None, parents=None, oid=None
+    ):
+        oid = oid or self._id()
         obj = {
             "id": oid,
             "name": name,
@@ -171,6 +196,8 @@ class FakeDrive:
             "createdTime": "2026-07-01T00:00:00Z",
             "modifiedTime": "2026-07-02T00:00:00Z",
         }
+        if md5 == "":
+            del obj["md5Checksum"]  # Drive lists no MD5 for it
         if sha:
             obj["sha256Checksum"] = sha256 or hashlib.sha256(data).hexdigest()
         self.objects.append(obj)
@@ -402,6 +429,40 @@ def test_census_refuses_an_unsafe_area_name(world, tmp_path, name):
     assert dc.main(args) == 2
 
 
+def test_a_file_drive_lists_without_an_md5_is_listed_not_fatal(tmp_path, monkeypatch, capsys):
+    # rclone neither counts nor downloads such a file: listed, never a stop, never deletable.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    data = d.folder("data", "areaA")
+    odd = d.file("odd.bin", data, b"no md5\n", md5="", sha=False)
+    new = d.file("new.csv", data, b"only on drive\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    assert _by_id(_plan(w))[odd]["class"] == "needs-byte-check"
+    assert "1 file(s) without an MD5" in capsys.readouterr().err
+    rows = _by_id(_bytecheck(w))
+    assert rows[odd]["class"] == "unresolved" and "download failed" in rows[odd]["reason"]
+    assert not rows[odd]["deletable"]
+    assert _copy(w) == 0 and (w["root"] / rows[new]["dest"]).read_bytes() == b"only on drive\n"
+
+
+def test_census_names_folders_that_share_a_name_when_it_stops(tmp_path, monkeypatch, capsys):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    for _ in range(2):
+        d.file("x.csv", d.folder("sub", "areaA"), b"x\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    monkeypatch.setenv("FAKE_SIZE_OFFSET", "1")
+    assert _census(w) == 2
+    assert "(here: sub)" in capsys.readouterr().err
+
+
+def test_census_output_never_lands_inside_the_root(world):
+    args = ["census", "--remote", "fake:", "--areas", str(world["areas"])]
+    args += ["--root", str(world["root"])]
+    assert dc.main([*args, "--out", str(world["root"] / "data" / "census.json")]) == 2
+    assert dc.main([*args, "--out", str(world["root"] / "_logs" / "census.json")]) == 0
+
+
 def test_census_treats_an_incomplete_search_as_an_error(world, monkeypatch):
     monkeypatch.setenv("FAKE_INCOMPLETE", "1")
     assert _census(world) == 2
@@ -444,7 +505,9 @@ def test_plan_classifies_every_case(world):
     assert cls["x_ro"] == "redundant" and not rows[ids["x_ro"]]["deletable"]
     assert rows[ids["vendor"]]["dest"] == f"{legacy}/B/ro/vendor.csv"
     assert cls["loose"] == cls["pack"] == "copy"  # only bytes count: git objects come home
-    assert rows[ids["x"]]["deletable"] and rows[ids["new"]]["deletable"]
+    # Deletable only once the bytes are home: a copy is not, until the plan after it lands.
+    assert rows[ids["x"]]["deletable"] and not rows[ids["new"]]["deletable"]
+    assert not any(r["deletable"] for r in plan["rows"] if r["class"] != "redundant")
     assert plan["excluded"] == ["data_processed/ibkr/flex_credentials.json"]
     assert all(not r["dest"] or r["dest"].startswith(legacy + "/") for r in plan["rows"])
 
@@ -519,6 +582,116 @@ def test_a_destination_that_cannot_be_placed_is_listed_not_fatal(tmp_path, monke
     assert row["dest"] == ""
 
 
+def test_only_bytes_already_home_are_deletable(world, monkeypatch):
+    _plan(world)
+    _bytecheck(world)
+    ids = world["ids"]
+    monkeypatch.setenv("FAKE_FAIL_IDS", ids["dup1"])
+    assert _copy(world) == 4  # dup1 never lands
+    rows = _by_id(_plan(world))  # the plan made after the copies
+    assert rows[ids["dup1"]]["class"] == "copy" and not rows[ids["dup1"]]["deletable"]
+    assert rows[ids["dup2"]]["class"] == "duplicate" and not rows[ids["dup2"]]["deletable"]
+    for key in ("new", "conflict", "x"):  # landed, or home all along
+        assert rows[ids[key]]["class"] == "redundant" and rows[ids[key]]["deletable"], key
+    # Landed too, but Drive lists no SHA-256 for it: a byte check first, as ever.
+    assert rows[ids["nosha_unique"]]["class"] == "needs-byte-check"
+    assert not rows[ids["nosha_unique"]]["deletable"]
+    assert rows[ids["x_ro"]]["class"] == "redundant" and not rows[ids["x_ro"]]["deletable"]
+
+
+def test_a_later_row_of_the_same_object_mirrors_the_first(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.folder("B", "root", "areaB")
+    tokens = d.folder("tokens", "areaA")
+    shared = d.folder("shared", tokens, parents=[tokens, "areaB"])
+    oid = d.file("prices.csv", shared, b"in two areas\n")
+    areas = [
+        {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"},
+        {"name": "B", "id": "areaB", "parent": "root", "folder": "B", "mode": "consolidate"},
+    ]
+    w = _env(tmp_path, monkeypatch, d, areas, {"data/keep.csv": b"keep\n"})
+    rows = [r for r in _plan(w)["rows"] if r["id"] == oid]
+    assert [(r["area"], r["class"]) for r in rows] == [("A", "unresolved"), ("B", "unresolved")]
+    assert "the same Drive object as A/tokens/shared/prices.csv" in rows[1]["reason"]
+    assert not any(r["dest"] or r["deletable"] for r in rows)
+
+
+def test_bytecheck_settles_an_object_reached_through_two_areas_once(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.folder("B", "root", "areaB")
+    shared = d.folder("shared", "areaA", parents=["areaA", "areaB"])
+    body = b"no SHA-256, and its MD5 is not unique\n"
+    oid = d.file("f.csv", shared, body, sha=False)
+    areas = [
+        {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"},
+        {"name": "B", "id": "areaB", "parent": "root", "folder": "B", "mode": "consolidate"},
+    ]
+    w = _env(tmp_path, monkeypatch, d, areas, {"data/f.csv": body})
+    rows = [r for r in _plan(w)["rows"] if r["id"] == oid]
+    assert [r["class"] for r in rows] == ["needs-byte-check", "needs-byte-check"]
+    rows = [r for r in _bytecheck(w)["rows"] if r["id"] == oid]
+    assert _fetched(w) == [oid]  # downloaded once, through its first row
+    assert [r["class"] for r in rows] == ["redundant", "duplicate"]
+    assert rows[1]["twin"] == rows[0]["twin"] == "data/f.csv"
+
+
+def test_a_folder_with_a_second_parent_outside_every_area_is_never_cleaned(tmp_path, monkeypatch):
+    # Trashing the file by id would also take it out of the other project's folder.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    f = d.folder("f", "areaA", parents=["areaA", "someone-elses-folder"])
+    oid = d.file("x.csv", f, b"x-bytes\n")
+    w = _one_area(tmp_path, monkeypatch, d, {"data/x.csv": b"x-bytes\n"})
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "redundant" and not row["path_unique"] and not row["deletable"]
+
+
+def test_a_git_folder_uploaded_without_its_name_keeps_its_config_on_drive(tmp_path, monkeypatch):
+    d = FakeDrive()
+    d.folder("G", "root", "areaA")
+    d.file("HEAD", "areaA", b"ref: refs/heads/main\n")
+    cfg = d.file("config", "areaA", b"[core]\n\tbare = false\n")
+    d.folder("objects", "areaA")
+    w = _one_area(tmp_path, monkeypatch, d, name="G")
+    row = _by_id(_plan(w))[cfg]
+    assert row["class"] == "unresolved" and row["reason"].startswith("git config")
+    assert row["dest"] == "" and row["sha256"] is None
+
+
+def test_no_hash_of_a_credential_file_is_kept(world):
+    plan = _plan(world)
+    census = json.loads((world["tmp"] / "c.json").read_text(encoding="utf-8"))
+    names = [o for a in census["areas"] for o in a["objects"] if dc.credential_shaped(o["name"])]
+    assert {o["name"] for o in names} == {"flex_credentials.json", "rclone.conf"}
+    for o in names:
+        assert o["sha256"] is None and o["md5"] == "withheld", o["name"]
+    for r in plan["rows"]:
+        if dc.credential_shaped(r["path"]):
+            assert r["sha256"] is None and r["md5"] in (None, "withheld"), r["path"]
+
+
+def test_a_destination_that_would_look_credential_shaped_is_never_used(tmp_path, monkeypatch):
+    # _drive-<id> and _conflicts/<id>/ carry the id; a copy there would be left out of
+    # the inventory, SHA256SUMS and swe-data.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("bad:name.csv", d.folder("data", "areaA"), b"bytes\n", oid="idtoken0001")
+    w = _one_area(tmp_path, monkeypatch, d)
+    row = _by_id(_plan(w))[oid]
+    assert row["class"] == "unresolved" and "no free destination" in row["reason"]
+
+
+def test_the_logs_folder_is_skipped_in_any_case(tmp_path, monkeypatch):
+    files = {"_Logs/x.csv": b"x\n", "data/y.csv": b"y\n"}
+    w = _one_area(tmp_path, monkeypatch, FakeDrive(), files)
+    out = w["tmp"] / "i.json"
+    assert dc.main(["inventory", "--root", str(w["root"]), "--out", str(out)]) == 0
+    inv = json.loads(out.read_text(encoding="utf-8"))
+    assert [f["path"] for f in inv["files"]] == ["data/y.csv"]
+
+
 def test_the_two_never_overwrite_primitives_refuse_an_existing_file(tmp_path):
     src = tmp_path / "src.bin"
     src.write_bytes(b"new bytes\n")
@@ -534,6 +707,27 @@ def test_the_two_never_overwrite_primitives_refuse_an_existing_file(tmp_path):
     fresh = tmp_path / "out" / "fresh.bin"
     dc._publish(src, fresh)
     assert fresh.read_bytes() == b"new bytes\n" and not src.exists()
+
+
+def test_publish_falls_back_only_when_the_volume_cannot_hold_a_hard_link(tmp_path, monkeypatch):
+    src = tmp_path / "s.bin"
+    src.write_bytes(b"bytes\n")
+    dst = tmp_path / "out" / "d.bin"
+
+    def busy(*_a):
+        raise PermissionError(errno.EACCES, "used by another process")
+
+    monkeypatch.setattr(dc.os, "link", busy)
+    with pytest.raises(PermissionError):
+        dc._publish(src, dst)  # never a direct write into the root for this
+    assert not dst.exists() and src.exists()
+
+    def other_volume(*_a):
+        raise OSError(errno.EXDEV, "cross-device link")
+
+    monkeypatch.setattr(dc.os, "link", other_volume)
+    assert dc._publish(src, dst) == ""
+    assert dst.read_bytes() == b"bytes\n" and not src.exists()
 
 
 def test_a_copy_that_fails_part_way_leaves_no_partial_file(tmp_path, monkeypatch):
@@ -628,6 +822,28 @@ def test_bytecheck_refuses_a_temporary_folder_inside_the_root(world):
 
 
 # ---------------------------------------------------------------- copy and verify
+
+
+def test_bytecheck_lists_an_object_it_cannot_download_and_carries_on(world, monkeypatch):
+    _plan(world)
+    ids = world["ids"]
+    monkeypatch.setenv("FAKE_FAIL_IDS", ids["lying"])  # the first one it tries
+    rows = _by_id(_bytecheck(world))
+    assert rows[ids["lying"]]["class"] == "unresolved"
+    assert "download failed" in rows[ids["lying"]]["reason"]
+    assert rows[ids["nosha"]]["class"] == "redundant"  # settled, not stuck behind it
+    monkeypatch.delenv("FAKE_FAIL_IDS")
+    assert _copy(world) == 0
+
+
+def test_bytecheck_hands_rclone_an_absolute_temporary_folder(world, monkeypatch):
+    _plan(world)
+    t = world["tmp"]
+    monkeypatch.chdir(t)
+    args = ["bytecheck", "--plan", str(t / "p.json"), "--inventory", str(t / "i.json")]
+    assert dc.main([*args, "--root", str(world["root"]), "--remote", "fake:", "--tmp", "bc"]) == 0
+    rows = _by_id(json.loads((t / "p.json").read_text(encoding="utf-8")))
+    assert rows[world["ids"]["nosha"]]["class"] == "redundant"  # downloaded, not refused
 
 
 def test_copy_and_verify_refuse_while_byte_checks_are_pending(world):
@@ -789,6 +1005,169 @@ def test_copy_refuses_a_plan_made_for_another_root(world, tmp_path):
     assert dc.main(args) == 2
 
 
+def test_a_staging_name_that_cannot_be_removed_is_noted_not_fatal(world, monkeypatch, capsys):
+    _plan(world)
+    _bytecheck(world)
+    real = os.remove
+
+    def remove(path, *a, **k):
+        if dc.STAGING_SUFFIX in str(path):
+            raise PermissionError(errno.EACCES, "held by another program", str(path))
+        return real(path, *a, **k)
+
+    monkeypatch.setattr(dc.os, "remove", remove)
+    assert _copy(world) == 0
+    assert "NOTE" in capsys.readouterr().out
+    monkeypatch.setattr(dc.os, "remove", real)
+    assert _verify(world) == 0
+
+
+def test_a_publish_that_fails_is_a_failure_not_a_crash(world, monkeypatch):
+    root = world["root"]
+    _plan(world)
+    plan = _bytecheck(world)
+    before, real_link = _root_hashes(root), os.link
+
+    def busy(*_a):
+        raise PermissionError(errno.EACCES, "used by another process")
+
+    monkeypatch.setattr(dc.os, "link", busy)
+    assert _copy(world) == 4  # a rerun resumes
+    assert _root_hashes(root) == before  # nothing written straight into the root
+    log = (world["tmp"] / "p_copy.jsonl").read_text(encoding="utf-8").splitlines()
+    copies = [r for r in plan["rows"] if r["class"] == "copy"]
+    assert len(log) == len(copies) and all("publish failed" in line for line in log)
+    monkeypatch.setattr(dc.os, "link", real_link)
+    assert _copy(world) == 0 and _verify(world) == 0
+
+
+def test_a_staging_folder_linked_into_the_root_is_refused(world):
+    root = world["root"]
+    _plan(world)
+    _bytecheck(world)
+    inside = root / "scratch"
+    inside.mkdir()
+    _symlink_or_skip(root.parent / (root.name + dc.STAGING_SUFFIX), inside, is_dir=True)
+    before, fetched = _root_hashes(root), len(_fetched(world))
+    assert _copy(world) == 2
+    assert _root_hashes(root) == before and len(_fetched(world)) == fetched
+
+
+def test_an_unexpected_failure_never_exits_as_a_verify_difference(tmp_path, monkeypatch):
+    root = tmp_path / "r"
+    root.mkdir()
+    args = ["inventory", "--root", str(root), "--out", str(tmp_path / "i.json")]
+
+    def disk_gone(_root):
+        raise OSError(errno.EIO, "disk went away")
+
+    monkeypatch.setattr(dc, "inventory", disk_gone)
+    assert dc.main(args) == 4
+
+    def bug(_root):
+        raise KeyError("x")
+
+    monkeypatch.setattr(dc, "inventory", bug)
+    assert dc.main(args) == 2
+
+
+def test_verify_refuses_a_plan_made_for_another_root(world, tmp_path):
+    _plan(world)
+    _bytecheck(world)
+    assert _copy(world) == 0
+    other = tmp_path / "other-root"
+    shutil.copytree(world["root"], other)  # the same relative paths, a different root
+    assert dc.main(["verify", "--plan", str(world["tmp"] / "p.json"), "--root", str(other)]) == 2
+
+
+@pytest.mark.parametrize("change", ["removed", "changed"])
+def test_verify_fails_when_a_root_file_a_drive_object_matched_changes(world, change):
+    _plan(world)
+    _bytecheck(world)
+    assert _copy(world) == 0 and _verify(world) == 0
+    twin = world["root"] / "data/x.csv"  # Drive's x.csv is redundant because of it
+    if change == "removed":
+        twin.unlink()
+    else:
+        twin.write_bytes(b"x-bytes, refreshed\n")
+    assert _verify(world) == 1
+
+
+# ---------------------------------------------------------------- links and junctions
+
+
+def _symlink_or_skip(link: Path, target: Path, is_dir: bool = False) -> None:
+    link.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.symlink(target, link, target_is_directory=is_dir)
+    except (OSError, NotImplementedError) as e:  # Windows without the symlink privilege
+        pytest.skip(f"symbolic links are not available here: {e}")
+
+
+def _new_only_on_drive(tmp_path, monkeypatch, files=None):
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    oid = d.file("new.csv", d.folder("data", "areaA"), b"only on drive\n")
+    return _one_area(tmp_path, monkeypatch, d, files), oid
+
+
+def test_a_link_in_the_root_is_never_a_home_for_drive_bytes(tmp_path, monkeypatch):
+    w, oid = _new_only_on_drive(tmp_path, monkeypatch)
+    outside = tmp_path / "outside.csv"
+    outside.write_bytes(b"only on drive\n")  # the same bytes, outside the root
+    link = w["root"] / "data_archive/drive-legacy/A/data/new.csv"
+    _symlink_or_skip(link, outside)
+    row = _by_id(_plan(w))[oid]
+    inv = json.loads((w["tmp"] / "i.json").read_text(encoding="utf-8"))
+    assert inv["links"] == ["data_archive/drive-legacy/A/data/new.csv"]
+    assert inv["files"] == []
+    assert row["class"] == "copy"
+    assert row["dest"] == f"data_archive/drive-legacy/A/_conflicts/{oid}/new.csv"
+    assert _copy(w) == 0 and _verify(w) == 0
+    dest = w["root"] / row["dest"]
+    assert not os.path.islink(dest) and dest.read_bytes() == b"only on drive\n"
+    assert os.path.islink(link)
+
+
+def test_copy_and_verify_refuse_a_link_at_a_planned_destination(tmp_path, monkeypatch):
+    w, oid = _new_only_on_drive(tmp_path, monkeypatch)
+    row = _by_id(_plan(w))[oid]
+    outside = tmp_path / "outside.csv"
+    outside.write_bytes(b"only on drive\n")
+    _symlink_or_skip(w["root"] / row["dest"], outside)  # a link that appeared after the plan
+    assert _copy(w) == 3
+    assert _verify(w) == 1
+    assert _fetched(w) == []
+
+
+def test_nothing_is_placed_under_a_linked_folder(tmp_path, monkeypatch):
+    w, oid = _new_only_on_drive(tmp_path, monkeypatch, {"data/keep.csv": b"keep\n"})
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "new.csv").write_bytes(b"only on drive\n")
+    _symlink_or_skip(w["root"] / "data_archive/drive-legacy/A", elsewhere, is_dir=True)
+    row = _by_id(_plan(w))[oid]
+    inv = json.loads((w["tmp"] / "i.json").read_text(encoding="utf-8"))
+    assert inv["links"] == ["data_archive/drive-legacy/A"]
+    assert [f["path"] for f in inv["files"]] == ["data/keep.csv"]
+    assert row["class"] == "unresolved" and "no free destination" in row["reason"]
+    assert dc.main(["sums", "--root", str(w["root"])]) == 0
+    assert "drive-legacy" not in (w["root"] / dc.SUMS).read_text(encoding="utf-8")
+
+
+def test_the_inventory_never_follows_a_junction(tmp_path, monkeypatch):
+    # os.walk follows a Windows junction (os.path.islink says no), so the tool prunes it.
+    w, oid = _new_only_on_drive(tmp_path, monkeypatch, {"data/mount/new.csv": b"only on drive\n"})
+    mount = os.path.abspath(w["root"] / "data" / "mount")
+    monkeypatch.setattr(
+        dc.os.path, "isjunction", lambda p: os.path.abspath(p) == mount, raising=False
+    )
+    row = _by_id(_plan(w))[oid]
+    inv = json.loads((w["tmp"] / "i.json").read_text(encoding="utf-8"))
+    assert inv["links"] == ["data/mount"] and inv["files"] == []
+    assert row["class"] == "copy"  # bytes behind a junction are not the root's own
+
+
 # ---------------------------------------------------------------- sweep
 
 
@@ -885,7 +1264,81 @@ def test_sweep_never_replaces_a_file_that_appears_mid_run(sweep_world, monkeypat
     assert [p.read_bytes() for p in _staged(root)] == [b"only here\n"]
 
 
-@pytest.mark.parametrize("dest", ["data/x", "data_raw", "_logs/x", "a\\b", "../out", ""])
+def test_sweep_stops_on_a_data_file_whose_name_cannot_be_kept(sweep_world, capsys):
+    (sweep_world["src"] / "a" / "prices（2026）.csv").write_bytes(b"odd name\n")
+    assert _sweep(sweep_world) == 2
+    out = capsys.readouterr().out
+    assert "UNSAFE    a/prices（2026）.csv" in out
+    assert "PASSED    a/secret_token.txt: a credential-shaped name, never read" in out
+    assert not (sweep_world["root"] / "data_archive/old").exists()
+
+
+def test_a_folder_that_cannot_be_listed_stops_the_run(sweep_world, monkeypatch):
+    real = os.scandir
+
+    def scandir(path="."):
+        if os.path.basename(str(path)) in ("data", "a"):
+            raise PermissionError(errno.EACCES, "Permission denied", str(path))
+        return real(path)
+
+    monkeypatch.setattr(dc.os, "scandir", scandir)
+    root, out = sweep_world["root"], sweep_world["tmp"] / "i2.json"
+    assert dc.main(["inventory", "--root", str(root), "--out", str(out)]) == 2
+    assert dc.main(["sums", "--root", str(root)]) == 2
+    assert _sweep(sweep_world) == 2
+
+
+def test_a_read_only_source_does_not_make_a_read_only_copy(sweep_world):
+    os.chmod(sweep_world["src"] / "a" / "new.csv", 0o444)
+    assert _sweep(sweep_world) == 0
+    assert os.stat(sweep_world["root"] / "data_archive/old/a/new.csv").st_mode & 0o200
+
+
+@pytest.mark.parametrize("change", ["removed", "changed"])
+def test_sweep_rechecks_a_stale_inventory(sweep_world, change):
+    root = sweep_world["root"]
+    twin = root / "data/x.csv"  # the inventory says the root holds a/same.csv's bytes here
+    if change == "removed":
+        twin.unlink()
+    else:
+        twin.write_bytes(b"x-bytes, refreshed\n")
+    assert _sweep(sweep_world) == 0
+    assert (root / "data_archive/old/a/same.csv").read_bytes() == b"x-bytes\n"
+
+
+@pytest.mark.parametrize("where", ["folder", "file"])
+def test_sweep_refuses_a_link_on_its_destination_path(sweep_world, tmp_path, where):
+    root = sweep_world["root"]
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    if where == "folder":
+        _symlink_or_skip(root / "data_archive/old", elsewhere, is_dir=True)
+    else:  # a link to the very bytes sweep would copy: still not a file of the root
+        (elsewhere / "new.csv").write_bytes(b"only here\n")
+        _symlink_or_skip(root / "data_archive/old/a/new.csv", elsewhere / "new.csv")
+    assert _sweep(sweep_world) == 3
+    assert _staged(root) == []  # refused before anything was copied
+    assert [p.name for p in elsewhere.iterdir()] == ([] if where == "folder" else ["new.csv"])
+
+
+@pytest.mark.parametrize(
+    "dest",
+    [
+        "data/x",
+        "data_raw",
+        "_logs/x",
+        "a\\b",
+        "../out",
+        "",
+        "./data/old",
+        ".",
+        "a/./b",
+        "DATA/old",
+        "_LOGS/x",
+        "tokens/x",
+        "a/CON",
+    ],
+)
 def test_sweep_refuses_the_live_trees_and_odd_destinations(sweep_world, dest):
     assert _sweep(sweep_world, dest=dest) == 2
 
@@ -1002,8 +1455,18 @@ def test_windows_safe_names():
         "c␁d.csv",  # a control picture
         "a：b.csv",  # a full-width colon
         "x" * 256,  # over NTFS's 255 per name
+        "COM¹",
+        "lpt³.txt",
+        "CONIN$",
+        "conout$.log",
     ):
         assert not dc.win_safe(bad), bad
+
+
+def test_names_that_clash_on_windows_clash_here():
+    taken = dc.Taken(["a/file.csv"], [])
+    assert not taken.free("a/fıle.csv")  # NTFS upcases "ı" and "i" alike
+    assert not taken.free("A/FILE.CSV") and taken.free("a/file2.csv")
 
 
 def test_credential_shaped_matches_any_component():
@@ -1012,6 +1475,7 @@ def test_credential_shaped_matches_any_component():
     assert dc.credential_shaped("cfg/rclone.conf") and dc.credential_shaped("repo/.git/config")
     assert not dc.credential_shaped("data/bloomberg/sp500_credit_risk.csv")
     assert not dc.credential_shaped("data/keys.csv") and not dc.credential_shaped("cfg/config")
+    assert dc.credential_shaped("deploy/prod.env") and dc.credential_shaped("x/.env.local")
 
 
 def test_the_default_areas_match_the_inventory_record_and_their_modes():

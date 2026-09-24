@@ -20,19 +20,26 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 has no command that deletes, moves or uploads anything.
 - **census:** every object in the old Drive areas by raw query. Shortcuts are
   never followed. An empty answer over several parents is asked again one at a
-  time, and the totals must equal `rclone size`.
+  time, and the totals must equal `rclone size` listing one folder at a time.
 - **plan:** classifies by bytes only (size, MD5 and SHA-256; a missing hash never
   matches), with collision-safe destinations under `data_archive/drive-legacy/`.
+  Only bytes already in the root make a Drive object `deletable`, a forecast for
+  card 3.
 - **copy:** by Drive id into a staging folder beside the root. Each file is
   re-hashed, then published with a hard link that never overwrites. A failed batch
   is retried one object at a time.
 - **sweep:** a local folder's data files whose bytes the root lacks, through the
   same staging folder, so a bad copy never reaches the root.
-- **also:** `bytecheck`, `verify`, `sums` (`SHA256SUMS`) and `filters`.
+- **links:** a symbolic link or Windows junction in the root is never a home for
+  Drive bytes. The inventory does not follow one, and nothing is placed on one.
+- **verify:** re-hashes every copy and every root file a Drive object was matched
+  to, so a root file changed since the inventory fails the check.
+- **also:** `bytecheck`, `sums` (`SHA256SUMS`) and `filters`.
 
-`tests/test_drive_consolidate.py` has 49 tests against a fake Drive. Every safety
-rule was broken on purpose in turn, and all 27 breaks were caught. An independent
-review found one blocker and four should-fixes, all fixed before this entry.
+`tests/test_drive_consolidate.py` has 89 tests against a fake Drive. Every safety
+rule was broken on purpose in turn, and all 68 breaks were caught. Two independent
+reviews each found a blocker, and Codex's review of #534 found three more defects;
+the worklog lists every finding and what became of it.
 
 ---
 

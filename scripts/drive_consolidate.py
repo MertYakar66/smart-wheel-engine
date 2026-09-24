@@ -22,8 +22,10 @@ followed, and a Google-format file, a duplicate name or a second parent stays
 visible. Each area's root folder is verified by its parent and name first. Drive
 sometimes answers an OR of several parents with nothing (Google issue 149522397;
 rclone works around it the same way), so an empty answer is asked again one parent
-at a time. Last, each area's file count and bytes must equal ``rclone size``, which
-walks folder by folder: any difference stops the run.
+at a time. Last, each area's file count and bytes must equal ``rclone size`` run
+with ``--disable ListR``, which lists one folder at a time: any difference stops the
+run. A file Drive lists without an MD5 is listed but not counted, as rclone can
+neither count nor download it.
 
 ``plan`` gives every Drive object one class, written to the ledger
 (``plan.json`` and ``plan_ledger.csv``):
@@ -46,7 +48,9 @@ the old ``.git`` upload is not a copy of the bundle that holds the same logical
 object. ``dest`` keeps the Drive path; a name Windows cannot hold, or that rclone
 would rewrite, becomes ``_drive-<id>``; a destination already taken (any case) goes
 to ``<area>/_conflicts/<id>/<name>``. A Drive id is ``deletable`` (a forecast for
-card 3) only if every row that names it is.
+card 3) only when its bytes already sit in the root (``redundant``), in a consolidate
+area, at an unambiguous path, for every row that names it; a copy becomes deletable
+only in the plan made after it lands.
 
 ``copy`` downloads by Drive id (``rclone backend copyid``) into a staging folder
 next to the root (``<root>.d33-staging``, same volume, never inside the root),
@@ -55,17 +59,27 @@ fails if the destination exists: nothing is ever written over. A destination tha
 already holds the right bytes counts as done, so a rerun resumes; one holding other
 bytes stops the run before anything is copied. A failed batch is retried one object
 at a time, so one object that cannot be downloaded never blocks the others.
-``sweep`` does the same for a local folder, by bytes, with an exclusive create.
+``sweep`` does the same for a local folder, by bytes, through the same staging
+folder; a root file the inventory lists counts only if it still holds its bytes.
+
+A symbolic link or a Windows junction is never a file of the root's own: the
+inventory lists it without following it, the plan places nothing at or under it,
+and ``copy``, ``sweep`` and ``verify`` refuse a destination with one on its path.
+``verify`` re-hashes every copy, and every root file that a Drive object was
+matched to: one changed or removed since the inventory fails the check, because
+its Drive twin is the only copy again.
 
 Nothing here deletes or moves a Drive object or a root file. The only files the
 tool removes or replaces are its own: temporary downloads outside the root, the
-staging names of files once published, and its own output files, which never go
-inside the root except under ``_logs/``. Deletion is a separate step with the
-Operator's yes (D33, card 3).
+staging names of files once published, the unfinished file a failed copy has just
+created (exclusive creation proves it is its own), and its own output files, which
+never go inside the root except under ``_logs/``. Deletion is a separate step with
+the Operator's yes (D33, card 3).
 
-Exit codes: 0 ok · 1 verify found a difference · 2 configuration or safety error ·
-3 a destination holds other bytes, or a download does not match Drive · 4 a copy
-failed (a rerun resumes) · 5 not enough free space. Standard library only; the
+Exit codes: 0 ok · 1 verify found a difference · 2 configuration or safety error,
+or an unexpected one · 3 a destination holds other bytes, or a download does not
+match Drive · 4 a copy or file operation failed (a rerun resumes) · 5 not enough
+free space. Standard library only; the
 Drive side is rclone ≥ 1.65 (Drive SHA-256).
 """
 
@@ -74,6 +88,7 @@ from __future__ import annotations
 import argparse
 import csv
 import datetime as dt
+import errno
 import fnmatch
 import hashlib
 import json
@@ -85,6 +100,7 @@ import sys
 import tempfile
 import threading
 import time
+import traceback
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -178,6 +194,7 @@ CREDENTIAL_PATTERNS: tuple[str, ...] = (
     "*private_key*",
     "*oauth*",
     ".env*",
+    "*.env",
     "*.pem",
     "*.key",
     "*.p12",
@@ -221,9 +238,11 @@ LEDGER_FIELDS = (
 
 AREA_NAME = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
 _WIN_BAD = set('<>:"/\\|?*')
-_WIN_RESERVED = {"CON", "PRN", "AUX", "NUL"} | {
-    f"{p}{i}" for p in ("COM", "LPT") for i in range(1, 10)
-}
+_WIN_RESERVED = (
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"{p}{i}" for p in ("COM", "LPT") for i in range(1, 10)}
+    | {f"{p}{s}" for p in ("COM", "LPT") for s in "\u00b9\u00b2\u00b3"}
+)
 
 
 class ToolError(Exception):
@@ -243,6 +262,12 @@ def credential_shaped(rel: str) -> bool:
         return True
     joined = "/".join(parts)
     return any(joined == tail or joined.endswith("/" + tail) for tail in CREDENTIAL_PATHS)
+
+
+def _fold(name: str) -> str:
+    """The key under which two names clash on Windows. NTFS upcases, so "ı" and "i"
+    clash there, which casefold alone misses; a key that clashes more is only safer."""
+    return name.upper().casefold()
 
 
 def _rclone_rewrites(c: str) -> bool:
@@ -306,8 +331,9 @@ def same_path(a: str, b: str) -> bool:
 
 
 def _inside(path: Path | str, folder: Path | str) -> bool:
-    p = os.path.normcase(os.path.abspath(str(path)))
-    f = os.path.normcase(os.path.abspath(str(folder)))
+    """Is path the folder or under it, once links are resolved on both sides?"""
+    p = os.path.normcase(os.path.realpath(str(path)))
+    f = os.path.normcase(os.path.realpath(str(folder)))
     return p == f or p.startswith(f.rstrip("\\/") + os.sep)
 
 
@@ -411,11 +437,18 @@ def _children(remote: str, ids: list[str]) -> list[dict]:
 
 
 def rclone_size(remote: str, folder_id: str) -> dict:
-    """File count and bytes under a folder, from rclone's own folder-by-folder walk."""
+    """File count and bytes under a folder, from rclone's own walk.
+
+    ``--disable ListR`` makes rclone list one folder at a time. Its default listing
+    asks about many parents in one OR query, the query Google issue 149522397
+    affects, so it would not be an independent check of the census.
+    """
     cp = run_cmd(
         [
             *RCLONE,
             "size",
+            "--disable",
+            "ListR",
             "--json",
             "--drive-root-folder-id",
             folder_id,
@@ -434,16 +467,19 @@ def slim(obj: dict) -> dict:
     sc = obj.get("shortcutDetails") or {}
     size = obj.get("size")
     md5 = (obj.get("md5Checksum") or "").lower() or None
+    sha = (obj.get("sha256Checksum") or "").lower() or None
     size = int(size) if size not in (None, "") else None
     if size is None and md5 == EMPTY_MD5:
         size = 0  # rclone's JSON omits a zero size (``size,omitempty``)
+    if credential_shaped(obj.get("name", "")):
+        md5, sha = ("withheld" if md5 else None), None  # never kept for a credential
     return {
         "id": obj["id"],
         "name": obj.get("name", ""),
         "mime": obj.get("mimeType", ""),
         "size": size,
         "md5": md5,
-        "sha256": (obj.get("sha256Checksum") or "").lower() or None,
+        "sha256": sha,
         "parents": list(obj.get("parents") or []),
         "created": obj.get("createdTime"),
         "modified": obj.get("modifiedTime"),
@@ -457,11 +493,13 @@ def is_file(o: dict) -> bool:
 
 
 def census_totals(objects: list[dict], top: str) -> dict:
-    """File count and bytes as rclone's walk sees them: once per parent folder."""
+    """File count and bytes as rclone's walk sees them: once per parent folder, and only
+    files with an MD5. rclone neither lists nor downloads a non-Google file without one
+    (``newObjectWithExportInfo`` in its Drive backend skips it)."""
     folders = {top} | {o["id"] for o in objects if o["mime"] == FOLDER}
     count = size = 0
     for o in objects:
-        if is_file(o):
+        if is_file(o) and o["md5"]:
             k = sum(1 for p in o["parents"] if p in folders)
             count += k
             size += k * (o["size"] or 0)
@@ -503,16 +541,24 @@ def census(remote: str, areas: list[dict]) -> dict:
         mine = census_totals(objects, area["id"])
         walk = rclone_size(remote, area["id"])
         if mine != walk:
+            names = Counter(
+                (p, o["name"]) for o in objects if o["mime"] == FOLDER for p in o["parents"]
+            )
+            twins = sorted({n for (_p, n), k in names.items() if k > 1})
             raise ToolError(
                 f"area {area['name']}: the census found {mine['count']} files, {mine['bytes']:,} B, "
                 f"but rclone size finds {walk['count']} files, {walk['bytes']:,} B. A listing is "
-                "incomplete (or the area has duplicate folder names, which rclone's walk merges); "
-                "nothing is planned from it"
+                "incomplete, or two folders share a name under one parent, which rclone's walk "
+                "by path cannot tell apart"
+                + (f" (here: {', '.join(twins[:5])})" if twins else "")
+                + "; nothing is planned from it"
             )
+        nomd5 = sum(1 for o in objects if is_file(o) and not o["md5"])
         out.append({**area, "objects": objects, "check": walk})
         print(
             f"census: {area['name']}: {len(objects)} objects; {walk['count']} files, "
-            f"{walk['bytes']:,} B, equal to rclone size",
+            f"{walk['bytes']:,} B, equal to rclone size"
+            + (f"; {nomd5} file(s) without an MD5, which rclone cannot download" if nomd5 else ""),
             file=sys.stderr,
         )
     swe = drive_query(remote, "'root' in parents and name = 'swe-data' and trashed = false")
@@ -529,27 +575,54 @@ def census(remote: str, areas: list[dict]) -> dict:
 # ---------------------------------------------------------------- inventory
 
 
+def _is_link(path: str) -> bool:
+    """A symbolic link, or on Windows a junction: never part of the root's own tree."""
+    isjunction = getattr(os.path, "isjunction", None)
+    return os.path.islink(path) or bool(isjunction and isjunction(path))
+
+
+def _link_on_path(root: Path, rel: str) -> str | None:
+    """The first part of root/rel that is a link or junction, if any (the root itself may be)."""
+    cur = root
+    for part in rel.split("/"):
+        cur = cur / part
+        if _is_link(native(cur)):
+            return str(cur)
+    return None
+
+
+def _walk_error(e: OSError) -> None:
+    raise ToolError(f"cannot list {e.filename}: {e.strerror or e}; nothing may be left out")
+
+
 def _walk(root: Path):
-    """(relative dir, dirnames, filenames, native dir) under the root, without ``_logs/``."""
+    """(relative dir, dirnames, filenames, native dir, linked dirnames) under the root.
+
+    Skips ``_logs/`` (in any case, as the rclone filter does), never descends into a
+    linked folder (os.walk follows a Windows junction, whose bytes live outside the
+    root), and stops on a folder it cannot list rather than leave it out.
+    """
     base = native(root)
-    for dirpath, dirnames, filenames in os.walk(base):
+    for dirpath, dirnames, filenames in os.walk(base, onerror=_walk_error):
         rel_dir = os.path.relpath(dirpath, base).replace(os.sep, "/")
         rel_dir = "" if rel_dir == "." else rel_dir
         if not rel_dir:
-            dirnames[:] = [d for d in dirnames if d != LOGS]
-        dirnames.sort()
-        yield rel_dir, dirnames, sorted(filenames), dirpath
+            dirnames[:] = [d for d in dirnames if _fold(d) != _fold(LOGS)]
+        linked = sorted(d for d in dirnames if _is_link(os.path.join(dirpath, d)))
+        dirnames[:] = sorted(d for d in dirnames if d not in linked)
+        yield rel_dir, dirnames, sorted(filenames), dirpath, linked
 
 
 def inventory(root: Path) -> dict:
     files, dirs, links = [], [], []
     count = 0
-    for rel_dir, dirnames, filenames, dirpath in _walk(root):
+    for rel_dir, dirnames, filenames, dirpath, linked in _walk(root):
+        links.extend(f"{rel_dir}/{d}" if rel_dir else d for d in linked)
         dirs.extend(f"{rel_dir}/{d}" if rel_dir else d for d in dirnames)
         for fn in filenames:
             rel = f"{rel_dir}/{fn}" if rel_dir else fn
             full = os.path.join(dirpath, fn)
-            if os.path.islink(full):
+            if _is_link(full):
                 links.append(rel)
                 continue
             if credential_shaped(rel):
@@ -579,19 +652,19 @@ class Taken:
 
     def __init__(self, files: list[str], dirs: list[str]):
         self.files: set[str] = set()
-        self.dirs = {d.casefold() for d in dirs}
+        self.dirs = {_fold(d) for d in dirs}
         for p in files:
             self.take(p)
 
     def free(self, p: str) -> bool:
-        cf = p.casefold()
+        cf = _fold(p)
         if cf in self.files or cf in self.dirs:
             return False
         parts = cf.split("/")
         return not any("/".join(parts[:i]) in self.files for i in range(1, len(parts)))
 
     def take(self, p: str) -> None:
-        cf = p.casefold()
+        cf = _fold(p)
         self.files.add(cf)
         parts = cf.split("/")
         self.dirs.update("/".join(parts[:i]) for i in range(1, len(parts)))
@@ -628,7 +701,9 @@ def _area_tree(area: dict) -> tuple[dict, dict, dict]:
             raise ToolError(f"area {area['name']}: folder chain deeper than 200 at {oid}")
         par = parent_of[oid]
         name = objs[oid]["name"]
-        own = siblings[(par, name)] == 1
+        # One parent and no sibling of the same name. An item with a second parent,
+        # even outside every area, is also in another folder: never cleaned by path.
+        own = siblings[(par, name)] == 1 and len(objs[oid]["parents"]) == 1
         if par == top:
             paths[oid], chains[oid], unique[oid] = name, [oid], own
         else:
@@ -660,9 +735,10 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
     for paths in by_full.values():
         paths.sort()
     empty_root = {
-        f["path"].casefold() for f in usable if f["size"] == 0 and f["sha256"] == EMPTY_SHA256
+        _fold(f["path"]) for f in usable if f["size"] == 0 and f["sha256"] == EMPTY_SHA256
     }
-    taken = Taken([f["path"] for f in root_files], inv.get("dirs", []))
+    # A link is occupied too: nothing is placed at or under it.
+    taken = Taken([f["path"] for f in root_files] + inv.get("links", []), inv.get("dirs", []))
     trees = {a["id"]: _area_tree(a) for a in census_doc["areas"]}
     for a in census_doc["areas"]:
         for o in a["objects"]:
@@ -673,6 +749,7 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
     for a in census_doc["areas"]:
         paths, chains, unique = trees[a["id"]]
         names = {o["id"]: o["name"] for o in a["objects"]}
+        gitdirs = _git_dirs(a)
         for o in sorted(a["objects"], key=lambda o: (paths[o["id"]], o["id"])):
             path = paths[o["id"]]
             kind = (
@@ -708,27 +785,33 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
                 "candidates": [natural, conflict],
                 "path_unique": unique[o["id"]],
             }
-            cls, reason, twin = _classify(
-                o, path, by_full, md5_count, first_copy, row["candidates"], empty_root
-            )
+            if kind == "file" and o["name"].casefold() == "config" and set(o["parents"]) & gitdirs:
+                # A git folder uploaded without its ".git" name: its config can carry a
+                # token in a remote URL, as .git/config can.
+                cls, reason, twin = (
+                    "unresolved",
+                    "git config (beside HEAD and objects/): never read or copied",
+                    "",
+                )
+            else:
+                cls, reason, twin = _classify(
+                    o, path, by_full, md5_count, first_copy, row["candidates"], empty_root
+                )
             row.update({"class": cls, "reason": reason, "twin": twin})
+            if credential_shaped(path) or reason.startswith("git config"):
+                row.update({"md5": "withheld" if o["md5"] else None, "sha256": None})
             prev = first_row.get(o["id"])
             if prev is not None and cls in ("copy", "duplicate", "redundant", "needs-byte-check"):
                 # One Drive object reached through two areas (a folder with two
-                # parents): it comes home once, through its first row.
-                row.update(
-                    {
-                        "class": "duplicate",
-                        "reason": f"the same Drive object as {prev['area']}/{prev['path']}",
-                        "twin": prev["dest"] or prev["twin"],
-                    }
-                )
+                # parents): it comes home once, through its first row (_mirror).
+                row["same_object"] = True
             elif cls == "copy":
                 _place(row, taken)
                 if row["class"] == "copy" and o["size"] and o["md5"] and o["sha256"]:
                     first_copy.setdefault((o["size"], o["md5"], o["sha256"]), row["dest"])
             first_row.setdefault(o["id"], row)
             rows.append(row)
+    _mirror(rows)
     _mark_deletable(rows)
     return {
         "schema": SCHEMA,
@@ -749,7 +832,9 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
 
 
 def _place(row: dict, taken: Taken) -> None:
-    dest = taken.assign(row["candidates"])
+    # A Drive id inside a path (_drive-<id>, _conflicts/<id>/) can look credential-shaped;
+    # such a copy would be left out of the inventory, SHA256SUMS and swe-data.
+    dest = taken.assign([c for c in row["candidates"] if not credential_shaped(c)])
     if dest is None:
         row.update(
             {"class": "unresolved", "reason": "no free destination under the root", "dest": ""}
@@ -781,7 +866,7 @@ def _classify(o, path, by_full, md5_count, first_copy, candidates, empty_root):
         if not _empty_ok(o):
             return "needs-byte-check", "empty, but Drive does not list the empty file's hashes", ""
         for cand in candidates:
-            if cand.casefold() in empty_root:
+            if _fold(cand) in empty_root:
                 return "redundant", "empty file already at its destination", cand
         return "copy", "empty file: kept at its own path", ""
     if o["sha256"]:
@@ -796,14 +881,53 @@ def _classify(o, path, by_full, md5_count, first_copy, candidates, empty_root):
     return "copy", "no SHA-256 on Drive; its MD5 matches nothing else", ""
 
 
+def _git_dirs(area: dict) -> set[str]:
+    """Folders (the area root included) that hold a HEAD file and an objects/ folder."""
+    kids: dict[str, dict[str, str]] = defaultdict(dict)
+    for o in area["objects"]:
+        for p in o["parents"]:
+            kids[p][o["name"].casefold()] = o["mime"]
+    return {p for p, names in kids.items() if "head" in names and names.get("objects") == FOLDER}
+
+
+def _mirror(rows: list[dict]) -> None:
+    """A Drive object reached through two areas comes home once, through its first row.
+
+    Each later row mirrors that row: a duplicate of it when its bytes come home, and
+    otherwise its class, so no row claims a home the object will not have.
+    """
+    first: dict[str, dict] = {}
+    for r in rows:
+        f = first.setdefault(r["id"], r)
+        if f is r or not r.get("same_object"):
+            continue
+        where = f"the same Drive object as {f['area']}/{f['path']}"
+        if f["class"] in ("copy", "redundant", "duplicate"):
+            r.update({"class": "duplicate", "reason": where, "twin": f["dest"] or f["twin"]})
+        elif f["class"] == "needs-byte-check":
+            r.update({"class": f["class"], "reason": f"{where}, which still needs a byte check"})
+            r["twin"] = ""
+        else:
+            r.update({"class": f["class"], "reason": f"{where}: {f['reason']}", "twin": ""})
+        r["dest"] = ""
+
+
 def _mark_deletable(rows: list[dict]) -> None:
-    """A forecast for card 3: an id may go only if every row naming it may."""
+    """A forecast for card 3: an id may go only when its bytes already sit in the root.
+
+    That is a redundant row (or a later row of the same object mirroring one), in a
+    consolidate area, at an unambiguous path, for every row naming the id. A copy is
+    never deletable here: only the plan made after it lands can call it redundant.
+    """
     ok: dict[str, bool] = {}
     for r in rows:
         each = (
             r["mode"] == "consolidate"
             and bool(r["path_unique"])
-            and r["class"] in ("redundant", "duplicate", "copy")
+            and (
+                r["class"] == "redundant"
+                or (r["class"] == "duplicate" and bool(r.get("same_object")))
+            )
         )
         ok[r["id"]] = ok.get(r["id"], True) and each
     for r in rows:
@@ -870,7 +994,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
         if not f.get("excluded") and f["size"]:
             by_full.setdefault((f["size"], f["md5"], f["sha256"]), f["path"])
     empty_root = {
-        f["path"].casefold()
+        _fold(f["path"])
         for f in inv["files"]
         if not f.get("excluded") and f["size"] == 0 and f["sha256"] == EMPTY_SHA256
     }
@@ -879,11 +1003,14 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
         if r["class"] == "copy" and r["size"] and r["md5"] and r["sha256"]:
             copy_keys.setdefault((r["size"], r["md5"], r["sha256"]), r["dest"])
     taken = Taken(
-        [f["path"] for f in inv["files"]] + [r["dest"] for r in rows if r["dest"]],
+        [f["path"] for f in inv["files"]]
+        + inv.get("links", [])
+        + [r["dest"] for r in rows if r["dest"]],
         inv.get("dirs", []),
     )
     todo = sorted(
-        (r for r in rows if r["class"] == "needs-byte-check"), key=lambda r: (r["area"], r["path"])
+        (r for r in rows if r["class"] == "needs-byte-check" and not r.get("same_object")),
+        key=lambda r: (r["area"], r["path"]),
     )
     tmp.mkdir(parents=True, exist_ok=True)
     made: list[str] = []
@@ -893,11 +1020,17 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
             if os.path.lexists(native(local)):
                 raise ToolError(f"temporary file {local} already exists; use an empty --tmp")
             cp = run_cmd([*RCLONE, "backend", "copyid", remote, r["id"], str(local)])
+            if os.path.lexists(native(local)):
+                made.append(native(local))
             if cp.returncode != 0 or not os.path.isfile(native(local)):
-                raise ToolError(
-                    f"download of {r['area']}/{r['path']} failed: {cp.stderr.strip()[-300:]}", 4
-                )
-            made.append(native(local))
+                # One object Drive will not hand over must not stop the others: it stays
+                # on Drive, listed, and is never deletable.
+                if os.path.lexists(native(local)):
+                    os.remove(native(local))  # our own partial download
+                    made.remove(native(local))
+                err = (cp.stderr or "").strip()[-300:] or "no file"
+                r.update({"class": "unresolved", "reason": f"download failed: {err}", "dest": ""})
+                continue
             size, md5, sha = hash_file(local)
             os.remove(native(local))  # our own temporary download
             made.remove(native(local))
@@ -918,7 +1051,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
                 continue
             r.update({"size": size, "md5": md5, "sha256": sha})
             key = (size, md5, sha)
-            empty_twin = next((c for c in r["candidates"] if c.casefold() in empty_root), None)
+            empty_twin = next((c for c in r["candidates"] if _fold(c) in empty_root), None)
             if size == 0 and empty_twin:
                 r.update(
                     {
@@ -954,6 +1087,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
                 os.remove(p)  # our own temporary download
         if tmp.exists() and not any(tmp.iterdir()):
             tmp.rmdir()  # the empty temporary folder
+    _mirror(rows)
     _mark_deletable(rows)
     plan["bytechecked"] = utc_now()
     return plan
@@ -983,27 +1117,45 @@ def _copy_new(src: str, dst: Path) -> None:
     try:
         with os.fdopen(fd, "wb") as out, open(src, "rb") as inp:
             shutil.copyfileobj(inp, out, 1 << 20)
-        shutil.copystat(src, native(dst))
+        st = os.stat(src)  # the times only: a read-only flag would pin the staging name
+        os.utime(native(dst), ns=(st.st_atime_ns, st.st_mtime_ns))
     except BaseException:
         os.remove(native(dst))  # the partial file this call created (O_EXCL), never another's
         raise
 
 
-def _publish(src: Path, dst: Path) -> None:
+_NO_LINKS_ERRNO = {errno.EXDEV, errno.EPERM, errno.EOPNOTSUPP, errno.EMLINK}
+_NO_LINKS_WINERROR = {1, 17, 50}  # invalid function, not the same device, not supported
+
+
+def _links_unsupported(e: OSError) -> bool:
+    if getattr(e, "winerror", None) is not None:
+        return e.winerror in _NO_LINKS_WINERROR  # type: ignore[attr-defined]
+    return e.errno in _NO_LINKS_ERRNO
+
+
+def _publish(src: Path, dst: Path) -> str:
     """Make a verified staging file appear at dst, which must not exist.
 
-    A hard link fails if dst exists, so nothing is ever written over; where hard links
-    are not available, an exclusive create gives the same guarantee. The staging name
-    is ours and is removed once the bytes are at dst.
+    A hard link fails if dst exists, so nothing is ever written over. Only where the
+    volume cannot hold one does an exclusive create take its place; any other failure
+    (a file another program holds, say) is raised. The staging name is ours and is
+    removed once the bytes are at dst; if that fails, the note says where it stays.
     """
     os.makedirs(native(dst.parent), exist_ok=True)
     try:
         os.link(native(src), native(dst))
     except FileExistsError:
         raise
-    except OSError:
+    except OSError as e:
+        if not _links_unsupported(e):
+            raise
         _copy_new(native(src), dst)
-    os.remove(native(src))  # our own staging name; the bytes stay at dst
+    try:
+        os.remove(native(src))  # our own staging name; the bytes stay at dst
+    except OSError as e:
+        return f"published; its staging name stays at {src} ({e.strerror or e})"
+    return ""
 
 
 def _staging(root: Path) -> Path:
@@ -1074,7 +1226,12 @@ def copy_all(
     todo, done, conflicts = [], [], []
     for r in rows:
         dest = root / r["dest"]
-        if os.path.lexists(native(dest)):
+        link = _link_on_path(root, r["dest"])
+        if link:
+            conflicts.append(
+                (r, f"a link or junction on the path ({link}), not a file of the root")
+            )
+        elif os.path.lexists(native(dest)):
             ok, why = _matches(dest, r) if os.path.isfile(native(dest)) else (False, "not a file")
             (done if ok else conflicts).append((r, why))
         else:
@@ -1117,7 +1274,6 @@ def copy_all(
                 errors[r["id"]] = fetch([(r, s)])
         elif missing:
             errors[missing[0][0]["id"]] = err
-        out = []
         for r, s in pairs:
             rec = {"id": r["id"], "dest": r["dest"]}
             if not os.path.isfile(native(s)):
@@ -1126,17 +1282,21 @@ def copy_all(
                 ok, why = _matches(s, r)
                 if not ok:
                     rec["status"] = f"MISMATCH with Drive's listing: {why}; kept at {s}"
+                elif _link_on_path(root, r["dest"]):
+                    rec["status"] = f"conflict: a link appeared on the path; kept at {s}"
                 else:
                     try:
-                        _publish(s, root / r["dest"])
+                        note = _publish(s, root / r["dest"])
                         rec.update({"status": "ok", "sha256": why})
+                        if note:
+                            rec["note"] = note
                     except FileExistsError:
                         rec["status"] = f"conflict: the destination appeared; kept at {s}"
-            out.append(rec)
-        with lock:
-            results.extend(out)
-            with open(log, "a", encoding="utf-8") as fh:
-                for rec in out:
+                    except OSError as e:
+                        rec["status"] = f"publish failed: {e.strerror or e}; kept at {s}"
+            with lock:  # logged as each object settles, so a crash loses no record
+                results.append(rec)
+                with open(log, "a", encoding="utf-8") as fh:
                     fh.write(json.dumps({**rec, "at": utc_now()}) + "\n")
 
     chunks = _batches(todo, batch, staging)
@@ -1149,6 +1309,8 @@ def copy_all(
     print(f"copy: {len(results) - len(bad)} copied and verified; {len(bad)} not")
     for x in bad[:50]:
         print(f"  FAILED  {x['dest']}: {x['status']}")
+    for x in [x for x in results if x.get("note")][:50]:
+        print(f"  NOTE    {x['dest']}: {x['note']}")
     if any(x["status"].startswith(("MISMATCH", "conflict")) for x in bad):
         raise ToolError(
             "a download does not match Drive, or a destination appeared; nothing was overwritten", 3
@@ -1156,43 +1318,73 @@ def copy_all(
     return 4 if bad else 0
 
 
+def _check_home(root: Path, rel: str, r: dict) -> str:
+    """'' when root/rel is a file of the root's own holding the row's bytes, else why not."""
+    if credential_shaped(rel):
+        return "a credential-shaped name, never read"
+    link = _link_on_path(root, rel)
+    if link:
+        return f"a link or junction on the path ({link})"
+    if not os.path.isfile(native(root / rel)):
+        return "missing"
+    good, why = _matches(root / rel, r)
+    return "" if good else why
+
+
 def verify(plan: dict, root: Path) -> int:
+    """Re-hash every file the plan relies on: each copy, and each root file a Drive object matches.
+
+    A root file changed or removed since the inventory makes its Drive twin the only
+    copy again, so it fails here rather than reaching card 3 as deletable.
+    """
+    if not same_path(plan["root"], str(root)):
+        raise ToolError(f"the plan was made for root {plan['root']}, not {root}")
     pending = [r for r in plan["rows"] if r["class"] == "needs-byte-check"]
     rows = [r for r in plan["rows"] if r["class"] == "copy"]
     ok = missing = bad = 0
     for r in rows:
-        dest = root / r["dest"]
-        if not os.path.isfile(native(dest)):
+        why = _check_home(root, r["dest"], r)
+        if not why:
+            ok += 1
+        elif why == "missing":
             missing += 1
             print(f"  MISSING   {r['dest']}")
-            continue
-        good, why = _matches(dest, r)
-        if good:
-            ok += 1
         else:
             bad += 1
             print(f"  MISMATCH  {r['dest']}: {why}")
+    copied = {r["dest"] for r in rows}
+    twins: dict[str, dict] = {}
+    for r in plan["rows"]:
+        if r["class"] in ("redundant", "duplicate") and r["twin"] and r["twin"] not in copied:
+            twins.setdefault(r["twin"], r)
+    twin_bad = 0
+    for rel, r in sorted(twins.items()):
+        why = _check_home(root, rel, r)
+        if why:
+            twin_bad += 1
+            print(f"  TWIN      {rel}: {why} (Drive {r['area']}/{r['path']} relies on it)")
     leftovers = []
     staging = _staging(root)
     if os.path.isdir(native(staging)):
-        for dirpath, _d, filenames in os.walk(native(staging)):
+        for dirpath, _d, filenames in os.walk(native(staging), onerror=_walk_error):
             leftovers.extend(os.path.join(dirpath, f) for f in filenames)
     partial = []
     legacy = root / LEGACY
     if legacy.is_dir():
-        for rel_dir, _d, filenames, _p in _walk(legacy):
+        for rel_dir, _d, filenames, _p, _l in _walk(legacy):
             partial.extend(
                 f"{rel_dir}/{f}" if rel_dir else f for f in filenames if f.endswith(".partial")
             )
     print(
         f"verify: {len(rows)} copies: {ok} ok, {missing} missing, {bad} mismatched; "
-        f"{len(pending)} object(s) still need a byte check"
+        f"{len(twins)} root files Drive objects match: {len(twins) - twin_bad} ok, "
+        f"{twin_bad} missing or changed; {len(pending)} object(s) still need a byte check"
     )
     for p in leftovers[:20]:
         print(f"  staging   {p} (a download kept for inspection; outside the root)")
     for p in partial[:20]:
         print(f"  partial   {LEGACY}/{p} (not data)")
-    return 0 if missing == bad == len(pending) == 0 else 1
+    return 0 if missing == bad == twin_bad == len(pending) == 0 else 1
 
 
 # ---------------------------------------------------------------- sweep (a local folder)
@@ -1203,54 +1395,104 @@ SWEEP_SKIP_NAMES = ("__pycache__", "_locks", ".git", "DATA_MANIFEST.json", "_inv
 
 
 def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
-    """Copy the data files of a local folder whose bytes the root lacks to root/dest."""
+    """Copy the data files of a local folder whose bytes the root lacks to root/dest.
+
+    Nothing is left out silently. A data file whose name Windows or rclone cannot keep
+    stops the run before anything is copied, and so does a folder that cannot be
+    listed; each credential-shaped file and each link it passes over is named.
+    """
     parts = dest.split("/")
-    if not AREA_NAME.match(dest) or ".." in parts or parts[0] in (*LIVE_TREES, LOGS):
-        raise ToolError(f"refusing destination {dest!r}: sweep writes only outside the live trees")
+    if (
+        not AREA_NAME.match(dest)
+        or not all(win_safe(p) for p in parts)  # refuses "", "." and ".." too
+        or _fold(parts[0]) in {_fold(t) for t in (*LIVE_TREES, LOGS)}
+        or credential_shaped(dest)
+    ):
+        raise ToolError(
+            f"refusing destination {dest!r}: sweep writes only to a plain folder outside the "
+            "live trees"
+        )
     if not source.is_dir():
         raise ToolError(f"source {source} is not a directory")
     if _inside(source, root) or _inside(root, source):
         raise ToolError("the source and the root must not contain each other")
     if not same_path(inv["root"], str(root)):
         raise ToolError(f"the inventory was made for root {inv['root']}, not {root}")
-    have = {(f["size"], f["md5"], f["sha256"]) for f in inv["files"] if not f.get("excluded")}
+    have: dict[tuple, list[str]] = defaultdict(list)
+    for f in inv["files"]:
+        if not f.get("excluded") and f["size"]:
+            have[(f["size"], f["md5"], f["sha256"])].append(f["path"])
+    confirmed: dict[tuple, bool] = {}
+
+    def at_home(key: tuple) -> bool:
+        # The inventory may be stale: a root file it lists counts only if it still
+        # holds these bytes now.
+        if key not in confirmed:
+            confirmed[key] = any(
+                not _link_on_path(root, p)
+                and os.path.isfile(native(root / p))
+                and hash_file(root / p) == key
+                for p in have.get(key, [])
+            )
+        return confirmed[key]
+
     base = native(source)
-    todo, done, conflicts, home, skipped = [], [], [], 0, 0
-    for dirpath, dirnames, filenames in os.walk(base):
-        dirnames[:] = sorted(d for d in dirnames if d not in SWEEP_SKIP_NAMES)
+    todo, done, conflicts, home, code = [], [], [], 0, 0
+    passed: list[tuple[str, str]] = []
+    unsafe: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(base, onerror=_walk_error):
         rel_dir = os.path.relpath(dirpath, base).replace(os.sep, "/")
         rel_dir = "" if rel_dir == "." else rel_dir
+        linked = [d for d in dirnames if _is_link(os.path.join(dirpath, d))]
+        passed.extend(
+            (f"{rel_dir}/{d}" if rel_dir else d, "a linked folder, not followed") for d in linked
+        )
+        dirnames[:] = sorted(d for d in dirnames if d not in SWEEP_SKIP_NAMES and d not in linked)
         for fn in sorted(filenames):
             rel = f"{rel_dir}/{fn}" if rel_dir else fn
             full = os.path.join(dirpath, fn)
-            if (
-                fn in SWEEP_SKIP_NAMES
-                or fn.endswith(SWEEP_SKIP_SUFFIXES)
-                or os.path.islink(full)
-                or credential_shaped(rel)
-                or not all(win_safe(p) for p in rel.split("/"))
-            ):
-                skipped += 1
+            if fn in SWEEP_SKIP_NAMES or fn.endswith(SWEEP_SKIP_SUFFIXES):
+                code += 1
+                continue
+            if _is_link(full):
+                passed.append((rel, "a link, not followed"))
+                continue
+            if credential_shaped(rel):
+                passed.append((rel, "a credential-shaped name, never read"))
+                continue
+            if not all(win_safe(p) for p in rel.split("/")):
+                unsafe.append(rel)
                 continue
             size, md5, sha = hash_file(full)
-            if size and (size, md5, sha) in have:
+            if size and at_home((size, md5, sha)):
                 home += 1
                 continue
             target = root / dest / rel
-            if os.path.lexists(native(target)):
+            if _link_on_path(root, f"{dest}/{rel}"):
+                conflicts.append(rel)
+            elif os.path.lexists(native(target)):
                 got = hash_file(target) if os.path.isfile(native(target)) else None
                 (done if got == (size, md5, sha) else conflicts).append(rel)
-                continue
-            todo.append((rel, full, size, sha))
+            else:
+                todo.append((rel, full, size, sha))
     print(
-        f"sweep: {home + len(todo) + len(done) + len(conflicts)} data files in {source}; "
-        f"{home} already in the root by bytes; {len(done)} already swept; {len(todo)} to copy "
-        f"({sum(t[2] for t in todo):,} B); {skipped} skipped (code, logs, credential names, links)"
+        f"sweep: {home + len(todo) + len(done) + len(conflicts) + len(unsafe)} data files in "
+        f"{source}; {home} already in the root by bytes; {len(done)} already swept; "
+        f"{len(todo)} to copy ({sum(t[2] for t in todo):,} B); {code} code or log files skipped"
     )
+    for rel, why in passed:
+        print(f"  PASSED    {rel}: {why}")
+    for rel in unsafe:
+        print(f"  UNSAFE    {rel}: a name Windows or rclone cannot keep")
     for rel in conflicts:
-        print(f"  CONFLICT  {dest}/{rel} holds other bytes")
+        print(f"  CONFLICT  {dest}/{rel} holds other bytes, or a link is on its path")
     if conflicts:
         raise ToolError(f"{len(conflicts)} destination(s) hold other bytes; nothing was copied", 3)
+    if unsafe:
+        raise ToolError(
+            f"{len(unsafe)} data file(s) have names Windows or rclone cannot keep; rename them "
+            "in the source and run again; nothing was copied"
+        )
     for rel, _full, size, _sha in todo:
         print(f"  {'would copy' if dry_run else 'copy'}  {dest}/{rel}  ({size:,} B)")
     if dry_run:
@@ -1259,22 +1501,35 @@ def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
         # Copy beside the root, re-hash there, then publish with a hard link: a bad copy
         # never reaches the root, and a file that appears meanwhile is never replaced.
         staging = _run_folder(root, "sweep")
-        bad = []
+        bad: list[str] = []
+        failed: list[str] = []
+        notes: list[str] = []
         for n, (rel, full, _size, sha) in enumerate(todo):
             tmp = staging / f"{n:06d}"
             _copy_new(full, tmp)
             if hash_file(tmp)[2] != sha:
                 bad.append(f"{dest}/{rel}: the copy does not match its source; kept at {tmp}")
                 continue
+            if _link_on_path(root, f"{dest}/{rel}"):
+                bad.append(f"{dest}/{rel}: a link appeared on the path; kept at {tmp}")
+                continue
             try:
-                _publish(tmp, root / dest / rel)
+                note = _publish(tmp, root / dest / rel)
+                if note:
+                    notes.append(f"{dest}/{rel}: {note}")
             except FileExistsError:
                 bad.append(f"{dest}/{rel}: the destination appeared; kept at {tmp}")
+            except OSError as e:
+                failed.append(f"{dest}/{rel}: publish failed ({e.strerror or e}); kept at {tmp}")
         _tidy(staging)
-        for b in bad:
+        for b in bad + failed:
             print(f"  FAILED  {b}")
+        for x in notes:
+            print(f"  NOTE    {x}")
         if bad:
             raise ToolError(f"{len(bad)} file(s) not copied; nothing was overwritten", 3)
+        if failed:
+            raise ToolError(f"{len(failed)} file(s) not copied; a rerun resumes", 4)
     print(f"sweep: copied and verified {len(todo)} file(s)")
     return 0
 
@@ -1284,11 +1539,11 @@ def sweep(source: Path, root: Path, inv: dict, dest: str, dry_run: bool) -> int:
 
 def write_sums(root: Path) -> tuple[int, int, str]:
     lines, total = [], 0
-    for rel_dir, _d, filenames, dirpath in _walk(root):
+    for rel_dir, _d, filenames, dirpath, _l in _walk(root):
         for fn in filenames:
             rel = f"{rel_dir}/{fn}" if rel_dir else fn
             full = os.path.join(dirpath, fn)
-            if rel in (SUMS, SUMS + ".tmp") or os.path.islink(full) or credential_shaped(rel):
+            if rel in (SUMS, SUMS + ".tmp") or _is_link(full) or credential_shaped(rel):
                 continue
             size, _md5, sha = hash_file(full)
             total += size
@@ -1335,6 +1590,7 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--remote", required=True, help="rclone remote, e.g. gdrive:")
     sp.add_argument("--areas", help="areas JSON (default: the §C.3 areas built in)")
     sp.add_argument("--out", required=True)
+    sp.add_argument("--root", help="the data root, so --out never lands inside it")
     sp = sub.add_parser("inventory", help="size, MD5 and SHA-256 of every root file")
     sp.add_argument("--root")
     sp.add_argument("--out", required=True)
@@ -1380,6 +1636,12 @@ def main(argv: list[str] | None = None) -> int:
     except ToolError as e:
         print(f"ERROR: {e}", file=sys.stderr)
         return e.code
+    except OSError as e:  # a file operation failed; nothing is overwritten, a rerun resumes
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 4
+    except Exception:  # never exit 1, which means "verify found a difference"
+        traceback.print_exc()
+        return 2
 
 
 def _dispatch(args: argparse.Namespace) -> int:
@@ -1387,7 +1649,7 @@ def _dispatch(args: argparse.Namespace) -> int:
         sys.stdout.write(filters_text())
         return 0
     if args.cmd == "census":
-        out = guard_out(Path(args.out), None)
+        out = guard_out(Path(args.out), args.root)
         version = require_rclone()
         doc = census(args.remote, _areas(args.areas))
         doc["rclone"] = version
@@ -1438,7 +1700,8 @@ def _dispatch(args: argparse.Namespace) -> int:
             raise ToolError(f"the plan was made for root {plan['root']}, not {root}")
         guard_out(plan_path, root)
         require_rclone()
-        tmp = Path(args.tmp) if args.tmp else Path(tempfile.mkdtemp(prefix="swe-bytecheck-"))
+        # Absolute, so rclone never reads a colon in it as a remote name.
+        tmp = Path(os.path.abspath(args.tmp or tempfile.mkdtemp(prefix="swe-bytecheck-")))
         if tmp.exists() and any(tmp.iterdir()):
             raise ToolError(f"the temporary folder {tmp} is not empty")
         bytecheck(plan, load_json(Path(args.inventory)), root, args.remote, tmp)

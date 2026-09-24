@@ -838,8 +838,6 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
                     o, path, by_full, md5_count, first_copy, row["candidates"], empty_root
                 )
             row.update({"class": cls, "reason": reason, "twin": twin})
-            if credential_shaped(path) or reason.startswith("git config"):
-                row.update({"md5": "withheld" if o["md5"] else None, "sha256": None})
             prev = first_row.get(o["id"])
             if prev is not None and cls in ("copy", "duplicate", "redundant", "needs-byte-check"):
                 # One Drive object reached through two areas (a folder with two

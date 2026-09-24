@@ -1134,12 +1134,14 @@ def test_copy_refuses_a_link_that_appears_on_the_path_mid_run(tmp_path, monkeypa
     assert list(elsewhere.iterdir()) == []  # nothing published through the link
 
 
-def test_a_sweep_publish_that_fails_is_a_failure_not_a_crash(sweep_world, monkeypatch):
+def test_a_sweep_publish_that_fails_is_a_failure_not_a_crash(sweep_world, monkeypatch, capsys):
     def busy(*_a):
         raise PermissionError(errno.EACCES, "used by another process")
 
     monkeypatch.setattr(dc.os, "link", busy)
     assert _sweep(sweep_world) == 4  # a rerun resumes
+    failed = [line for line in capsys.readouterr().out.splitlines() if "publish failed" in line]
+    assert len(failed) == 2  # one locked file does not stop the others being tried
     out = sweep_world["root"] / "data_archive/old"
     assert not [p for p in out.rglob("*") if p.is_file()]  # no file reached the root
 

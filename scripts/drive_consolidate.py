@@ -115,7 +115,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-SCHEMA = 3  # 3: deletable only for bytes already home; links listed; area-root parents
+SCHEMA = 4  # 4: one verdict per Drive id; config names; the plan records where areas are
 LEGACY = "data_archive/drive-legacy"
 FOLDER = "application/vnd.google-apps.folder"
 SHORTCUT = "application/vnd.google-apps.shortcut"
@@ -344,10 +344,17 @@ def same_path(a: str, b: str) -> bool:
     return na == nb
 
 
+def _plain(path: str) -> str:
+    """A Windows extended-length path (\\\\?\\...) spelled the ordinary way, for comparing."""
+    if path.startswith("\\\\?\\UNC\\"):
+        return "\\\\" + path[8:]
+    return path[4:] if path.startswith("\\\\?\\") else path
+
+
 def _inside(path: Path | str, folder: Path | str) -> bool:
     """Is path the folder or under it, once links are resolved on both sides?"""
-    p = os.path.normcase(os.path.realpath(str(path)))
-    f = os.path.normcase(os.path.realpath(str(folder)))
+    p = os.path.normcase(_plain(os.path.realpath(_plain(str(path)))))
+    f = os.path.normcase(_plain(os.path.realpath(_plain(str(folder)))))
     return p == f or p.startswith(f.rstrip("\\/") + os.sep)
 
 
@@ -356,6 +363,9 @@ def guard_out(path: Path, root: Path | str | None) -> Path:
     if root is None:
         env = os.environ.get("SWE_DATA_ROOT", "").strip()
         root = env or None
+    if root is not None and _inside(path, root) and _is_link(native(Path(root) / LOGS)):
+        # However the output is spelled, a linked _logs could lead into the live trees.
+        raise ToolError(f"refusing to write {path}: {Path(root) / LOGS} is a link or junction")
     if root is not None and _inside(path, root) and not _inside(path, Path(root) / LOGS):
         raise ToolError(
             f"refusing to write {path} inside the data root; use {LOGS}/ or a folder outside it"
@@ -614,6 +624,17 @@ def census(remote: str, areas: list[dict]) -> dict:
             + (f"; {nomd5} file(s) without an MD5, which rclone cannot download" if nomd5 else ""),
             file=sys.stderr,
         )
+    # One Drive object is one listing: an id listed differently in two areas changed
+    # while the census ran (updated, or moved from one area to the next).
+    first: dict[str, tuple[str, dict]] = {}
+    for a in out:
+        for o in a["objects"]:
+            seen_in, was = first.setdefault(o["id"], (a["name"], o))
+            if was != o:
+                raise ToolError(
+                    f"object {o['id']} ({o['name']}) is listed differently in area {seen_in} "
+                    f"and area {a['name']}: it changed while the census ran; run it again"
+                )
     # One verdict per Drive id across every area: an object any area sees on a path the
     # tool must not read keeps no hash anywhere (areas can overlap, nested in each other).
     bad = _unsafe_ids(out)
@@ -801,8 +822,8 @@ def _every_path(area: dict) -> dict[str, list[str]]:
     def walk(oid: str) -> list[str]:
         if oid in memo:
             return memo[oid]
-        if oid in visiting:  # a loop of folders: no path through it
-            return []
+        if oid in visiting:  # a loop of folders: that path cannot be known
+            return [OUTSIDE]
         visiting.add(oid)
         name, out = objs[oid]["name"], []
         for p in objs[oid]["parents"]:
@@ -889,6 +910,9 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
                 "candidates": [natural, conflict],
                 "path_unique": unique[o["id"]],
             }
+            if o["id"] in bad:  # whatever the census kept, the plan keeps no hash of it
+                row["md5"] = "withheld" if row["md5"] else None
+                row["sha256"] = None
             if kind == "file" and o["id"] in bad:
                 why, seen = bad[o["id"]]
                 cls, twin = "unresolved", ""
@@ -996,7 +1020,7 @@ def _unsafe_ids(areas: list[dict]) -> dict[str, tuple[str, str]]:
             elif any(credential_shaped(p) for p in paths):  # every path, not just the first
                 reason = "credential-shaped name: never read or copied"
             elif any(p.startswith(OUTSIDE) for p in paths):  # names that cannot be checked
-                reason = "also in a folder outside the area, whose path is not known"
+                reason = "a path through a folder outside the area, or a loop: not known"
             else:
                 continue
             bad.setdefault(o["id"], (reason, area["name"]))
@@ -1166,6 +1190,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
     )
     if todo:
         _refuse_drift(plan, remote, todo, "since the plan. Nothing was fetched")
+    made_tmp = not os.path.lexists(native(tmp))
     tmp.mkdir(parents=True, exist_ok=True)
     made: list[str] = []
     try:
@@ -1239,7 +1264,7 @@ def bytecheck(plan: dict, inv: dict, root: Path, remote: str, tmp: Path) -> dict
         for p in made:
             if os.path.exists(p):
                 os.remove(p)  # our own temporary download
-        if tmp.exists() and not any(tmp.iterdir()):
+        if made_tmp and tmp.exists() and not any(tmp.iterdir()):
             tmp.rmdir()  # the empty temporary folder
     if todo:  # an object changed while it was checked keeps no verdict and no hash
         _refuse_drift(plan, remote, todo, "during the byte check. The plan was not changed")

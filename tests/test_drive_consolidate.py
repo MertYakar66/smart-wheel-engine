@@ -122,10 +122,21 @@ if args[:1] == ["size"]:
                 folders.add(o["id"])
                 frontier.append(o["id"])
     count = size = 0
+    by_path = os.environ.get("FAKE_SIZE_BY_PATH")  # rclone's walk: a folder once per parent
+    paths = {top: 1}
+
+    def npaths(f, depth=0):
+        if f not in paths:
+            obj = next(o for o in objs if o["id"] == f)
+            ups = [p for p in obj.get("parents", []) if p in folders]
+            paths[f] = sum(npaths(p, depth + 1) for p in ups) if depth < 50 else 1
+        return paths[f]
+
     for o in objs:
         if o["mimeType"].startswith("application/vnd.google-apps.") or not o.get("md5Checksum"):
             continue  # rclone skips a non-Google file without an MD5, as it skips Google files
-        k = sum(1 for p in o.get("parents", []) if p in folders)
+        ups = [p for p in o.get("parents", []) if p in folders]
+        k = sum(npaths(p) for p in ups) if by_path else len(ups)
         count += k
         size += k * int(o.get("size", "0"))
     count += int(os.environ.get("FAKE_SIZE_OFFSET", "0"))
@@ -575,6 +586,37 @@ def test_sha256_decides_even_when_size_and_md5_agree(tmp_path):
     assert row["class"] == "copy"
 
 
+def test_the_plan_keeps_no_hash_of_what_it_keeps_on_drive(tmp_path):
+    # Whatever the census kept: here one that kept the hashes of a file also in secrets/.
+    body = b"a secret\n"
+
+    def obj(oid, name, mime, parents, data=None):
+        return {
+            "id": oid,
+            "name": name,
+            "mime": mime,
+            "size": len(data) if data is not None else None,
+            "md5": hashlib.md5(data).hexdigest() if data is not None else None,
+            "sha256": hashlib.sha256(data).hexdigest() if data is not None else None,
+            "parents": parents,
+            "created": None,
+            "modified": None,
+            "target": None,
+            "target_mime": None,
+        }
+
+    objects = [
+        obj("d1", "data", dc.FOLDER, ["areaA"]),
+        obj("s1", "secrets", dc.FOLDER, ["areaA"]),
+        obj("o1", "keys.csv", "text/csv", ["d1", "s1"], body),
+    ]
+    area = {"name": "A", "id": "areaA", "mode": "consolidate", "root_parents": ["root"]}
+    census_doc = {"generated": "t", "areas": [{**area, "objects": objects}]}
+    inv = {"generated": "t", "root": str(tmp_path), "files": [], "dirs": [], "links": []}
+    row = _by_id(dc.build_plan(census_doc, inv))["o1"]
+    assert row["class"] == "unresolved" and row["md5"] == "withheld" and row["sha256"] is None
+
+
 def test_an_object_whose_hashes_the_census_withheld_is_never_classed(tmp_path):
     # Whatever the reason the census kept no hash, the plan never copies or matches it.
     obj = {
@@ -622,6 +664,82 @@ def test_what_a_folder_shared_by_two_areas_holds_stays_on_drive(tmp_path, monkey
     rows = [r for r in _plan(w)["rows"] if r["id"] == child]
     assert [r["class"] for r in rows] == ["unresolved", "unresolved"]
     assert not any(r["dest"] or r["deletable"] for r in rows)
+
+
+@pytest.mark.parametrize("layout", ["nested areas", "moved to the next area"])
+def test_the_census_stops_on_an_object_that_changed_while_it_ran(tmp_path, monkeypatch, layout):
+    # The census lists one area after another. An object updated (or moved and updated)
+    # between two listings has one id and two sets of bytes: a plan from it could call
+    # the id deletable while its new bytes are nowhere in the root.
+    old, new = b"old bytes\n", b"NEW bytes, only on Drive\n"
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    a = {"name": "A", "id": "areaA", "parent": "root", "folder": "A", "mode": "consolidate"}
+    if layout == "nested areas":
+        d.folder("vendor", "areaA", "areaB")
+        b = {
+            "name": "B",
+            "id": "areaB",
+            "parent": "areaA",
+            "folder": "vendor",
+            "mode": "consolidate",
+        }
+        oid = d.file("prices.csv", "areaB", old)
+    else:
+        d.folder("B", "root", "areaB")
+        b = {"name": "B", "id": "areaB", "parent": "root", "folder": "B", "mode": "consolidate"}
+        oid = d.file("prices.csv", "areaA", old)
+    w = _env(tmp_path, monkeypatch, d, [a, b], {"data/prices.csv": old})
+    real_size = dc.rclone_size
+
+    def size_then_change(remote, folder_id):
+        out = real_size(remote, folder_id)
+        if folder_id == "areaA":  # A is listed and checked; then the file changes on Drive
+            o = next(o for o in d.objects if o["id"] == oid)
+            o["size"] = str(len(new))
+            o["md5Checksum"] = hashlib.md5(new).hexdigest()
+            o["sha256Checksum"] = hashlib.sha256(new).hexdigest()
+            if layout != "nested areas":
+                o["parents"] = ["areaB"]
+            d.content[oid] = new.hex()
+            d.save(tmp_path / "drive.json")
+        return out
+
+    monkeypatch.setattr(dc, "rclone_size", size_then_change)
+    assert _census(w) == 2
+    assert not (w["tmp"] / "c.json").exists()
+
+
+def test_a_folder_with_two_parents_in_the_area_stops_the_census(tmp_path, monkeypatch):
+    # rclone's walk by path lists such a folder under each parent, so it counts what the
+    # folder holds twice, and the totals differ. (The fake counts that way only on request;
+    # the tests of what a plan does with such a folder use its default count.)
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    one, two = d.folder("one", "areaA"), d.folder("two", "areaA")
+    shared = d.folder("shared", one, parents=[one, two])
+    d.file("x.csv", shared, b"x-bytes\n")
+    w = _one_area(tmp_path, monkeypatch, d)
+    monkeypatch.setenv("FAKE_SIZE_BY_PATH", "1")
+    assert _census(w) == 2
+
+
+def test_a_folder_loop_never_hides_a_credential_folder(tmp_path, monkeypatch):
+    # "data" sits in the area root and, as a second parent, in its own child "secrets":
+    # through the loop, everything in data/ is also under secrets/.
+    d = FakeDrive()
+    d.folder("A", "root", "areaA")
+    d.folder("data", "areaA", oid="f1", parents=["areaA", "f2"])
+    d.folder("secrets", "f1", oid="f2")
+    inner = d.file("prices.csv", "f2", b"a file inside secrets/\n", oid="f3")
+    outer = d.file("volumes.csv", "f1", b"a file inside data/\n", oid="f4")
+    w = _one_area(tmp_path, monkeypatch, d)
+    rows = _by_id(_plan(w))
+    census = json.loads((w["tmp"] / "c.json").read_text(encoding="utf-8"))
+    objs = {o["id"]: o for o in census["areas"][0]["objects"]}
+    for oid in (inner, outer):
+        assert objs[oid]["sha256"] is None and rows[oid]["sha256"] is None, oid
+        assert rows[oid]["class"] == "unresolved" and rows[oid]["dest"] == "", oid
 
 
 def test_a_file_whose_other_parent_is_outside_every_area_stays_on_drive(tmp_path, monkeypatch):
@@ -1012,6 +1130,42 @@ def test_outputs_never_land_inside_the_root_except_logs(world):
 
 
 # ---------------------------------------------------------------- inventory and bytecheck
+
+
+def test_no_output_goes_inside_the_root_while_its_logs_folder_is_a_link(world, tmp_path):
+    # However the output is spelled: through the root, or through another name for it.
+    root = world["root"]
+    before = (root / "data/x.csv").read_bytes()
+    shutil.rmtree(root / "_logs")
+    _symlink_or_skip(root / "_logs", root / "data", is_dir=True)
+    alias = tmp_path / "alias"
+    _symlink_or_skip(alias, root, is_dir=True)
+    for out in (alias / "_logs" / "x.csv", root / "_logs" / "i.json"):
+        assert dc.main(["inventory", "--root", str(root), "--out", str(out)]) == 2
+    assert (root / "data/x.csv").read_bytes() == before
+    assert not (root / "data" / "i.json").exists()
+
+
+def test_extended_length_paths_are_compared_the_ordinary_way():
+    assert dc._plain("\\\\?\\C:\\swe-data\\data\\x.csv") == "C:\\swe-data\\data\\x.csv"
+    assert dc._plain("\\\\?\\UNC\\server\\share\\x") == "\\\\server\\share\\x"
+    assert dc._plain("/home/x") == "/home/x"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="extended-length paths are Windows's")
+def test_an_extended_length_path_into_the_root_is_refused(world):
+    root = world["root"]
+    before = (root / "data/x.csv").read_bytes()
+    out = "\\\\?\\" + str(root / "data" / "x.csv")
+    assert dc.main(["inventory", "--root", str(root), "--out", out]) == 2
+    assert (root / "data/x.csv").read_bytes() == before
+
+
+def test_bytecheck_keeps_a_temporary_folder_it_did_not_make(world):
+    _plan(world)
+    (world["tmp"] / "bc").mkdir()  # the operator's own, empty
+    _bytecheck(world)
+    assert (world["tmp"] / "bc").is_dir()
 
 
 def test_inventory_never_reads_a_credential_file(world, monkeypatch):

@@ -1,6 +1,7 @@
 # Project State
 
-**Last updated:** 2026-09-24 (close after #533: `main` at `249f913`, D33 in force.
+**Last updated:** 2026-09-24 (close after #534: `main` at `7bfa626`, the D33 consolidation
+tool merged. Earlier the same day: close after #533, `main` at `249f913`, D33 in force.
 Before it: D33: the MacBook is outside the data estate, Drive
 becomes a complete second copy, and the four data branches go once the history bundle
 restores from Drive; §0 A and B updated, reviewed twice by Codex.
@@ -69,7 +70,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `249f913` (2026-09-24). Others on `origin`:
+**Branches:** `main` is at `7bfa626` (2026-09-24). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -121,12 +122,19 @@ described here is no longer accurate.
     (`249f913`). Codex's automatic review of #533 found that a git object is not a
     byte copy of the bundle, so the old `.git` upload comes home like any other
     file (§C.3).
+  - The D33 consolidation tool, `scripts/drive_consolidate.py`, merged in #534
+    (`7bfa626`). It takes the Drive census, writes the plan and the ledger, copies
+    Drive-only files home by Drive id without overwriting, verifies, and writes
+    `SHA256SUMS`. No command deletes, moves or uploads. 202 tests; all 144
+    deliberate breaks of its safety rules fail them. Seven independent reviews
+    (the last in five rounds) and twenty-one Codex reviews; the last of each found
+    nothing. One recorded limit: another name for the root that `realpath` keeps
+    (a bind mount, a loopback share) passes its checks, so the cards spell every
+    output path the ordinary way.
 - **Remains.**
-  1. **The D33 consolidation tool** (next): a checking tool with tests, for the
-     Drive census, the plan and the ledger, copying by Drive id without
-     overwriting, and the checksum list.
-  2. **Desktop card 1, prove and plan.** Nothing is deleted, and nothing on Drive
-     changes. The card:
+  1. **Desktop card 1, prove and plan** (next). It first runs the tool's tests
+     on the desktop, since they have run on Linux only. Nothing is deleted, and
+     nothing on Drive changes. The card:
      - merges `main` into the desktop branch with guards;
      - retires the "SWE IBKR Morning Pull" task (Operator: "delete the morning
        pull");
@@ -135,32 +143,34 @@ described here is no longer accurate.
      - restores the bundle locally;
      - takes the Drive census of the four areas (`docs/DATA_INVENTORY.md` §C.3);
      - writes the plan.
-  3. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
+  2. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
      - copies home everything that exists only on Drive;
      - builds `swe-data/` on Drive and checks it both ways, plus the checksum
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
        root, and the bundle into an empty repository.
-  4. **D31 step 6, under D33.** It runs after card 2. The four data branches are
+  3. **D31 step 6, under D33.** It runs after card 2. The four data branches are
      deleted in one atomic push with a lease on each, and only with the Operator's
      yes. #507 has been closed since 2026-09-23.
-  5. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
+  4. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
      the card first. Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a
      byte-identical copy of `portfolio_history.json`), on the desktop and on
      Drive.
-  6. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
+  5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copies them into the root, so Drive gets them. Untracking them
      remains proposed.
-- **Next action.** The consolidation tool's PR, which is written and tested and awaits an
-  independent review. Card 1 follows.
+- **Next action.** Card 1 to a fresh-context reviewer, then to the Operator to paste
+  into the desktop terminal.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
   - Retiring the morning-pull task ("delete the morning pull").
   - v4 ("change it right away").
 - **Proposed, not authorized.** Purging the data from git history; the fixture
-  subset; untracking the `staging/` data.
+  subset; untracking the `staging/` data; recording the SmartWheelData area's parent
+  id in `docs/DATA_INVENTORY.md` §C.3 (review N-7 of #534: today only the tool
+  holds it, and the census checks it on every run).
 - **Dropped.** The MacBook transfer (step 2b) and Theta on Drive as tar chunks
   (D33).
 

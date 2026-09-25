@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-09-24 — the D33 Drive consolidation tool
+## 2026-09-24 — the D33 Drive consolidation tool (#534, `7bfa626`)
 
 **Added** — `scripts/drive_consolidate.py`: the tool the D33 desktop cards run. It
 has no command that deletes, moves or uploads anything.

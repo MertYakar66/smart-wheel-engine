@@ -14,6 +14,14 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-25 — the SmartWheelData area's Drive parent id (N-7 of #534)
+
+**Docs** — `docs/DATA_INVENTORY.md` §C.3 records the folder that holds
+SmartWheelData, OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`),
+checked on Drive. Until now only the tool named it. The areas test in
+`tests/test_drive_consolidate.py` now checks every non-root parent id against the
+record as well as every area id. The D33 worklog fragment is marked merged (#533).
+
 ## 2026-09-24 — the D33 Drive consolidation tool (#534, `7bfa626`)
 
 **Added** — `scripts/drive_consolidate.py`: the tool the D33 desktop cards run. It

@@ -2871,6 +2871,8 @@ def test_the_default_areas_match_the_inventory_record_and_their_modes():
     text = (_REPO / "docs" / "DATA_INVENTORY.md").read_text(encoding="utf-8")
     for a in dc.DEFAULT_AREAS:
         assert a["id"] in text, a["name"]
+        # The folder that holds an area is recorded too, so an agent can find it again.
+        assert a["parent"] == "root" or a["parent"] in text, f"{a['name']}: parent {a['parent']}"
     modes = {a["name"]: a["mode"] for a in dc.DEFAULT_AREAS}
     assert modes == {
         "swe-local-only": "consolidate",

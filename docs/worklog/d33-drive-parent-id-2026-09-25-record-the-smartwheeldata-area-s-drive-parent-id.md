@@ -31,8 +31,8 @@ matches the tool.
 - §C.3 row 2 now names the parent folder with its id.
 - `test_the_default_areas_match_the_inventory_record_and_their_modes` now finds
   each area's own row of §C.3 by its id: exactly one row. That row must also carry
-  the area's folder name, and its parent: the parent's id, or "top of My Drive"
-  for an area at the top. The four day-bot areas' parent
+  the area's folder name. Its "Folder (id)" cell must carry the parent: the
+  parent's id, or "top of My Drive" for an area at the top. The four day-bot areas' parent
   (`1BBSXZIZBF8xwqIvkybN9WK8GOSVDiwo0`) was already recorded in row 4.
 
 ## What didn't
@@ -42,9 +42,14 @@ in the file. Codex's review of #536 showed the gap: both non-root parent ids wer
 already in the file, so giving SmartWheelData the day-bot parent would still have
 passed. The test now reads the §C.3 table row by row.
 
+The row-based version still let a wrong parent through when the wrong id was
+another one in the same row, such as the area's own child or a sibling area. The
+independent check of #536 found it. The parent is now looked for only in the
+row's "Folder (id)" cell, and it must differ from the area's own id.
+
 ## How we fixed it
 
-A one-line change to the record, and the areas test reads §C.3 row by row. The
+A one-line change to the record, and the areas test reads §C.3 cell by cell. The
 tool is unchanged.
 
 ## Evidence
@@ -52,15 +57,26 @@ tool is unchanged.
 - Fail-before: with the id taken out of the record, the test fails with
   `AssertionError: SmartWheelData: parent 1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`.
   With the id put back, it passes.
-- Seven deliberate breaks, each made and then undone, all fail the test:
-  - the tool gives SmartWheelData the day-bot parent (the gap Codex found, which
-    the first version passed);
+- Twelve deliberate breaks, each made and then undone, all fail the test.
+  In the tool, SmartWheelData's parent becomes:
+  - the day-bot parent (the gap Codex found, which the first version passed);
+  - its own child's id (`bloomberg`);
+  - its own id;
+  - `root`.
+
+  Also in the tool:
+  - `vendor_swe_data`'s parent becomes a sibling's id;
+  - a folder name is wrong.
+
+  In the record:
   - the parent id is removed from row 2;
   - the parent id moves from row 2 to row 3;
+  - the parent id moves into row 2's "What it holds" cell;
   - row 1 loses "top of My Drive";
   - the day-bot parent is removed from row 4;
-  - the tool's folder name is wrong;
   - an area id appears in two rows.
+
+  The child and sibling cases passed the row-based version.
 - The fast lane, ruff and the structure checks: see the Run Summary on the pull
   request.
 
@@ -69,5 +85,7 @@ tool is unchanged.
 - An opportunistic fix in the same pull request: the D33 fragment
   (`d33-data-estate-2026-09-24-…`) still read `in-flight` after #533 merged. It
   now reads `merged`, with `pr: 533`.
+- The test expects exactly four rows in §C.3. Card 2 adds the new `swe-data/`
+  folder to the record; the same pull request updates this test.
 - 64 older fragments still read `in-flight`. That is the history the September
   restart recorded, and it is left alone here.

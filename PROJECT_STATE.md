@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-09-24 (close after #534: `main` at `7bfa626`, the D33 consolidation
+**Last updated:** 2026-09-25 (close after #536: `main` at `f26e785`, the SmartWheelData area's
+Drive parent id recorded in `docs/DATA_INVENTORY.md` §C.3 (N-7).
+2026-09-24: close after #534, `main` at `7bfa626`, the D33 consolidation
 tool merged. Earlier the same day: close after #533, `main` at `249f913`, D33 in force.
 Before it: D33: the MacBook is outside the data estate, Drive
 becomes a complete second copy, and the four data branches go once the history bundle
@@ -70,7 +72,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `7bfa626` (2026-09-24). Others on `origin`:
+**Branches:** `main` is at `f26e785` (2026-09-25). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -131,9 +133,17 @@ described here is no longer accurate.
     nothing. One recorded limit: another name for the root that `realpath` keeps
     (a bind mount, a loopback share) passes its checks, so the cards spell every
     output path the ordinary way.
+  - The SmartWheelData area's parent folder id, OptionsEngine_Project
+    (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`), recorded in `docs/DATA_INVENTORY.md`
+    §C.3 after the pen read it from Drive. Merged in #536 (`f26e785`). The areas
+    test now ties each of the tool's areas to its own §C.3 row: id, folder name,
+    and the parent in the row's "Folder (id)" cell. Codex and then the
+    independent check each found a gap in the test, and both were closed before
+    the merge.
 - **Remains.**
   1. **Desktop card 1, prove and plan** (next). It first runs the tool's tests
-     on the desktop, since they have run on Linux only. Nothing is deleted, and
+     on the desktop, from `main` and before anything changes, since they have
+     run on Linux only. Nothing is deleted, and
      nothing on Drive changes. The card:
      - merges `main` into the desktop branch with guards;
      - retires the "SWE IBKR Morning Pull" task (Operator: "delete the morning
@@ -160,17 +170,22 @@ described here is no longer accurate.
   5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copies them into the root, so Drive gets them. Untracking them
      remains proposed.
-- **Next action.** Card 1 to a fresh-context reviewer, then to the Operator to paste
-  into the desktop terminal.
+- **Next action.** Card 1, revised on 2026-09-25 for the merged tool, is with a
+  fresh-context review (four lenses, each finding verified). Then it goes to the
+  Operator to paste into the desktop terminal.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
   - Retiring the morning-pull task ("delete the morning pull").
+  - Recording the SmartWheelData parent id ("yes on the Drive-id record",
+    2026-09-25): done in #536.
   - v4 ("change it right away").
 - **Proposed, not authorized.** Purging the data from git history; the fixture
-  subset; untracking the `staging/` data; recording the SmartWheelData area's parent
-  id in `docs/DATA_INVENTORY.md` §C.3 (review N-7 of #534: today only the tool
-  holds it, and the census checks it on every run).
+  subset; untracking the `staging/` data. Also optional: a stricter areas test,
+  which would require the parent to be the exact last id in the "Folder (id)" cell
+  and the folder name to sit next to its id. The independent check of #536 found
+  seven mismatches the test still misses, such as a truncated parent id. The
+  census catches each against Drive, so none can reach the data.
 - **Dropped.** The MacBook transfer (step 2b) and Theta on Drive as tar chunks
   (D33).
 

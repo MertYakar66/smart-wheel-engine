@@ -2,9 +2,9 @@
 id: d33-data-estate-2026-09-24
 title: "D33: the data estate after the MacBook; Drive a complete second copy"
 kind: docs
-status: in-flight
+status: merged
 terminal: sandbox
-pr:
+pr: 533
 decisions: [D33, D31]
 date: 2026-09-24
 headline: The Operator dropped the MacBook and asked for Drive to hold all the data with no duplicates. Codex reviewed the plan twice; every finding was checked and accepted. D33 records the approved plan, which copies and never moves, deletes only named proven files, and deletes the four data branches only after the history bundle restores from Drive.

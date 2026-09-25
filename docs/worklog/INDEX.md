@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**191 records.**
+**192 records.**
 
 ## Features (20)
 
@@ -101,12 +101,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 | [trader500k-campaign](trader500k-campaign-trader-500k-reliability-campaign.md) | shipped | #520 | $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional | `trader500k-campaign-trader-500k-reliability-campaign.md` |
 
-## Verification & realism (43)
+## Verification & realism (44)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [audit-data-engine](audit-data-engine-phase-1-data-engine-audit-discovery.md) | in-flight |  | Reusable data+engine audit pass — 13 ranked findings; data spine sound, frontier-pinned probe clean (480/511 produced, 0 silent drops); 3 HIGH (conditional IV /100 heuristic in-trio, dateless fundamentals/credit lookahead, OHLCV-only fingerprint blind-spot) | `audit-data-engine-phase-1-data-engine-audit-discovery.md` |
 | [brain-audit-2026-06-11](brain-audit-2026-06-11-overnight-brain-audit-8-dimension-probe-backed-s.md) | in-flight |  | 8/8 dimensions SOUND_WITH_CAVEATS, zero new HIGH/CRITICAL; EV integral exact to <5e-9; §2 verified fresh (560 launch-blocker tests); suite 3,126 green; 4 new MEDIUMs dispositioned. | `brain-audit-2026-06-11-overnight-brain-audit-8-dimension-probe-backed-s.md` |
+| [d33-card1-2026-09-25](d33-card1-2026-09-25-desktop-card-1-prove-and-plan-d33.md) | in-flight |  | morning-pull task exported and retired; tool 190 passed/12 skipped on Windows; main merged into round 3 removing only the 87 checkout copies (87/87 byte-identical to the root's manifest, 0 gone and 0 changed among 235 untracked files); 20 staging CSVs (7,152,880 B) swept home; the 1.7 GB bundle restores with fsck clean and all four tips; Drive census 7 areas / 332,772 objects all equal to rclone size, plan bytechecked with 120,139 files (10,716,801,880 B) to copy home; root 144/0/0 at the start and at the end; nothing on Drive changed and nothing was deleted from the root or Drive | `d33-card1-2026-09-25-desktop-card-1-prove-and-plan-d33.md` |
 | [data-home-desktop-2026-09-18](data-home-desktop-2026-09-18-desktop-data-root-filled-and-verified-d31-steps.md) | completed | #527 | desktop root filled and proved 144 ok / 0 missing / 0 mismatched; fast lane 3196 passed / 0 failed with 0 requires_data skips; day-bot ticks backed up to Drive (0 differences, 15 files); both manifest gaps closed | `data-home-desktop-2026-09-18-desktop-data-root-filled-and-verified-d31-steps.md` |
 | [data-home-desktop-round3-2026-09-23](data-home-desktop-round3-2026-09-23-desktop-history-bundle-archive-on-drive-drive-on.md) | held |  | bundle built and proved to hold all 5 manifest git_sources and 1,101,549,144 B of history-only blobs, but the coverage gate FIRED (main moved to #530 mid-run); 29,262 Drive files pulled home, 29,260 checksum-identical and 2 ibkr conflicts kept on both sides; theta on Drive is only 13% of what the lost laptop held | `data-home-desktop-round3-2026-09-23-desktop-history-bundle-archive-on-drive-drive-on.md` |
 | [data-phase2-tests](data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md) | in-flight |  | Phase-2 of the data audit — 2 real-CSV test suites (integrity + data→engine) turning the Phase-1 findings into strong assertions; confirmed defects tracked as xfail(strict)+issue; trio byte-identical | `data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md` |

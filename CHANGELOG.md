@@ -14,6 +14,31 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-25 — D33 card 1: prove and plan (desktop, `e13220f`)
+
+**Changed** — the desktop run that prepares D33's consolidation. Nothing was
+deleted from the data root or from Drive, and nothing on Drive changed.
+- The "SWE IBKR Morning Pull" scheduled task is exported (UTF-16, kept in
+  `swe-data\_logs\d33-card1\ibkr_task_export.xml`) and unregistered, so it can no
+  longer overwrite the root's `portfolio_snapshot.json`. Its restore command is in
+  the worklog fragment.
+- `main` is merged into `claude/data-home-desktop-round3`. The merge removes only
+  the 87 checkout copies of data files, each proved byte-identical to the root's
+  manifest copy first (87 match, 0 absent, 0 differ); of 235 untracked or ignored
+  files, 0 went missing and 0 changed. `docs/worklog/INDEX.md` was regenerated, not
+  taken from one side.
+- `scripts/drive_consolidate.py` from `main` passes on Windows: 190 passed, 12
+  skipped (links unavailable without Developer Mode, and the `\\?\` path cases).
+- The last local strays are home: 20 CSVs (7,152,880 B) from the checkout's
+  `staging\`; all 61 swe-ops data files were already in the root by bytes.
+- The 1.7 GB history bundle restores into an empty bare repo — sha256 matched,
+  `fsck` clean, no promisor or alternates, all four data-branch tips present.
+- The Drive census (read-only) covers 7 areas and 332,772 objects, each area equal
+  to `rclone size`. The plan is written and byte-checked: 120,139 files
+  (10,716,801,880 B) to copy home, one unresolved row — the credential-shaped
+  `flex_credentials.json`, named but never read. The root checks 144/0/0 before and
+  after.
+
 ## 2026-09-25 — the SmartWheelData area's Drive parent id (N-7 of #534; #536, `f26e785`)
 
 **Docs** — `docs/DATA_INVENTORY.md` §C.3 records the folder that holds

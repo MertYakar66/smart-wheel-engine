@@ -30,4 +30,4 @@ close.
 | IBKR portfolio snapshot | 2026-07-18 (`portfolio_snapshot.json`); the morning pull that refreshed it is being retired | the desktop root, `data_processed/ibkr/` | the desktop's round-3 worklog, 2026-09-23 |
 | Theta (partial: 17,188 of ~132,862 files) | unknown; the subscription has lapsed, and Theta is collected again later (D33) | the desktop root, `data_processed/theta/`; also Drive `swe-local-only/theta` | `DECISIONS.md` D33; `docs/DATA_INVENTORY.md` §C.1 |
 
-*Last updated: 2026-09-24.*
+*Last updated: 2026-09-25 (reviewed at the close after #536: no row new, moved or closed).*

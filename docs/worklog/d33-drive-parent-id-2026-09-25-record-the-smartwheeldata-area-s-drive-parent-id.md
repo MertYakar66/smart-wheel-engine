@@ -2,9 +2,9 @@
 id: d33-drive-parent-id-2026-09-25
 title: Record the SmartWheelData area's Drive parent id (N-7 of #534)
 kind: docs
-status: in-flight
+status: merged
 terminal: sandbox
-pr:
+pr: 536
 decisions: [D33]
 date: 2026-09-25
 headline: The tool's built-in Drive areas named the folder that holds SmartWheelData (OptionsEngine_Project, 1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4), and the inventory record did not. The id is now in DATA_INVENTORY §C.3, and the areas test ties each area's id, folder name and parent to one row of §C.3.

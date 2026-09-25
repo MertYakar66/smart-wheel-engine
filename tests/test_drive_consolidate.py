@@ -2869,10 +2869,19 @@ def test_credential_shaped_matches_any_component():
 
 def test_the_default_areas_match_the_inventory_record_and_their_modes():
     text = (_REPO / "docs" / "DATA_INVENTORY.md").read_text(encoding="utf-8")
+    section = text.split("### §C.3", 1)[1].split("\n---", 1)[0]
+    rows = [
+        r for r in section.splitlines() if r.startswith("| ") and r.split("|")[1].strip().isdigit()
+    ]
+    assert len(rows) == 4
     for a in dc.DEFAULT_AREAS:
-        assert a["id"] in text, a["name"]
-        # The folder that holds an area is recorded too, so an agent can find it again.
-        assert a["parent"] == "root" or a["parent"] in text, f"{a['name']}: parent {a['parent']}"
+        # One row of the §C.3 record holds each area: its id, its folder's name, and the
+        # folder that holds it, so an agent can find it again from the record alone.
+        mine = [r for r in rows if a["id"] in r]
+        assert len(mine) == 1, a["name"]
+        assert f"`{a['folder']}`" in mine[0] or f"`{a['folder']}/`" in mine[0], a["name"]
+        where = "top of My Drive" if a["parent"] == "root" else a["parent"]
+        assert where in mine[0], f"{a['name']}: parent {a['parent']}"
     modes = {a["name"]: a["mode"] for a in dc.DEFAULT_AREAS}
     assert modes == {
         "swe-local-only": "consolidate",

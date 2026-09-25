@@ -85,6 +85,7 @@ import pandas as pd
 # Ensure we can import the engine package when run as a script from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from engine import paths  # noqa: E402
 from engine.theta_connector import ThetaConnector  # noqa: E402
 
 logger = logging.getLogger("theta_backfill")
@@ -121,8 +122,8 @@ DEFAULT_WATCHLIST = [
     "LLY",
 ]
 
-_DEFAULT_OUT_DIR = Path("data_processed/theta")
-_CONSTITUENTS_CSV = Path("data_raw/sp500_constituents_current.csv")
+_DEFAULT_OUT_DIR = paths.theta_dir()  # data root (D31)
+_CONSTITUENTS_CSV = paths.resolve("data_raw/sp500_constituents_current.csv")
 _PARQUET_OK: bool | None = None
 
 
@@ -812,6 +813,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--interval", default="1m", help="Intraday interval (1m/5m/15m)")
     parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args(argv)
+    args.out_dir = paths.resolve(args.out_dir)  # a relative --out-dir lands under the root
 
     logging.basicConfig(
         level=logging.WARNING if args.quiet else logging.INFO,

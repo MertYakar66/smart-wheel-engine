@@ -1,11 +1,16 @@
 import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 
-CONSTITUENTS_PATH = "data_raw/sp500_constituents_current.csv"
-OUTPUT_DIR = "data_raw/yfinance/options"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from engine import paths  # noqa: E402
+
+CONSTITUENTS_PATH = str(paths.resolve("data_raw/sp500_constituents_current.csv"))  # data root (D31)
+OUTPUT_DIR = str(paths.resolve("data_raw/yfinance/options"))
 
 
 def ensure_output_dir():

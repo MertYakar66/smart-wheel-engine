@@ -13,12 +13,18 @@ existing panel, dedup (date,ticker) keep-last, sort (ticker,date). Full rebuild:
 """
 
 import os
+import sys
 
 import pandas as pd
 from xbbg import blp
 
 HERE = os.path.dirname(__file__)
-MONO = os.path.join(HERE, "..", "data", "bloomberg")
+sys.path.insert(0, os.path.join(HERE, ".."))
+from engine import paths  # noqa: E402
+
+MONO = os.path.join(
+    str(paths.data_root() or os.path.join(HERE, "..")), "data", "bloomberg"
+)  # data root (D31)
 OUT = os.path.join(MONO, "broad_pull", "short_interest", "sp500_short_interest.csv")
 START = os.environ.get("SWE_PULL_START", "2026-06-01")
 END = os.environ.get("SWE_PULL_END", "2026-07-02")

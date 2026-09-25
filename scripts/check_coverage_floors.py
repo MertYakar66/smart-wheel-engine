@@ -37,11 +37,16 @@ from pathlib import Path
 
 # Measured on main @ 4c5a1a4 (CI run 28638294523, coverage.py 7.15.0,
 # branch=true, Test Suite selection -m "not backtest_regression").
+# Recalibrated 2026-09-23 for DECISIONS.md D31 step 5: git no longer holds the
+# market data, so CI runs without it and the ``requires_data`` tests skip there.
+# Two files drew part of their coverage from those tests; they were re-measured
+# in the CI form on a checkout with no data and set to measured minus 2pp. The
+# desktop lane, which has the data root, measures them at 90.13 / 79.73.
 FLOORS: dict[str, float] = {
     "engine/ev_engine.py": 93.0,  # measured 95.53
-    "engine/wheel_runner.py": 77.0,  # measured 79.35
+    "engine/wheel_runner.py": 74.0,  # 76.84 without data (D31); was 77.0 at 79.35 with data
     "engine/candidate_dossier.py": 89.0,  # measured 91.21
-    "engine/data_connector.py": 88.0,  # measured 90.69
+    "engine/data_connector.py": 80.0,  # 82.46 without data (D31); was 88.0 at 90.69 with data
     "engine/event_gate.py": 95.0,  # measured 97.33
     "engine/wheel_tracker.py": 81.0,  # measured 83.43
     "engine/portfolio_risk_gates.py": 96.0,  # measured 98.16

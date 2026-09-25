@@ -1,8 +1,19 @@
 # Project State
 
-**Last updated:** 2026-09-18 (data-home ruling D31 recorded in §1: the data lives
-under `SWE_DATA_ROOT` on the Operator's desktop, git holds the manifest; #507 closed by
-the ruling. 2026-09-17: §3 reduced to the open items; the dated
+**Last updated:** 2026-09-25 (close after #536: `main` at `f26e785`, the SmartWheelData area's
+Drive parent id recorded in `docs/DATA_INVENTORY.md` §C.3 (N-7).
+2026-09-24: close after #534, `main` at `7bfa626`, the D33 consolidation
+tool merged. Earlier the same day: close after #533, `main` at `249f913`, D33 in force.
+Before it: D33: the MacBook is outside the data estate, Drive
+becomes a complete second copy, and the four data branches go once the history bundle
+restores from Drive; §0 A and B updated, reviewed twice by Codex.
+2026-09-23: close after #531, `main` at `8cf6389`, the v4 structure in force.
+Before it: working structure v4, D32: §0 now opens with the direction (A),
+the handoff (B) and the Branches line session-open measures drift from; the restart record is
+§0 C. Earlier the same day, D31 step 5: git tracks no market data; the desktop root
+holds all 144 manifest files, `check` 144/0/0. 2026-09-18: data-home ruling D31 recorded
+in §1: the data lives under `SWE_DATA_ROOT` on the Operator's desktop, git holds the
+manifest; #507 closed by the ruling. 2026-09-17: §3 reduced to the open items; the dated
 May–July narrative moved verbatim to `archive/2026-09/`; §1 news sentence
 updated for D29. 2026-09-11: §0 added below with the verified state at restart
 and a pointer to the restart brief. Prior: 2026-07-02 deployment-truth doc pass —
@@ -10,17 +21,19 @@ data-currency blockquote refreshed to the 2026-06-04 frontier + 10-file/3-produc
 counts; fingerprint note extended for the #465 broad_pull pins.)
 
 > **Live sources of truth — don't duplicate them here, they decay.** The
-> current `main` HEAD and exact test count are in `git log origin/main` and
-> the latest CI run; in-flight work is on the campaign issue named in each
-> Execution Prompt (the old board, issue #113, is closed — Operating Model v3 §9.5); per-PR history is in `CHANGELOG.md`; the canonical
-> verification index is `docs/VERIFICATION_INDEX_2026-05-28.md`. This file
-> records *durable* temporal state (what's authoritative vs deprecated), not
-> a pinned commit SHA or test count — last time those were pinned here they
-> went stale within a day.
+> exact test count is in the latest CI run; in-flight work is on the campaign
+> issue named in each Execution Prompt (the old board, issue #113, is closed —
+> Operating Model §9.5); per-PR history is in `CHANGELOG.md`; the canonical
+> verification index is `docs/VERIFICATION_INDEX_2026-05-28.md`. **One commit
+> is pinned on purpose:** the Branches line in §0 records the `main` commit this
+> file describes. Session-open counts the commits `main` has gained since it
+> (`python scripts/session_open.py`), and session-close moves it (D32). A
+> non-zero count is the signal that this file is behind, not a defect to hide.
 
 This file records *temporal* state — what is authoritative now, what is
 in progress, what is deprecated. It is the half-life partner of
-`CLAUDE.md` (which is the *structural* contract). Update this file
+`OPERATING_MODEL.md` (the *structural* contract; `CLAUDE.md` is its
+checklist). Update this file
 when you finish a meaningful unit of work or discover that something
 described here is no longer accurate.
 
@@ -57,7 +70,126 @@ described here is no longer accurate.
 
 ---
 
-## 0. Restart 2026-09-11 — read this first
+## 0. Direction, handoff, and the restart record — read this first
+
+**Branches:** `main` is at `f26e785` (2026-09-25). Others on `origin`:
+- the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
+  `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
+  `data/drive-migration`;
+- `claude/data-home-desktop-round3`, the desktop's round-3 worklog (no PR yet);
+- `claude/project-restart-ai-agents-kot5jr`, the pen's branch.
+
+### 0 A. Business direction
+
+- **What the engine is.** A probabilistic EV decision engine for the wheel on S&P
+  500 names. It is a defensive premium sleeve, not a bull-market growth
+  substitute (header above).
+- **Where it is going** (D29, 2026-09-16; plan `docs/RESTART_PLAN_2026-09-16.md`):
+  - tradeable expiries of 7, 14, 21 and at most 28 days;
+  - trading close to events, behind a validated event-conditioned distribution
+    (Track B);
+  - an advisory exit evaluator (Track C);
+  - a strategist commentary layer (Track D).
+- **Data** (D29, D31, D33):
+  - The Bloomberg Terminal is gone, and the frozen CSVs end 2026-07-02.
+    Bloomberg data is kept "at all costs" (D33).
+  - New data subscriptions are deferred (Track A parked, 2026-09-17). The Theta
+    subscription is no longer active. Theta will be collected again from the
+    beginning, from a source chosen once the repository structure is settled.
+  - Every dataset lives on the Operator's desktop under `SWE_DATA_ROOT`, and git
+    holds none. Google Drive becomes the complete second copy, one folder
+    `swe-data/` laid out like the root (D33). The MacBook is outside the data
+    estate.
+- **Current focus.** Repository structure and efficiency (Track F), the data home
+  (D31), and the working structure (D32).
+- **Brokerage.** Read-only everywhere. There is no order path.
+
+### 0 B. Handoff — updated at every close
+
+- **Done.**
+  - D31 steps 1–5. The manifest exists; the desktop root is filled and proved at
+    144/0/0; git tracks no market data (#530).
+  - The desktop's round 3 (2026-09-23), recorded on its branch:
+    - a full-history bundle, built and proved by readback;
+    - `data_archive` plus the bundle on Drive: 0 differences, 30 matching;
+    - every Drive child pulled home and checked, the whole of Drive's theta
+      included (17,188 files).
+  - Working structure v4 adopted (D32) and merged (#531, `8cf6389`). Codex, as the
+    second opinion, found two defects in `scripts/session_open.py` and
+    `scripts/check_working_structure.py`; both were fixed before the merge.
+  - D33 (2026-09-24). The Operator dropped the MacBook and asked for Drive to hold
+    all the data, with no duplicates. Codex reviewed the consolidation plan twice
+    ("agree with changes" both times), and every finding was accepted. The
+    Operator approved the final plan and D33's wording ("yes"). Merged in #533
+    (`249f913`). Codex's automatic review of #533 found that a git object is not a
+    byte copy of the bundle, so the old `.git` upload comes home like any other
+    file (§C.3).
+  - The D33 consolidation tool, `scripts/drive_consolidate.py`, merged in #534
+    (`7bfa626`). It takes the Drive census, writes the plan and the ledger, copies
+    Drive-only files home by Drive id without overwriting, verifies, and writes
+    `SHA256SUMS`. No command deletes, moves or uploads. 202 tests; all 144
+    deliberate breaks of its safety rules fail them. Seven independent reviews
+    (the last in five rounds) and twenty-one Codex reviews; the last of each found
+    nothing. One recorded limit: another name for the root that `realpath` keeps
+    (a bind mount, a loopback share) passes its checks, so the cards spell every
+    output path the ordinary way.
+  - The SmartWheelData area's parent folder id, OptionsEngine_Project
+    (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`), recorded in `docs/DATA_INVENTORY.md`
+    §C.3 after the pen read it from Drive. Merged in #536 (`f26e785`). The areas
+    test now ties each of the tool's areas to its own §C.3 row: id, folder name,
+    and the parent in the row's "Folder (id)" cell. Codex and then the
+    independent check each found a gap in the test, and both were closed before
+    the merge.
+- **Remains.**
+  1. **Desktop card 1, prove and plan** (next). It first runs the tool's tests
+     on the desktop, from `main` and before anything changes, since they have
+     run on Linux only. Nothing is deleted, and
+     nothing on Drive changes. The card:
+     - merges `main` into the desktop branch with guards;
+     - retires the "SWE IBKR Morning Pull" task (Operator: "delete the morning
+       pull");
+     - archives the 7 older swe-ops copies;
+     - copies the 20 `staging/` data files into the root;
+     - restores the bundle locally;
+     - takes the Drive census of the four areas (`docs/DATA_INVENTORY.md` §C.3);
+     - writes the plan.
+  2. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
+     - copies home everything that exists only on Drive;
+     - builds `swe-data/` on Drive and checks it both ways, plus the checksum
+       list;
+     - runs the restore tests from Drive: the 144 manifest files into an empty
+       root, and the bundle into an empty repository.
+  3. **D31 step 6, under D33.** It runs after card 2. The four data branches are
+     deleted in one atomic push with a lease on each, and only with the Operator's
+     yes. #507 has been closed since 2026-09-23.
+  4. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
+     the card first. Proven duplicates in the old Drive areas go to the trash,
+     from a named list. The card also deletes the stray `ibkr$p` (a
+     byte-identical copy of `portfolio_history.json`), on the desktop and on
+     Drive.
+  5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
+     B). Card 1 copies them into the root, so Drive gets them. Untracking them
+     remains proposed.
+- **Next action.** Card 1, revised on 2026-09-25 for the merged tool, is with a
+  fresh-context review (four lenses, each finding verified). Then it goes to the
+  Operator to paste into the desktop terminal.
+- **Authorized.**
+  - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
+    conditions, still with a yes at the push, and card 3 with a yes at its gate.
+  - Retiring the morning-pull task ("delete the morning pull").
+  - Recording the SmartWheelData parent id ("yes on the Drive-id record",
+    2026-09-25): done in #536.
+  - v4 ("change it right away").
+- **Proposed, not authorized.** Purging the data from git history; the fixture
+  subset; untracking the `staging/` data. Also optional: a stricter areas test,
+  which would require the parent to be the exact last id in the "Folder (id)" cell
+  and the folder name to sit next to its id. The independent check of #536 found
+  seven mismatches the test still misses, such as a truncated parent id. The
+  census catches each against Drive, so none can reach the data.
+- **Dropped.** The MacBook transfer (step 2b) and Theta on Drive as tar chunks
+  (D33).
+
+### 0 C. Restart 2026-09-11 — the record
 
 Work stopped on 2026-07-29 (UTC) with PR #522 merged (`ec1c5c5`, the
 OPERATING_MODEL.md consolidation) and PR #523 (docs restructure, CI green)
@@ -155,7 +287,7 @@ blocked) is the hard CLAUDE.md §2 invariant; R7-R10 are conditional
 soft-warns that fire only when a `PortfolioContext` is attached.
 **The token gate (D16) re-checks R1 at fire time** — see `DECISIONS.md` D16.
 
-> **Data currency (point-in-time).** The Bloomberg CSVs (under the data root — `SWE_DATA_ROOT`, D31; tracked on `main` only until step 5) are
+> **Data currency (point-in-time).** The Bloomberg CSVs (under the data root — `SWE_DATA_ROOT`, D31; untracked from git 2026-09-23) are
 > point-in-time as of **2026-06-04** (the R1 refresh cut, #338 —
 > pinned by `EXPECTED_FRONTIER` in `tests/test_preflight_environment.py`;
 > the legacy `pull_ohlcv.py` / `pull_liquidity.py` hardcode
@@ -300,7 +432,8 @@ unchanged.
   `pre-commit install`.
 - `.claude/settings.json` SessionStart hook validates dataset presence,
   Theta manifest recency, and connector class on every fresh session.
-- **Multiple executors (Operating Model v3, 2026-09-16).** Every executor
+- **Multiple executors (Operating Model v3, 2026-09-16; v4 2026-09-23 makes
+  Codex a read-only second opinion, D32).** Every executor
   works in its own worktree or clone; one campaign issue per piece of work
   replaces the retired board (#113), task cards and allocator; when several
   executors share one machine, isolate them with

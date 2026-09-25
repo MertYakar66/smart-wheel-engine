@@ -14,7 +14,141 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-25 — the SmartWheelData area's Drive parent id (N-7 of #534; #536, `f26e785`)
+
+**Docs** — `docs/DATA_INVENTORY.md` §C.3 records the folder that holds
+SmartWheelData, OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`),
+checked on Drive. Until now only the tool named it. The areas test in
+`tests/test_drive_consolidate.py` now ties each built-in area's id, folder name
+and parent to its own row of §C.3, with the parent in the "Folder (id)" cell. The D33 worklog fragment is marked merged (#533).
+
+## 2026-09-24 — the D33 Drive consolidation tool (#534, `7bfa626`)
+
+**Added** — `scripts/drive_consolidate.py`: the tool the D33 desktop cards run. It
+has no command that deletes, moves or uploads anything.
+- **census:** every object in the old Drive areas by raw query. Shortcuts are
+  never followed. An empty answer over several parents is asked again one at a
+  time, and the totals must equal `rclone size` listing one folder at a time.
+- **plan:** classifies by bytes only (size, MD5 and SHA-256; a missing hash never
+  matches), with collision-safe destinations under `data_archive/drive-legacy/`.
+  Only bytes already in the root make a Drive object `deletable`, a forecast for
+  card 3.
+- **copy:** by Drive id into a staging folder beside the root. Each file is
+  re-hashed, then published with a hard link that never overwrites. A failed batch
+  is retried one object at a time. It runs a fresh census before the first
+  download and again after the last, and neither fetches nor publishes anything
+  that has moved or become unsafe since the plan. Each run writes its own new log.
+- **sweep:** a local folder's data files whose bytes the root lacks, through the
+  same staging folder, so a bad copy never reaches the root.
+- **links:** a symbolic link or Windows junction in the root is never a home for
+  Drive bytes. The inventory does not follow one, and nothing is placed on one.
+- **verify:** re-hashes every copy and every root file a Drive object was matched
+  to, so a root file changed since the inventory fails the check.
+- **outputs:** never inside the root except under `_logs/`, and never through a
+  link in the root, however the path reaches it.
+- **also:** `bytecheck`, `sums` (`SHA256SUMS`) and `filters`.
+
+`tests/test_drive_consolidate.py` has 202 tests against a fake Drive (one runs on Windows
+only). Every safety rule was broken on purpose in turn, and all 144 breaks were
+caught. Seven independent reviews (the last in five rounds) and twenty-one Codex reviews
+of #534 found two blockers between them, and the last review of each kind found nothing;
+the worklog lists every finding and what became of it.
+
+---
+
+## 2026-09-24 — D33: the data estate after the MacBook; Drive becomes a complete second copy (#533, `249f913`)
+
+**Docs** — D33 recorded. The Operator said "yes" after two Codex reviews, all of
+whose findings were accepted:
+- the MacBook is outside the data estate, and Theta is collected again later;
+- one Drive folder, `swe-data/`, is to mirror the desktop root, checked both ways;
+- old Drive copies are removed only when proven identical, after the restore
+  tests, from a named list;
+- the four data branches go only after the history bundle restores from Drive,
+  each still at its checked commit.
+
+D31 gets a status line (step 2b abandoned). Also updated:
+- `PROJECT_STATE.md` §0 A and B;
+- `docs/DATA_INVENTORY.md`: §A steps 2b, 6 and 7, the §C tier rows, §C.1, the 32
+  branch-only data versions, and a new §C.3 listing the four Drive areas with
+  their ids;
+- `docs/DATA_POLICY.md` §3 and §6;
+- `docs/deadlines.md`: the Theta subscription row is closed.
+
+**Fixed** — `docs/DATA_INVENTORY.md` §C's Tier R row showed an unrendered
+placeholder (`{tot/1e6:.1f} MB`). It now reads 312.8 MB, and its backup column
+records the Drive copy.
+
+---
+
+## 2026-09-23 — working structure v4: four roles, marks from commands, the close (D32; #531, `8cf6389`)
+
+**Changed** — the working structure the Operator runs on the ORCA project,
+adopted and fitted to this repository. There are now four roles: the Operator;
+the pen (Claude Code in a chat); the Executor (Claude Code in the terminal); and
+Codex as the read-only second opinion.
+
+- Every session opens with a **mark** filled from commands
+  (`scripts/session_open.py`). The pen's mark carries main, docs drift, other
+  branches, **the data age** and the nearest deadline.
+- The close ("close", and after every merge) writes the records back.
+- Execution Prompts open with the run mode and the Operator's confirmed request.
+- The Run Summary has twelve headings.
+
+**Added** — `AGENTS.md` (the checklist for Codex, and review guidelines);
+`docs/deadlines.md`; `scripts/session_open.py`;
+`scripts/check_working_structure.py` (CI: checklist sync, main hash, deadlines,
+data frontier, marks, cited paths); the data `frontier` in
+`data/DATA_MANIFEST.json`; TESTING's governance scenarios.
+
+**Docs** — `CLAUDE.md` is the checklist (it was a pointer). `OPERATING_MODEL.md`
+is v4. `PROJECT_STATE.md` §0 is now the direction (A), the handoff (B) and the
+recorded main commit. Also updated: `docs/PROMPTING_STANDARD.md`,
+`DECISIONS.md` D32 (with D29 partly superseded), both session-start hooks,
+README and FILE_MANIFEST.
+
+## 2026-09-23 — data home: git tracks no market data (D31 step 5; #530, `f1c0066`)
+
+**Changed** — the 87 tracked data files (the served Bloomberg panels, the
+broad-pull datasets, the AAPL feature sample and its sidecars, the `data_raw/`
+fixtures, the trade-universe snapshot) left the index with `git rm --cached`:
+no history rewrite, so every earlier commit still holds them and
+`scripts/data_manifest.py materialize` can still read them from the commits the
+manifest names. Gate: the desktop's `checked 144 manifest files: 144 ok,
+0 missing, 0 mismatched`. After a `git pull` of this change a checkout has no
+data; the desktop root holds it. `.gitignore` carries one D31 block (only code,
+the manifest and `*.md` docs stay trackable under the data trees).
+
+**Infra** — CI now runs without data, so the `requires_data` tests skip there.
+Per-file floors re-measured in the CI form on a checkout without data:
+`engine/data_connector.py` 88 → 80 (measured 82.46), `engine/wheel_runner.py`
+77 → 74 (76.84); the desktop lane measures them at 90.13 / 79.73 with the data.
+New guard: `tests/test_data_manifest.py::test_git_tracks_no_market_data`.
+
+**Fixed** — three tests read the checkout instead of the data root:
+`TestDataFrontier.test_real_frontier_ge_expected` (its folder check passed on a
+checkout that keeps `data/bloomberg/` for its guide, then failed; now
+`requires_data` through `engine.paths`), the option-premium accessor's Theta
+larder, and the paper book's real-IBKR-dir isolation proof. The last Windows
+CRLF write in `tests/test_data_manifest.py` is bytes now. Thirty-one operator
+scripts (the Theta pulls, the yfinance refreshes, the IBKR import and
+snapshot, the validation runners, the feature backfill, the Bloomberg pull
+and audit scripts) and the trader-500k regression harness resolve their data
+paths through `engine.paths` — with
+the data out of the checkout they would have read or written the wrong
+tree (Codex review, #530).
+
+**Docs** — `DATA_INVENTORY` §A (steps 2, 3, 5 done; step 6's two remaining
+preconditions; step 2b from Drive, the data laptop being gone), §B, §C, §C.1
+(the ticks' Drive copy); `DATA_POLICY` §1/§3/§6; `PROJECT_STATE`; the Bloomberg
+runbook's post-pull tail; `FILE_MANIFEST` (the nine data rows go); D31 status.
+
 ## 2026-09-23 — data home: the desktop root verified; the manifest's two gaps closed (D31)
+
+**Merged** — one bullet per merge that landed:
+- #527 `fc03b94`: the desktop's report. The root was filled and proved at 99 of 99.
+- #528 `ab89a16`: the manifest's two gaps were closed, making 144 rows.
+- #529 `67b7134`: the desktop's re-proof at 144, the ticks on Drive, and the Windows test fix.
 
 **Verified** — steps 2–3 ran on the Operator's desktop (#527): the root
 `C:\Users\merty\Desktop\swe-data` holds all 99 manifest files, `check` reads

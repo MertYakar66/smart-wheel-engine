@@ -39,12 +39,18 @@ import argparse
 import csv
 import json
 import re
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_CONSTITUENTS = _REPO_ROOT / "data_raw" / "sp500_constituents_current.csv"
+sys.path.insert(0, str(_REPO_ROOT))
+from engine import paths  # noqa: E402
+
+_CONSTITUENTS = (
+    (paths.data_root() or _REPO_ROOT) / "data_raw" / "sp500_constituents_current.csv"
+)  # data root (D31)
 
 # Display-sector continuity for the operator's recurring *out-of-universe*
 # holdings (not in the S&P-500 constituents file, so no GICS join). Used only

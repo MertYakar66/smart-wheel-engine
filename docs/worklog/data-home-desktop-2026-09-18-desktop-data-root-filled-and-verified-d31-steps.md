@@ -4,7 +4,7 @@ title: Desktop data root filled and verified (D31 steps 2-3)
 kind: verification
 status: completed
 terminal: desktop
-pr:
+pr: 527
 decisions: [D31]
 date: 2026-09-23
 headline: desktop root filled and proved 144 ok / 0 missing / 0 mismatched; fast lane 3196 passed / 0 failed with 0 requires_data skips; day-bot ticks backed up to Drive (0 differences, 15 files); both manifest gaps closed

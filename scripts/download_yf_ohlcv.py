@@ -3,20 +3,24 @@ Download OHLCV data from yfinance with proper header cleanup.
 """
 
 import logging
+import sys
 from pathlib import Path
 
 import pandas as pd
 import yfinance as yf
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from engine import paths  # noqa: E402
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-RAW_DIR = Path("data_raw/ohlcv")
+RAW_DIR = paths.resolve("data_raw/ohlcv")  # data root (D31)
 
 
 def load_tickers() -> list[str]:
     """Read tickers from the S&P500 constituents CSV."""
-    df = pd.read_csv("data_raw/sp500_constituents_current.csv")
+    df = pd.read_csv(paths.resolve("data_raw/sp500_constituents_current.csv"))
     return df["ticker"].dropna().tolist()
 
 

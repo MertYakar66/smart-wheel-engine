@@ -1696,6 +1696,8 @@ file's row removed); and the full audit evidence in the batch worklogs.
 
 ## D29. Restart rulings of 2026-09-16 — one protocol, no news code, short-dated menu, no Bloomberg
 
+**PARTLY SUPERSEDED by D32 (2026-09-23):** ruling 2's "two equally authorised Strategist implementations" (Codex is now the read-only second opinion), and v3's `CLAUDE.md`-as-pointer (it is now the checklist). Everything else in D29 stands.
+
 **Status:** ADOPTED (Operator rulings given in the restart session of 2026-09-16, recorded by the Strategist at the Operator's direction). Analysis behind them: `docs/RESTART_BRIEF_2026-09-11.md`. Plan of record: `docs/RESTART_PLAN_2026-09-16.md`.
 
 **Decision.**
@@ -1850,6 +1852,225 @@ bundle of every branch on the desktop and for Drive copies of the ticks, the
 archive and the bundle (`rclone check` clean). Step 2b is new: the data
 laptop's local-only stores (the Theta corpus, the feature shards, `sim`,
 `corporate_actions`, `edgar`) are not on the desktop yet.
+
+**Status 2026-09-23, later.** The desktop reported
+`checked 144 manifest files: 144 ok, 0 missing, 0 mismatched` and put the
+day-bot ticks on Drive (`swe-local-only/ticks`, `rclone check` clean). Step 5 is
+done: the 87 tracked data files left the index without a history rewrite,
+`.gitignore` keeps data out, `tests/test_data_manifest.py::test_git_tracks_no_market_data`
+fails if a data file is tracked again, and CI runs without data (the two per-file
+floors that only held with data were recalibrated to the no-data measurement).
+Step 2b comes from the data laptop, which is available. This was corrected the
+same day: the Operator wrote "the laptop is here not broken", and an earlier
+"not around" had been read as gone. The laptop is the origin of the Theta
+corpus and the feature shards. Drive's July `theta` upload never finished: it
+holds 17,188 of ~132,862 files, 1.245 GiB of ~11 GB. So the laptop's stores
+travel to the desktop on an exFAT drive and are checked against a sha256
+manifest built on the laptop. Step 6 still waits for the verified full-history
+bundle and the Drive copy of `data_archive/`.
+
+**Status 2026-09-24 (D33).** Step 2b is abandoned: the MacBook is outside the
+data estate, and Theta will be collected again later from a source not yet
+chosen. Step 6 now runs under D33's conditions:
+- the bundle restores from Drive's copy with a full integrity check;
+- each branch is deleted only if it is still at its checked commit.
+
+#507 was already closed, on 2026-09-23.
+
+## D32. Working structure v4 — four roles, marks from commands, the close, the checklist files (2026-09-23)
+
+**Decision.** The project adopts the working structure the Operator runs on the
+ORCA project (`MertYakar66/Orca-Project`), fitted to this repository:
+
+1. **Four roles.**
+   - The Operator.
+   - The Strategist, the pen: Claude Code in a chat with the Operator. It is the
+     one writer of Execution Prompts, and it keeps the records.
+   - The Executor: Claude Code in a terminal.
+   - The second opinion: Codex. It reads, reviews and challenges, and writes
+     nothing.
+2. **Marks.** Every session opens with a first line filled from commands, never
+   from memory, and every Executor message opens the same way:
+   `python scripts/session_open.py` prints the pen's, the Executor's or Codex's
+   line. The pen's line carries:
+   - where `main` is;
+   - how many content commits `PROJECT_STATE.md` is behind;
+   - how many other branches exist;
+   - **how old the data is**, from the frontier that `data/DATA_MANIFEST.json`
+     now records (Operator: "add the data dates (how stale they are) to the
+     report sentence");
+   - the nearest open row of the new `docs/deadlines.md`.
+3. **Words and the close.** "yes", "authorize …" and "close" carry weight. The
+   close runs on "close" and after every merge to `main`. It updates:
+   - `PROJECT_STATE.md`: §0 A is the direction, §0 B the handoff, and the
+     Branches line records the `main` commit the drift is measured from;
+   - `CHANGELOG.md` and `docs/deadlines.md`.
+
+   Close commits are typed `docs(close): …` and are not counted as drift.
+4. **Prompts and summaries.** Line 1 of every Execution Prompt is the run mode,
+   and line 2 the Operator's confirmed request, quoted. An Executor refuses any
+   other opening, and at a gate asks one yes/no question. The Run Summary has
+   twelve fixed headings (`OPERATING_MODEL.md` §4.4).
+5. **Files.**
+   - `CLAUDE.md` becomes the checklist every Claude session loads by itself.
+   - `AGENTS.md` is recreated for Codex, carrying `CLAUDE.md` §1–§6 word for
+     word, and adds review guidelines.
+   - `OPERATING_MODEL.md` becomes version 4.
+   - `scripts/check_working_structure.py` runs in CI. It checks that the two
+     checklists match, that `PROJECT_STATE.md` records a `main` hash, the
+     deadlines table, the data frontier, the marks, and that cited paths exist.
+   - `TESTING.md` gains governance scenarios that test the structure itself.
+6. **Merging (Operator's answer).** The pen may still merge when necessary
+   ("no you can still merge if necessary"), with CI green and for work the
+   Operator authorized. Nobody pushes to `main` directly. The Executor merges
+   only with a yes for that pull request.
+7. **"Sir" stays in the marks** ("yes keep sir").
+8. **In force at once** ("change it right away and tell other agents about the
+   change"). The desktop and laptop sessions running when the change landed are
+   told by a note from the pen.
+
+**Why.** The agents here remember nothing between sessions, and this one lost
+its context mid-campaign. Version 3 had the roles, the sharpening, the prompt
+standard, the Run Summary and the evaluation. It had nothing that showed
+whether a session was calibrated, and no moment when the records were written
+back. At the restart, `PROJECT_STATE.md` was 71 days stale and 60 worklog
+fragments were wrong, and nothing had flagged it (`docs/RESTART_BRIEF_2026-09-11.md`).
+The mark makes calibration visible in one line. The close makes keeping the
+records someone's job. Checks own what is countable. The Operator's rulings of
+2026-09-23 on the five questions were: "1. yes 2. no you can still merge if
+necessary 3. yes keep sir 4. yes add the data dates (how stale they are) to the
+report sentence 5. change it right away and tell other agents about the change".
+
+**Rejected alternatives.**
+- **ORCA's Node check (`tests/check-docs.mjs`, `package.json`).** This
+  repository is Python and already runs Python guards in CI, so the useful
+  checks were ported to one Python script.
+- **ORCA's `audit/CHANGELOG.md`.** `CHANGELOG.md` and the worklog fragments
+  already record each change and how it was verified.
+- **ORCA's website rules.** ORCA's root is its public site; this repository's is
+  not.
+- **ORCA's folder counts.** `scripts/check_manifest_coverage.py` already accounts
+  for every tracked file.
+- **Keeping `CLAUDE.md` a pointer.** A pointer does not reload the checklist
+  after a compaction, and the 471-line rulebook is too long to re-read by habit.
+- **Codex as an equal Strategist (v3).** Two pens writing prompts is how scope
+  forks. One pen, checked by a reader who writes nothing, keeps a single line of
+  intent.
+
+**Pinned by.**
+- `scripts/check_working_structure.py` (CI, the manifest-coverage job);
+- `tests/test_session_open.py` and `tests/test_check_working_structure.py`;
+- the frontier assertions in `tests/test_data_manifest.py`;
+- the governance scenarios in `TESTING.md`.
+
+## D33. The data estate after the MacBook: the desktop is the main copy, Drive a complete second copy, GitHub holds no data (2026-09-24)
+
+**Decision.** Confirmed by the Operator on 2026-09-24 ("yes"), after two reviews
+by the second opinion:
+
+1. **The MacBook is outside the data estate.** Nothing is copied from it or done
+   to it, and its Theta files (~132,862) are not recovered. D31 step 2b is
+   abandoned.
+2. **Theta** will be collected again from the beginning, from a source chosen
+   once the repository structure is settled. The Theta already on the desktop
+   (17,188 files, pulled from Drive and checked on 2026-09-23) and on Drive stays
+   as it is.
+3. **The desktop data root is the main copy. Drive is the second copy:** one
+   folder, `swe-data/` at the top of My Drive, laid out like the root. It holds
+   every file in the root except named exclusions: credential files and the
+   root's run logs (`_logs/`). Two checks prove the copy is complete: a two-way
+   checksum check (`rclone check --checksum`), and a checksum list kept in both
+   places (`SHA256SUMS`), whose own hash is recorded in git.
+4. **Old Drive folders.** Anything found only there is copied to the desktop,
+   into an archive folder (`data_archive/drive-legacy/<area>/<path>`), never over
+   an existing file. A ledger records where each file came from: its Drive id,
+   path, times and hashes.
+5. **No duplicates.**
+   - An old Drive copy is deleted only when it is proven identical to a file in
+     `swe-data/`: same size, same MD5 and same SHA-256.
+   - A file for which Drive has no SHA-256 is downloaded and hashed first, or
+     kept. A missing hash never counts as a match.
+   - Deletion happens only after the restore tests pass, from a named list, with
+     the Operator's yes, into Drive's trash.
+   - Files that cannot be proven stay, and are listed: Google-format files,
+     shortcuts, duplicate names and credential files.
+   - Another project's folders are only read, never cleaned (the day-bot
+     project's `_local_archive/vendor_swe_*`).
+6. **Bloomberg data is irreplaceable.** Every Bloomberg file exists on the
+   desktop and on Drive, checksum-verified. Nothing holding Bloomberg data is
+   deleted unless both copies are proven.
+7. **GitHub is not a data store** (D31 step 6).
+   - The four data branches are deleted only after the full-history bundle
+     restores from Drive's copy into an empty repository, with a full integrity
+     check (`git fsck --full`) and the four exact commits present.
+   - They are deleted only if each branch is still at its checked commit: one
+     atomic push, with a lease on each branch.
+   - Versions in `main`'s history or in closed #507 (`refs/pull/507/head`) stay
+     on GitHub until the history purge, which stays held.
+   - The 32 older data versions that only the branches' histories hold then live
+     in the bundle, on the desktop and on Drive.
+8. **Keeping it current.** After any future data change, the Drive copy is
+   refreshed and checked. The routine goes into `docs/DATA_INVENTORY.md` §C when
+   the consolidation lands.
+
+The work runs as three desktop cards, each checked before the next:
+1. prove and plan: nothing is deleted, and nothing on Drive changes;
+2. copy and prove: nothing is deleted;
+3. clean up.
+
+Step 6 runs between cards 2 and 3.
+
+**Why.** The Operator's words on 2026-09-24:
+- "we will forget the macbook exists. we will pull from Theta Data or anywhere
+  else from the beginning. However, we will keep Bloomberg data at all costs"
+- "1. if Desktop has them certainly, no need to leave it on the github. delete
+  them 2. Drive is our secondary source of storage, if something happens to
+  desktop, Drive should have all the data 3. Theta subscription is no longer
+  active. Once we are sure that our repo and working system/mechanism is
+  efficient, we will discuss about collecting which data from where..etc so
+  leave it as is until we figure out the repo structure 4. yes, start filling
+  google drive gaps, make sure there are no duplicates. and the folder structure
+  in the drive must also be clear/noted down for future agents/work"
+
+The Bloomberg Terminal is gone (D29), so Bloomberg data cannot be pulled again.
+Drive held project data in four overlapping places, and the repository recorded
+only part of two of them (`docs/DATA_INVENTORY.md` §C.3).
+
+Codex reviewed the plan twice.
+- **The first review** found two blockers in a design that moved the old Drive
+  files. A server-side move of a Drive shortcut re-parents the shortcut, not its
+  target (rclone v1.68.2, `backend/drive/drive.go`). And a passing mirror check
+  proves nothing about the files left in the old folders. So the design copies,
+  never moves, and deletes only named, proven files.
+- **The second review** corrected three claims:
+  - 32 older data versions exist only in the four branches' histories
+    (reproduced; for example `f7a8458` on `deep-history/bloomberg-raw`);
+  - Drive's SHA-256 is not guaranteed ("a small fraction of files uploaded may
+    not have SHA1 or SHA256 hashes", rclone's Drive documentation);
+  - copying must never replace a desktop file.
+
+**Rejected alternatives.**
+- **Keep the four branches as a third copy** (the pen's recommendation).
+  Overruled: "if Desktop has them certainly, no need to leave it on the github.
+  delete them".
+- **Carry the MacBook's stores to the desktop on an exFAT drive** (cards A and B,
+  reviewed). Dropped: "we will forget the macbook exists".
+- **Move the old Drive files into `swe-data/` server-side**, to save upload time
+  and quota. It was rejected for three reasons:
+  - a move can relocate a shortcut instead of its data;
+  - `--files-from` cannot rename;
+  - `--ignore-existing` skips a file on its name alone.
+
+  Copies leave the old folders intact until everything is proven.
+- **Treat everything left in the old folders as a duplicate once the mirror check
+  passes.** The check proves nothing about files it did not compare.
+- **Rely on the trash as the only rollback.** Trash counts against storage, and
+  Drive empties it after 30 days. The restore tests come first.
+
+**Pinned by.**
+- the consolidation tool and its tests (the next pull request);
+- the three cards' Run Summaries;
+- `docs/DATA_INVENTORY.md` §A (steps 6 and 7) and §C.3.
 
 ## How to add a decision
 

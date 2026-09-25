@@ -4,7 +4,7 @@ title: Close the manifest gaps the desktop audit found (D31)
 kind: fix
 status: completed
 terminal: sandbox
-pr:
+pr: 528
 decisions: [D31]
 date: 2026-09-23
 headline: manifest 99 → 144 rows — the 16 tracked feature sidecars plus a 29-file data_archive of what only the non-main branches held (pre-2004 MOVE/SKEW/JPMVXYG7 among it); guard test; two Windows-only test fixes

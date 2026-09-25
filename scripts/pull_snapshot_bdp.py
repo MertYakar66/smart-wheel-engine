@@ -19,12 +19,18 @@ tests/test_preflight_environment.py in the SAME commit (guard-rot rule).
 """
 
 import os
+import sys
 
 import pandas as pd
 from xbbg import blp
 
 HERE = os.path.dirname(__file__)
-MONO = os.path.join(HERE, "..", "data", "bloomberg")
+sys.path.insert(0, os.path.join(HERE, ".."))
+from engine import paths  # noqa: E402
+
+MONO = os.path.join(
+    str(paths.data_root() or os.path.join(HERE, "..")), "data", "bloomberg"
+)  # data root (D31)
 OUT = os.path.join(MONO, "broad_pull", "per_name", "sp500_snapshot_bdp.csv")
 ASOF = os.environ.get("SWE_SNAPSHOT_ASOF", "2026-07-03")
 CHUNK = 50

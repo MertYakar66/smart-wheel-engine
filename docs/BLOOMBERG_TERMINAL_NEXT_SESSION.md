@@ -57,7 +57,7 @@ engine ranks against current data, and pay the coupled re-baseline once.
 - Treasury curve is already current (1994→2026); liquidity / vol-indices can be extended via `scripts/pull_liquidity.py` / `scripts/pull_vol_indices.py` if you want them at the new frontier.
 
 ### 1d. Post-pull — re-baseline + frontier bump (code, after the pull)
-This is the coupled tail the agent runs once the new CSVs are committed:
+This is the coupled tail the agent runs once the new CSVs are under the data root and the manifest is rebuilt and committed (`python scripts/data_manifest.py build`, then commit `data/DATA_MANIFEST.json` — never the CSVs; D31):
 1. Re-pin the 4 regression snapshots: `python -m backtests.regression.<sNN> --update-snapshot` for `s27_ivpit_24t_100k`, `s32_friction_24t_1m`, `s34_universe_100t_1m`, `s35_oos_24t_100k` (S34 ≈ 2 h). Verify input-SHAs change **only** by the intended files.
 2. Bump `EXPECTED_FRONTIER` in the preflight env-guard and re-derive `UNIVERSE_100`.
 3. Re-pick the W16/W30 earnings-window test names **only if the frontier moved them**.

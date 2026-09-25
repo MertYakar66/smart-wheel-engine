@@ -30,6 +30,12 @@ which is where ``materialize`` reads them from. With these rows present, a root
 that passes ``check`` holds every data file any branch tip ever carried, so a
 branch can be deleted without losing a dataset (DECISIONS.md D31).
 
+``build`` also records the data *frontier* — the last date in each dated dataset
+(``FRONTIER_FILES``) — so a session without the data, such as a cloud sandbox,
+can still say how stale it is. The Strategist's session-open mark reads it
+(``scripts/session_open.py``, DECISIONS.md D32). When a dated file is absent from
+the root, the frontier recorded before is kept.
+
 ``--root`` defaults to ``SWE_DATA_ROOT`` when set, else the repository root.
 ``check`` exits 1 on any missing or mismatched file, 0 otherwise; ``--extra``
 also lists data files present under the root that the manifest does not know.
@@ -72,6 +78,12 @@ SKIP_NAMES: tuple[str, ...] = (
     "_locks",
     "_inventory_scan.json",
 )
+# Dated datasets whose last date ``build`` records as the frontier: the first
+# column is an ISO date and the file has a header row.
+FRONTIER_FILES: tuple[tuple[str, str], ...] = (
+    ("prices", "data/bloomberg/sp500_ohlcv.csv"),
+    ("iv", "data/bloomberg/sp500_vol_iv_full.csv"),
+)
 
 
 def sha256_of(path: Path, chunk: int = 1 << 20) -> str:
@@ -80,6 +92,18 @@ def sha256_of(path: Path, chunk: int = 1 << 20) -> str:
         for block in iter(lambda: fh.read(chunk), b""):
             h.update(block)
     return h.hexdigest()
+
+
+def last_date_of(path: Path) -> str | None:
+    """The latest ISO date (YYYY-MM-DD) in the first column of a headed CSV."""
+    best = ""
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        next(fh, None)
+        for line in fh:
+            d = line.split(",", 1)[0].strip()
+            if len(d) == 10 and d[4] == "-" and d[7] == "-" and d > best:
+                best = d
+    return best or None
 
 
 def group_of(rel: str) -> str:
@@ -136,6 +160,12 @@ def cmd_build(args: argparse.Namespace) -> int:
                 row["git_path"] = before["git_path"]
         files.append(row)
     files.sort(key=lambda r: r["path"])
+    frontier = dict(previous.get("frontier", {}))  # kept when a dated file is absent
+    for name, rel in FRONTIER_FILES:
+        p = root / rel
+        last = last_date_of(p) if p.is_file() else None
+        if last:
+            frontier[name] = {"path": rel, "last_date": last}
     manifest = {
         "schema": SCHEMA,
         "generated": date.today().isoformat(),
@@ -149,6 +179,8 @@ def cmd_build(args: argparse.Namespace) -> int:
     for key in ("git_sources", "drive"):  # ledger metadata survives a rebuild
         if key in previous:
             manifest[key] = previous[key]
+    if frontier:
+        manifest["frontier"] = frontier
     manifest["counts"] = _counts(files)
     manifest["files"] = files
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -156,6 +188,8 @@ def cmd_build(args: argparse.Namespace) -> int:
         json.dump(manifest, fh, indent=1)
         fh.write("\n")
     print(f"wrote {out}: {len(files)} files, {sum(f['size'] for f in files) / 1e6:.1f} MB")
+    for name, f in frontier.items():
+        print(f"frontier {name}: {f['last_date']} ({f['path']})")
     return 0
 
 

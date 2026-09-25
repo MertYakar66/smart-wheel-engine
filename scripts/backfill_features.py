@@ -33,6 +33,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT))
+from engine import paths  # noqa: E402
 
 
 def _compute_one(ticker: str, force: bool) -> tuple[str, bool, str, float]:
@@ -84,6 +85,9 @@ def main() -> int:
         help="Where to write per-ticker results",
     )
     args = ap.parse_args()
+    # data root (D31): relative defaults and arguments land under SWE_DATA_ROOT
+    args.universe = str(paths.resolve(args.universe))
+    args.log_csv = str(paths.resolve(args.log_csv))
 
     if args.tickers:
         tickers = [t.upper() for t in args.tickers]

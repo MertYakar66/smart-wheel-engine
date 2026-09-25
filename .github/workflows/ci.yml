@@ -78,6 +78,9 @@ jobs:
       - name: Check worklog index is current
         run: python scripts/gen_worklog_index.py --check
 
+      - name: Check the working structure (checklists, main hash, deadlines, data frontier, marks, cited paths)
+        run: python scripts/check_working_structure.py
+
   decision-layer-claim:
     name: Decision-Layer Lane Claim
     runs-on: ubuntu-latest

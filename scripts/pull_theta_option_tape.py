@@ -67,10 +67,11 @@ sys.path.insert(0, str(_ROOT))
 
 import pandas as pd  # noqa: E402
 
+from engine import paths  # noqa: E402
 from engine.theta_connector import ThetaConnector, _normalise_theta_symbol  # noqa: E402
 
 logger = logging.getLogger(__name__)
-OUT_ROOT = _ROOT / "data_processed" / "theta" / "option_tape"
+OUT_ROOT = paths.theta_dir() / "option_tape"  # data root (D31)
 
 
 def _theta_up() -> bool:

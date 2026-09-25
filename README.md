@@ -13,7 +13,7 @@ rescue a negative-EV trade.
 >
 > 1. [`OPERATING_MODEL.md`](OPERATING_MODEL.md) — the single authoritative operating document: roles, handoffs, Run Summary format (§4.4), concurrency (§2.4), invariants (§7), and the consolidated project reference (§9).
 > 2. [`docs/PROMPTING_STANDARD.md`](docs/PROMPTING_STANDARD.md) — the prompting standard: sharpening gate, Execution Prompt template, Run Summary short form.
-> 3. [`CLAUDE.md`](CLAUDE.md) — auto-loaded two-line pointer to `OPERATING_MODEL.md`.
+> 3. [`CLAUDE.md`](CLAUDE.md) — the checklist every Claude session loads by itself: roles, session-open and the marks, the close ([`AGENTS.md`](AGENTS.md) carries the same checklist for Codex).
 > 4. [`PROJECT_STATE.md`](PROJECT_STATE.md) — what's authoritative right now, what's deprecated.
 > 5. [`MODULE_INDEX.md`](MODULE_INDEX.md) — per-module map.
 > 6. [`TESTING.md`](TESTING.md) — test taxonomy + launch-blocker subset.
@@ -177,7 +177,8 @@ launch-blocker subset, and the "what to run when you touch X" map.
 | Document | Description |
 |---|---|
 | [OPERATING_MODEL.md](OPERATING_MODEL.md) | The single authoritative operating document — roles, handoffs, verification, concurrency (§2.4), invariants (§7), consolidated project reference (§9) |
-| [CLAUDE.md](CLAUDE.md) | Auto-loaded two-line pointer to OPERATING_MODEL.md |
+| [CLAUDE.md](CLAUDE.md) | The checklist every Claude session loads: roles, session-open marks, the close (D32) |
+| [AGENTS.md](AGENTS.md) | The same checklist for Codex and other agents, plus review guidelines |
 | [PROJECT_STATE.md](PROJECT_STATE.md) | Temporal state — what's authoritative / in progress / deprecated |
 | [MODULE_INDEX.md](MODULE_INDEX.md) | Per-module purpose + decision-layer role classification |
 | [FILE_MANIFEST.md](FILE_MANIFEST.md) | Exhaustive per-file index (grep, don't read) |

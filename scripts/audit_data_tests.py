@@ -44,6 +44,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from engine import paths  # noqa: E402
 from engine.data_connector import MarketDataConnector, normalize_ticker  # noqa: E402
 from engine.wheel_runner import WheelRunner  # noqa: E402
 
@@ -91,7 +92,7 @@ SP_LADDER = {
 }
 SP_NONRATED = {"NR", "N.A.", "NA", "", "nan", "None"}
 
-DATA = "data/bloomberg/"
+DATA = paths.bloomberg_dir()  # data root (D31)
 
 
 def _read(fn: str, **kw: Any) -> pd.DataFrame:

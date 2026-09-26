@@ -1,7 +1,9 @@
 # Project State
 
-**Last updated:** 2026-09-26 (the Operator's rulings on card 1's three findings,
-§0 B, and `main` at `3b1203c` after #539, the close after #538. Earlier the same day:
+**Last updated:** 2026-09-26 (card 1b done: Drive's Theta counted, §0 B; the Drive
+copy of the credential-shaped file moved to Drive's trash. Earlier the same day: the
+Operator's rulings on card 1's three findings, and `main` at `3b1203c` after #539,
+the close after #538. Before that:
 close after #538, `main` at `610f9c8`. D33 card 1 ran on the
 desktop: the morning pull retired, `main` merged into the desktop branch under guard, the
 Drive census taken and the plan written; nothing deleted, Drive unchanged. The census found
@@ -171,10 +173,27 @@ locally.
     The pen's review, by a workflow in a separate context with each finding
     checked by a skeptic, found the numbers sound and the record partly wrong.
     The close corrects it; see the corrections in the two worklog fragments.
+  - Card 1b, the plan check, read-only, 2026-09-26. Its Run Summary and step 1's
+    output are PR #538's comments 5846529836 and 5846540733; the pen checked every
+    figure below against step 1's output there.
+    - Nothing was written: the root's and the tree's listings were identical before
+      and after.
+    - Drive's `SmartWheelData/data_processed/theta` holds 132,862 Theta files
+      (11,633,788,580 B), the count the MacBook held. The desktop's 17,188 are among
+      them, at the same paths, byte for byte. 115,293 (10,242,357,099 B) exist only
+      on Drive, and none is another version of a desktop file.
+    - Twelve Bloomberg files (485 MB) exist only on Drive: the 2026-03-20 snapshot
+      in `archive/` (8 files, 426,588,230 B), `swe-deep-history/` (3 files,
+      58,319,893 B, among them `sp500_vol_iv_full__1994_2026_FULL.csv.gz`) and one
+      in `data/bloomberg/` (9,105 B).
+    - `copy --dry-run` is clear: 0 conflicts, 1.2 TB free. The root is unchanged
+      since card 1's inventory.
+    - Card 1's census took 312 of its 372 minutes.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
-  1. **Theta is very likely on Drive in full.** `SmartWheelData/data_processed/theta`
-     (uploaded 2026-07-12/13) holds all 14 Theta trees. The pen confirmed on Drive
+  1. **Theta is on Drive in full** (counted by card 1b, above).
+     `SmartWheelData/data_processed/theta` (uploaded 2026-07-12/13) holds all 14
+     Theta trees. The pen confirmed on Drive
      that it holds `ticker=XOM` and AAPL expirations from 2016-01-08 to 2026-08-21.
      The review found that the `swe-local-only` upload stops at tickers A to N and
      at AAPL 2017-08-25. The records say the MacBook's ~132,862-file corpus was
@@ -192,8 +211,10 @@ locally.
      tool leaves it in place and lists it. CLAUDE.md §7 says that file never
      leaves the desktop. The pen checked its sharing settings, not its contents:
      only the owner has access.
-     **Ruling: "yes, will do both".** The Operator rotates the IBKR Flex token and
-     deletes this Drive copy by hand. No tool or agent opens, copies or deletes it.
+     **Ruling: "yes, will do both".** The Operator rotates the IBKR Flex token. On
+     the Operator's instruction ("you do ... deleting the drive copy"), the pen
+     moved the Drive copy to Drive's trash on 2026-09-26, unopened; a search by
+     name now finds nothing. The pen cannot rotate the token.
   3. **The day-bot's `data_raw` is the day-bot's own data** (yahoo,
      ibkr_primary, swe_tests, evaluation files), not a copy of this project's.
      The plan would copy 1,725 of its files (34,816,381 B) into this project's
@@ -201,16 +222,13 @@ locally.
      **Ruling: "yes, leave them out".** Card 2 copies none of them. They stay
      untouched in the day-bot's folder, which D33 only reads.
 - **Remains.**
-  1. **Card 1b, the plan check** (next, read-only). Written; it goes out after a
-     second independent check. A short run on the desktop over card 1's saved
-     plan:
-     - what the 120,139 files are, by folder;
-     - the Theta count;
-     - the duplicates by reason;
-     - `copy --dry-run`, which contacts no Drive and writes nothing, to prove 0
-       conflicts and enough space;
-     - the census's real duration.
-  2. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
+  1. **Codex's second opinion** on the card 2 plan below and on the `DECISIONS.md`
+     draft (D34), which the Operator asked for on 2026-09-26.
+  2. **Desktop card 2, copy and prove.** Nothing is deleted. The plan the pen
+     proposes, not yet confirmed: the twelve Bloomberg files that exist only on
+     Drive first; then Theta in chunks, only the five Theta folders that hold
+     `copy` rows; then one fresh full plan that copies what is left and shows the
+     rest redundant. The card:
      - copies home everything of this project's that exists only on Drive, into
        `data_archive/drive-legacy/<area>/…`, never into a live tree. Card 1's
        plan, less the day-bot's `data_raw`, gives 118,414 files (10.7 GB). The
@@ -234,10 +252,10 @@ locally.
   5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** The Operator rotates the Flex token and deletes the Drive copy
-  by hand, and runs card 1b on the desktop (read-only) when the pen sends it. The
-  pen then drafts the `DECISIONS.md` entry for the Operator's yes, and writes
-  card 2.
+- **Next action.** The Operator gives Codex the card 1b addendum (card 1b's numbers,
+  the adjusted card 2 plan and the D34 draft) and pastes back its reply. The pen
+  reconciles it, asks the Operator's yes on the plan and on D34, then writes card 2.
+  The Operator rotates the Flex token.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.

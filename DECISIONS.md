@@ -1965,6 +1965,14 @@ report sentence 5. change it right away and tell other agents about the change".
 
 ## D33. The data estate after the MacBook: the desktop is the main copy, Drive a complete second copy, GitHub holds no data (2026-09-24)
 
+**PARTLY SUPERSEDED by D34 (2026-09-26):** two clauses. In point 1, "and its Theta
+files (~132,862) are not recovered": the Theta collection on Drive comes home instead,
+from Drive; the MacBook stays outside the estate. In point 2, "and on Drive stays as
+it is": Theta on Drive is kept until the desktop copy and the Drive copy are both
+proven, as for Bloomberg. Everything else in D33 stands, including the MacBook's
+exclusion, "Theta will be collected again from the beginning" and the later choice of
+source, and every deletion and restore gate.
+
 **Decision.** Confirmed by the Operator on 2026-09-24 ("yes"), after two reviews
 by the second opinion:
 
@@ -2071,6 +2079,67 @@ Codex reviewed the plan twice.
 - the consolidation tool and its tests (the next pull request);
 - the three cards' Run Summaries;
 - `docs/DATA_INVENTORY.md` §A (steps 6 and 7) and §C.3.
+
+## D34. Theta is kept like Bloomberg; the Theta collection on Drive comes home; the day-bot's `data_raw` stays out (2026-09-26)
+
+**Decision.** Confirmed by the Operator on 2026-09-26: "1. yes 2. yes, will do both 3.
+yes, leave them out" to card 1's three findings, then "yes to both, go ahead with card
+2a" to the card 2 plan and this text, after the second opinion's review ("agree with
+changes"):
+
+1. **Theta is kept like Bloomberg** (D33 point 6). The subscription has lapsed, so
+   Theta cannot be pulled again. Nothing that holds Theta is deleted unless the desktop
+   copy and the Drive copy are both proven.
+2. **The Theta collection on Drive comes home.**
+   - At card 1's census (2026-09-25), Drive's `SmartWheelData/data_processed/theta`
+     held 132,862 files (11,633,788,580 B). The desktop's 17,188 Theta files are among
+     them, at the same paths, byte for byte; 115,293 files (10,242,357,099 B) were
+     only on Drive (card 1b).
+   - Card 2 copies each Drive-only file into
+     `data_archive/drive-legacy/SmartWheelData/data_processed/theta/`, beside the live
+     `data_processed/theta/`, never over it. Files with the same bytes come home once
+     (the 700 duplicates are represented by the copies they repeat), and card 2's
+     ledgers keep the mapping from each Drive id to its file.
+   - The recovery is recorded as complete only after card 2's verification. What the
+     engine reads does not change; making the fuller collection live is a later
+     decision.
+   - The count matches the records' approximate figure for the MacBook's corpus. That
+     does not prove the Drive collection is the same collection.
+3. **The day-bot's `_local_archive/data_raw` stays out** of the consolidation. It is
+   the day-bot's own data. Card 2 plans without it, and it stays untouched on Drive
+   (D33 point 5: another project's folders are only read).
+4. **The credential-shaped `flex_credentials.json` found on Drive** was moved to
+   Drive's trash on 2026-09-26, unopened, on the Operator's instruction. Its removal is
+   complete when the Operator deletes it forever from the trash and rotates the Flex
+   token.
+
+**Why.**
+- Card 1's census found a Theta upload in SmartWheelData far fuller than the records
+  said, and card 1b counted it (PR #538, comments 5846529836 and 5846540733). The
+  Operator: "if I am not mistaken, we already pushed all the Theta Data files into
+  google drive from macbook".
+- While the subscription is lapsed, the Drive collection cannot be pulled again. Like
+  the Bloomberg data, it is irreplaceable.
+- `data_raw` matches nothing in the root and holds the day-bot's own files (yahoo,
+  ibkr_primary, swe_tests, evaluation files).
+- `CLAUDE.md` §7: `flex_credentials.json` never leaves the desktop.
+
+**Rejected alternatives.**
+- **Make the full Theta collection live now**, in `data_processed/theta/`. Deferred:
+  "leave it as is until we figure out the repo structure" (D33's why). The engine's
+  inputs change only by a later decision.
+- **Copy the day-bot's `data_raw` home.** It would put a second copy on Drive, inside
+  `swe-data/`, that card 3 could never clean, because D33 only reads the day-bot's
+  folders.
+- **Record the MacBook's corpus as recovered.** The evidence shows a 132,862-file
+  collection that contains the desktop's subset. It does not prove the collection is
+  the MacBook's, and nothing is recovered until card 2 verifies it.
+
+**Pinned by.**
+- card 1b's Run Summary and step 1's output (PR #538);
+- card 2's Run Summaries and per-chunk records (census, inventory, plan and ledger,
+  each pinned by SHA-256);
+- `docs/DATA_INVENTORY.md` §A and §C.3; `PROJECT_STATE.md` §0 B.
 
 ## How to add a decision
 

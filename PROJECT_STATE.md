@@ -1,7 +1,9 @@
 # Project State
 
-**Last updated:** 2026-09-26 (card 1b done: Drive's Theta counted, §0 B; the Drive
-copy of the credential-shaped file moved to Drive's trash. Earlier the same day: the
+**Last updated:** 2026-09-26 (D34 written: Theta kept like Bloomberg, the Theta
+collection on Drive comes home, the day-bot's `data_raw` stays out; the card 2 plan
+confirmed; `main` at `6b2b6ac` after #541. Earlier the same day: card 1b done, Drive's
+Theta counted; the Drive copy of the credential-shaped file moved to Drive's trash. The
 Operator's rulings on card 1's three findings, and `main` at `3b1203c` after #539,
 the close after #538. Before that:
 close after #538, `main` at `610f9c8`. D33 card 1 ran on the
@@ -81,7 +83,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `3b1203c` (2026-09-26). Others on `origin`:
+**Branches:** `main` is at `6b2b6ac` (2026-09-26). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -192,7 +194,7 @@ locally.
     - Card 1's census took 312 of its 372 minutes.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
-  1. **Theta is on Drive in full** (counted by card 1b, above).
+  1. **Theta is on Drive in full** (counted by card 1b, above; D34).
      `SmartWheelData/data_processed/theta` (uploaded 2026-07-12/13) holds all 14
      Theta trees. The pen confirmed on Drive
      that it holds `ticker=XOM` and AAPL expirations from 2016-01-08 to 2026-08-21.
@@ -225,16 +227,21 @@ locally.
      **Ruling: "yes, leave them out".** Card 2 copies none of them. They stay
      untouched in the day-bot's folder, which D33 only reads.
 - **Remains.**
-  1. **The Operator's yes** on the card 2 plan below and on the `DECISIONS.md`
-     draft (D34). Codex reviewed both on 2026-09-26: "agree with changes". The pen
-     checked each change against the code and step 1's output, and took them all.
-  2. **Desktop card 2, copy and prove.** Nothing is deleted. The plan, not yet
-     confirmed, runs in three checked parts:
+  1. **Desktop card 2, copy and prove.** Nothing is deleted. Confirmed on
+     2026-09-26, after Codex's review ("agree with changes"; the pen checked each
+     change against the code and step 1's output, and took them all). It runs in
+     three checked parts:
      - 2a: the twelve Bloomberg files that exist only on Drive first; then the five
-       Theta subfolders that hold the non-empty `copy` rows, in chunks of whole
-       ticker folders of at most about 20,000 Drive objects and 1 GiB each. Each
-       chunk is censused, inventoried, planned, byte-checked if needed, copied and
-       verified, and its census, inventory, plan and ledger are pinned by SHA-256;
+       Theta subfolders that hold the non-empty `copy` rows, in chunks of at most
+       about 20,000 Drive objects and 1 GiB each. Each chunk is censused,
+       inventoried, planned, byte-checked if needed, copied and verified, and its
+       census, inventory, plan and ledger are pinned by SHA-256. The tool refuses
+       an area name with `=`, so a chunk cannot yet be a ticker folder
+       (`ticker=AAPL`). 2a therefore splits: 2a-i, now, brings the Bloomberg files
+       and the three Theta subfolders that fit one chunk each (`index_reference`,
+       `option_history_delisted`, `option_history_deep365`); 2a-ii brings
+       `option_history` and the banded backup in ticker chunks, after a reviewed
+       change lets the tool accept `=` in an area name;
      - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
        verified: it finds what is left, and the verify is the coverage evidence;
      - 2c: `swe-data/` on Drive and the restore tests.
@@ -255,22 +262,21 @@ locally.
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
        root, and the bundle into an empty repository.
-  3. **D31 step 6, under D33.** It runs after card 2. The four data branches are
+  2. **D31 step 6, under D33.** It runs after card 2. The four data branches are
      deleted in one atomic push with a lease on each, and only with the Operator's
      yes. #507 has been closed since 2026-09-23.
-  4. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
+  3. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
      the card first. Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a
      byte-identical copy of `portfolio_history.json`), on the desktop and on
      Drive.
-  5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
+  4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** The Operator says yes, or not, to the card 2 plan and to D34's
-  revised text. On a yes the pen writes `DECISIONS.md` D34, then card 2a, and has
-  card 2a checked independently before it goes out.
-  The Operator deletes the credential file forever from Drive's trash and rotates
-  the Flex token.
+- **Next action.** Card 2a-i on the desktop, once the pen has had it checked
+  independently. Meanwhile the pen prepares the tool change for 2a-ii, to merge
+  only after 2a-i reports. The Operator deletes the credential file forever from
+  Drive's trash and rotates the Flex token.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -282,6 +288,8 @@ locally.
   - The rulings on card 1's findings (2026-09-26): "1. yes 2. yes, will do both
     3. yes, leave them out". Theta gets Bloomberg's rule; the Operator rotates the
     Flex token and deletes the Drive copy; the day-bot's `data_raw` is left out.
+  - The card 2 plan and D34's text ("yes to both, go ahead with card 2a",
+    2026-09-26). D34 is written.
 - **Proposed, not authorized.**
   - Purging the data from git history; the fixture subset; untracking the
     `staging/` data.
@@ -290,10 +298,6 @@ locally.
     id. The independent check of #536 found seven mismatches the test still
     misses, such as a truncated parent id. The census catches each against Drive,
     so none can reach the data.
-  - A `DECISIONS.md` entry, drafted after card 1b. It records the Theta rule and
-    the `data_raw` ruling (both decided 2026-09-26), and corrects D33 points 1–2
-    with card 1b's Theta count. The Theta lines in `docs/DATA_INVENTORY.md` and
-    `docs/deadlines.md` follow it. Writing it needs the Operator's yes for the text.
   - Before anyone runs `scripts/data_manifest.py build` after card 2: decide whether
     `data_archive/drive-legacy/` belongs in the manifest. It would add about 120,000
     rows.

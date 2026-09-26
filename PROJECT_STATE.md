@@ -1,7 +1,9 @@
 # Project State
 
-**Last updated:** 2026-09-26 (the Operator's rulings on card 1's three findings,
-§0 B, and `main` at `3b1203c` after #539, the close after #538. Earlier the same day:
+**Last updated:** 2026-09-26 (card 1b done: Drive's Theta counted, §0 B; the Drive
+copy of the credential-shaped file moved to Drive's trash. Earlier the same day: the
+Operator's rulings on card 1's three findings, and `main` at `3b1203c` after #539,
+the close after #538. Before that:
 close after #538, `main` at `610f9c8`. D33 card 1 ran on the
 desktop: the morning pull retired, `main` merged into the desktop branch under guard, the
 Drive census taken and the plan written; nothing deleted, Drive unchanged. The census found
@@ -171,10 +173,28 @@ locally.
     The pen's review, by a workflow in a separate context with each finding
     checked by a skeptic, found the numbers sound and the record partly wrong.
     The close corrects it; see the corrections in the two worklog fragments.
+  - Card 1b, the plan check, read-only, 2026-09-26. Its Run Summary and step 1's
+    output are PR #538's comments 5846529836 and 5846540733; the pen checked every
+    figure below against step 1's output there.
+    - Nothing was written: the root's and the tree's listings were identical before
+      and after.
+    - Drive's `SmartWheelData/data_processed/theta` holds 132,862 Theta files
+      (11,633,788,580 B), the count the MacBook held. The desktop's 17,188 are among
+      them, at the same paths, byte for byte. 115,293 (10,242,357,099 B) exist only
+      on Drive, and none is another version of a desktop file.
+    - Twelve Bloomberg files (485 MB) exist only on Drive: the 2026-03-20 snapshot
+      in `archive/` (8 files, 426,588,230 B), `swe-deep-history/` (3 files,
+      58,319,893 B, among them `sp500_vol_iv_full__1994_2026_FULL.csv.gz`) and one
+      in `data/bloomberg/` (9,105 B).
+    - `copy --dry-run` is clear: 0 conflicts, 1.2 TB free. No change to the root's
+      names, sizes or modified times since card 1's inventory; fresh content hashes
+      are still required before any copy.
+    - Card 1's census took 312 of its 372 minutes.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
-  1. **Theta is very likely on Drive in full.** `SmartWheelData/data_processed/theta`
-     (uploaded 2026-07-12/13) holds all 14 Theta trees. The pen confirmed on Drive
+  1. **Theta is on Drive in full** (counted by card 1b, above).
+     `SmartWheelData/data_processed/theta` (uploaded 2026-07-12/13) holds all 14
+     Theta trees. The pen confirmed on Drive
      that it holds `ticker=XOM` and AAPL expirations from 2016-01-08 to 2026-08-21.
      The review found that the `swe-local-only` upload stops at tickers A to N and
      at AAPL 2017-08-25. The records say the MacBook's ~132,862-file corpus was
@@ -192,8 +212,12 @@ locally.
      tool leaves it in place and lists it. CLAUDE.md §7 says that file never
      leaves the desktop. The pen checked its sharing settings, not its contents:
      only the owner has access.
-     **Ruling: "yes, will do both".** The Operator rotates the IBKR Flex token and
-     deletes this Drive copy by hand. No tool or agent opens, copies or deletes it.
+     **Ruling: "yes, will do both".** On the Operator's instruction ("you do ...
+     deleting the drive copy"), the pen moved the Drive copy to Drive's trash on
+     2026-09-26, unopened. A trashed file stays stored and recoverable for 30 days,
+     and the pen's tools can neither empty the trash nor see into it. So the
+     removal is complete only when the Operator deletes it forever from the trash
+     and rotates the IBKR Flex token; the pen can do neither.
   3. **The day-bot's `data_raw` is the day-bot's own data** (yahoo,
      ibkr_primary, swe_tests, evaluation files), not a copy of this project's.
      The plan would copy 1,725 of its files (34,816,381 B) into this project's
@@ -201,24 +225,32 @@ locally.
      **Ruling: "yes, leave them out".** Card 2 copies none of them. They stay
      untouched in the day-bot's folder, which D33 only reads.
 - **Remains.**
-  1. **Card 1b, the plan check** (next, read-only). Written; it goes out after a
-     second independent check. A short run on the desktop over card 1's saved
-     plan:
-     - what the 120,139 files are, by folder;
-     - the Theta count;
-     - the duplicates by reason;
-     - `copy --dry-run`, which contacts no Drive and writes nothing, to prove 0
-       conflicts and enough space;
-     - the census's real duration.
-  2. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
+  1. **The Operator's yes** on the card 2 plan below and on the `DECISIONS.md`
+     draft (D34). Codex reviewed both on 2026-09-26: "agree with changes". The pen
+     checked each change against the code and step 1's output, and took them all.
+  2. **Desktop card 2, copy and prove.** Nothing is deleted. The plan, not yet
+     confirmed, runs in three checked parts:
+     - 2a: the twelve Bloomberg files that exist only on Drive first; then the five
+       Theta subfolders that hold the non-empty `copy` rows, in chunks of whole
+       ticker folders of at most about 20,000 Drive objects and 1 GiB each. Each
+       chunk is censused, inventoried, planned, byte-checked if needed, copied and
+       verified, and its census, inventory, plan and ledger are pinned by SHA-256;
+     - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
+       verified: it finds what is left, and the verify is the coverage evidence;
+     - 2c: `swe-data/` on Drive and the restore tests.
+     Card 3 then takes its own fresh census and hashed inventory; card 2's
+     forecast is never deletion authority. The card:
      - copies home everything of this project's that exists only on Drive, into
        `data_archive/drive-legacy/<area>/…`, never into a live tree. Card 1's
        plan, less the day-bot's `data_raw`, gives 118,414 files (10.7 GB). The
        saved plan still lists `data_raw`'s 1,725 files, and `copy` copies every
        `copy` row of the plan it is given. So card 2 works from a new plan that
        leaves `data_raw` out, and never runs `copy` on card 1's plan.
-       One `copy` run takes two full censuses and all the downloads, an estimated
-       12–20 hours by the tool's design, and it publishes nothing until the end;
+       Each fresh chunk costs three censuses (the plan's, and `copy`'s before and
+       after downloading), and a chunk publishes nothing until its last census.
+       At card 1's rate (about 1,066 objects a minute) and round 3's average
+       download rate (about 0.42 MiB/s), 2a takes about 20 hours, 2b about 16 and
+       2c about 12–15, mostly unattended;
      - builds `swe-data/` on Drive and checks it both ways, plus the checksum
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
@@ -234,10 +266,11 @@ locally.
   5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** The Operator rotates the Flex token and deletes the Drive copy
-  by hand, and runs card 1b on the desktop (read-only) when the pen sends it. The
-  pen then drafts the `DECISIONS.md` entry for the Operator's yes, and writes
-  card 2.
+- **Next action.** The Operator says yes, or not, to the card 2 plan and to D34's
+  revised text. On a yes the pen writes `DECISIONS.md` D34, then card 2a, and has
+  card 2a checked independently before it goes out.
+  The Operator deletes the credential file forever from Drive's trash and rotates
+  the Flex token.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.

@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-09-26 (close after #538: `main` at `610f9c8`. D33 card 1 ran on the
+**Last updated:** 2026-09-26 (the Operator's rulings on card 1's three findings,
+§0 B, and `main` at `3b1203c` after #539, the close after #538. Earlier the same day:
+close after #538, `main` at `610f9c8`. D33 card 1 ran on the
 desktop: the morning pull retired, `main` merged into the desktop branch under guard, the
 Drive census taken and the plan written; nothing deleted, Drive unchanged. The census found
 a much fuller Theta copy on Drive than the records said, and a credential-shaped file on
@@ -77,7 +79,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `610f9c8` (2026-09-26). Others on `origin`:
+**Branches:** `main` is at `3b1203c` (2026-09-26). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -169,7 +171,8 @@ locally.
     The pen's review, by a workflow in a separate context with each finding
     checked by a skeptic, found the numbers sound and the record partly wrong.
     The close corrects it; see the corrections in the two worklog fragments.
-- **For the Operator.** The census found three things the records did not know:
+- **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
+  found three things the records did not know:
   1. **Theta is very likely on Drive in full.** `SmartWheelData/data_processed/theta`
      (uploaded 2026-07-12/13) holds all 14 Theta trees. The pen confirmed on Drive
      that it holds `ticker=XOM` and AAPL expirations from 2016-01-08 to 2026-08-21.
@@ -177,23 +180,30 @@ locally.
      at AAPL 2017-08-25. The records say the MacBook's ~132,862-file corpus was
      "not recovered" because only `swe-local-only` (17,188 files) was ever measured. The plan counts 118,367
      SmartWheelData files the root lacks. Card 1b confirms the Theta share from the
-     plan. Two questions follow:
-     - whether Theta, which cannot be pulled again while the subscription is
-       lapsed, gets the same both-copies-proven protection as Bloomberg;
-     - a correction to D33 points 1–2.
+     plan.
+     **Ruling: "yes".** Theta, which cannot be pulled again while the subscription
+     is lapsed, gets Bloomberg's rule: nothing that holds Theta is deleted until
+     the desktop copy and the Drive copy are both proven. The `DECISIONS.md` text,
+     with the correction of D33 points 1–2, is drafted once card 1b gives the
+     count, for the Operator's yes.
   2. **A credential-shaped file is on Drive:**
      `SmartWheelData/data_processed/ibkr/flex_credentials.json` (674 B, on Drive
      since 2026-07-12, last modified 2026-06-09). It has never been opened. The
      tool leaves it in place and lists it. CLAUDE.md §7 says that file never
-     leaves the desktop. Rotating the Flex token and removing this copy by hand
-     are the Operator's call.
-  3. **The day-bot's `data_raw` looks like the day-bot's own data** (yahoo,
+     leaves the desktop. The pen checked its sharing settings, not its contents:
+     only the owner has access.
+     **Ruling: "yes, will do both".** The Operator rotates the IBKR Flex token and
+     deletes this Drive copy by hand. No tool or agent opens, copies or deletes it.
+  3. **The day-bot's `data_raw` is the day-bot's own data** (yahoo,
      ibkr_primary, swe_tests, evaluation files), not a copy of this project's.
      The plan would copy 1,725 of its files (34,816,381 B) into this project's
-     archive. Keeping or leaving them out is the Operator's call.
+     archive.
+     **Ruling: "yes, leave them out".** Card 2 copies none of them. They stay
+     untouched in the day-bot's folder, which D33 only reads.
 - **Remains.**
-  1. **Card 1b, the plan check** (next, read-only). A short run on the desktop over
-     card 1's saved plan:
+  1. **Card 1b, the plan check** (next, read-only). Written; it goes out after a
+     second independent check. A short run on the desktop over card 1's saved
+     plan:
      - what the 120,139 files are, by folder;
      - the Theta count;
      - the duplicates by reason;
@@ -201,8 +211,10 @@ locally.
        conflicts and enough space;
      - the census's real duration.
   2. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
-     - copies home everything that exists only on Drive. That is 120,139 files,
-       10.7 GB, into `data_archive/drive-legacy/<area>/…`, never into a live tree.
+     - copies home everything of this project's that exists only on Drive. By
+       card 1's plan that is 118,414 files (10.7 GB) once the day-bot's
+       `data_raw` is left out, into `data_archive/drive-legacy/<area>/…`, never
+       into a live tree.
        One `copy` run takes two full censuses and all the downloads, an estimated
        12–20 hours by the tool's design, and it publishes nothing until the end;
      - builds `swe-data/` on Drive and checks it both ways, plus the checksum
@@ -220,8 +232,10 @@ locally.
   5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** The Operator answers the three questions above, and runs card 1b
-  on the desktop (read-only). The pen then writes card 2.
+- **Next action.** The Operator rotates the Flex token and deletes the Drive copy
+  by hand, and runs card 1b on the desktop (read-only) when the pen sends it. The
+  pen then drafts the `DECISIONS.md` entry for the Operator's yes, and writes
+  card 2.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -230,6 +244,9 @@ locally.
   - Recording the SmartWheelData parent id ("yes on the Drive-id record",
     2026-09-25): done in #536.
   - v4 ("change it right away").
+  - The rulings on card 1's findings (2026-09-26): "1. yes 2. yes, will do both
+    3. yes, leave them out". Theta gets Bloomberg's rule; the Operator rotates the
+    Flex token and deletes the Drive copy; the day-bot's `data_raw` is left out.
 - **Proposed, not authorized.**
   - Purging the data from git history; the fixture subset; untracking the
     `staging/` data.
@@ -238,9 +255,10 @@ locally.
     id. The independent check of #536 found seven mismatches the test still
     misses, such as a truncated parent id. The census catches each against Drive,
     so none can reach the data.
-  - A correction of D33 points 1–2 and of the Theta lines in `docs/DATA_INVENTORY.md`
-    and `docs/deadlines.md`, once card 1b confirms the Theta count. A `DECISIONS.md`
-    change needs the Operator's yes.
+  - A `DECISIONS.md` entry, drafted after card 1b. It records the Theta rule and
+    the `data_raw` ruling (both decided 2026-09-26), and corrects D33 points 1–2
+    with card 1b's Theta count. The Theta lines in `docs/DATA_INVENTORY.md` and
+    `docs/deadlines.md` follow it. Writing it needs the Operator's yes for the text.
   - Before anyone runs `scripts/data_manifest.py build` after card 2: decide whether
     `data_archive/drive-legacy/` belongs in the manifest. It would add about 120,000
     rows.

@@ -186,8 +186,9 @@ locally.
       in `archive/` (8 files, 426,588,230 B), `swe-deep-history/` (3 files,
       58,319,893 B, among them `sp500_vol_iv_full__1994_2026_FULL.csv.gz`) and one
       in `data/bloomberg/` (9,105 B).
-    - `copy --dry-run` is clear: 0 conflicts, 1.2 TB free. The root is unchanged
-      since card 1's inventory.
+    - `copy --dry-run` is clear: 0 conflicts, 1.2 TB free. No change to the root's
+      names, sizes or modified times since card 1's inventory; fresh content hashes
+      are still required before any copy.
     - Card 1's census took 312 of its 372 minutes.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
@@ -224,21 +225,32 @@ locally.
      **Ruling: "yes, leave them out".** Card 2 copies none of them. They stay
      untouched in the day-bot's folder, which D33 only reads.
 - **Remains.**
-  1. **Codex's second opinion** on the card 2 plan below and on the `DECISIONS.md`
-     draft (D34), which the Operator asked for on 2026-09-26.
-  2. **Desktop card 2, copy and prove.** Nothing is deleted. The plan the pen
-     proposes, not yet confirmed: the twelve Bloomberg files that exist only on
-     Drive first; then Theta in chunks, only the five Theta folders that hold
-     `copy` rows; then one fresh full plan that copies what is left and shows the
-     rest redundant. The card:
+  1. **The Operator's yes** on the card 2 plan below and on the `DECISIONS.md`
+     draft (D34). Codex reviewed both on 2026-09-26: "agree with changes". The pen
+     checked each change against the code and step 1's output, and took them all.
+  2. **Desktop card 2, copy and prove.** Nothing is deleted. The plan, not yet
+     confirmed, runs in three checked parts:
+     - 2a: the twelve Bloomberg files that exist only on Drive first; then the five
+       Theta subfolders that hold the non-empty `copy` rows, in chunks of whole
+       ticker folders of at most about 20,000 Drive objects and 1 GiB each. Each
+       chunk is censused, inventoried, planned, byte-checked if needed, copied and
+       verified, and its census, inventory, plan and ledger are pinned by SHA-256;
+     - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
+       verified: it finds what is left, and the verify is the coverage evidence;
+     - 2c: `swe-data/` on Drive and the restore tests.
+     Card 3 then takes its own fresh census and hashed inventory; card 2's
+     forecast is never deletion authority. The card:
      - copies home everything of this project's that exists only on Drive, into
        `data_archive/drive-legacy/<area>/…`, never into a live tree. Card 1's
        plan, less the day-bot's `data_raw`, gives 118,414 files (10.7 GB). The
        saved plan still lists `data_raw`'s 1,725 files, and `copy` copies every
        `copy` row of the plan it is given. So card 2 works from a new plan that
        leaves `data_raw` out, and never runs `copy` on card 1's plan.
-       One `copy` run takes two full censuses and all the downloads, an estimated
-       12–20 hours by the tool's design, and it publishes nothing until the end;
+       Each fresh chunk costs three censuses (the plan's, and `copy`'s before and
+       after downloading), and a chunk publishes nothing until its last census.
+       At card 1's rate (about 1,066 objects a minute) and round 3's average
+       download rate (about 0.42 MiB/s), 2a takes about 20 hours, 2b about 16 and
+       2c about 12–15, mostly unattended;
      - builds `swe-data/` on Drive and checks it both ways, plus the checksum
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
@@ -254,9 +266,9 @@ locally.
   5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** The Operator gives Codex the card 1b addendum (card 1b's numbers,
-  the adjusted card 2 plan and the D34 draft) and pastes back its reply. The pen
-  reconciles it, asks the Operator's yes on the plan and on D34, then writes card 2.
+- **Next action.** The Operator says yes, or not, to the card 2 plan and to D34's
+  revised text. On a yes the pen writes `DECISIONS.md` D34, then card 2a, and has
+  card 2a checked independently before it goes out.
   The Operator deletes the credential file forever from Drive's trash and rotates
   the Flex token.
 - **Authorized.**

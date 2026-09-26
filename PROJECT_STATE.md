@@ -1,6 +1,11 @@
 # Project State
 
-**Last updated:** 2026-09-25 (close after #536: `main` at `f26e785`, the SmartWheelData area's
+**Last updated:** 2026-09-26 (close after #538: `main` at `610f9c8`. D33 card 1 ran on the
+desktop: the morning pull retired, `main` merged into the desktop branch under guard, the
+Drive census taken and the plan written; nothing deleted, Drive unchanged. The census found
+a much fuller Theta copy on Drive than the records said, and a credential-shaped file on
+Drive; both wait on the Operator (§0 B).
+2026-09-25: close after #536, `main` at `f26e785`, the SmartWheelData area's
 Drive parent id recorded in `docs/DATA_INVENTORY.md` §C.3 (N-7).
 2026-09-24: close after #534, `main` at `7bfa626`, the D33 consolidation
 tool merged. Earlier the same day: close after #533, `main` at `249f913`, D33 in force.
@@ -72,12 +77,16 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `f26e785` (2026-09-25). Others on `origin`:
+**Branches:** `main` is at `610f9c8` (2026-09-26). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
-- `claude/data-home-desktop-round3`, the desktop's round-3 worklog (no PR yet);
-- `claude/project-restart-ai-agents-kot5jr`, the pen's branch.
+- `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
+
+Merging a pull request deletes its head branch on GitHub (a repository setting). So
+`claude/data-home-desktop-round3` went when #538 merged, on 2026-09-26. All its commits
+are in `main`, and the PR page can restore it. The desktop's checkout still has it
+locally.
 
 ### 0 A. Business direction
 
@@ -109,10 +118,10 @@ described here is no longer accurate.
 - **Done.**
   - D31 steps 1–5. The manifest exists; the desktop root is filled and proved at
     144/0/0; git tracks no market data (#530).
-  - The desktop's round 3 (2026-09-23), recorded on its branch:
+  - The desktop's round 3 (2026-09-23), landed by #538:
     - a full-history bundle, built and proved by readback;
-    - `data_archive` plus the bundle on Drive: 0 differences, 30 matching;
-    - every Drive child pulled home and checked, the whole of Drive's theta
+    - `data_archive` plus the bundle on Drive: 0 differences, 33 matching;
+    - every child of Drive's `swe-local-only` pulled home and checked, its theta
       included (17,188 files).
   - Working structure v4 adopted (D32) and merged (#531, `8cf6389`). Codex, as the
     second opinion, found two defects in `scripts/session_open.py` and
@@ -140,21 +149,62 @@ described here is no longer accurate.
     and the parent in the row's "Folder (id)" cell. Codex and then the
     independent check each found a gap in the test, and both were closed before
     the merge.
+  - Desktop card 1, prove and plan, merged in #538 (`610f9c8`). Nothing was
+    deleted from the root or from Drive, and Drive was only read. Its outputs are in
+    the root's `_logs/d33-card1/`:
+    - the morning-pull task exported (UTF-16) and unregistered; the root's
+      `portfolio_snapshot.json` unchanged (5,279 B, 2026-07-18);
+    - the tool's tests on Windows: 190 passed, 12 skipped (the expected skips);
+    - `main` merged into the desktop branch under guard (`e13220f`): it removed only
+      the 87 checkout copies (566,845,655 B), each first proved identical to the
+      root's manifest copy;
+    - the 20 `staging/` CSVs copied into the root (all 61 swe-ops data files were
+      already there);
+    - the desktop's copy of the bundle restored into an empty repository, with
+      `fsck` clean and the four branch tips present;
+    - the census: 7 areas, 332,772 objects, each equal to `rclone size`;
+    - the plan: 120,139 files (10,716,801,880 B) to copy home, 0 needing a byte
+      check, and 1 unresolved row, the credential-shaped file below.
+
+    The pen's review, by a workflow in a separate context with each finding
+    checked by a skeptic, found the numbers sound and the record partly wrong.
+    The close corrects it; see the corrections in the two worklog fragments.
+- **For the Operator.** The census found three things the records did not know:
+  1. **Theta is very likely on Drive in full.** `SmartWheelData/data_processed/theta`
+     (uploaded 2026-07-12/13) holds all 14 Theta trees. The pen confirmed on Drive
+     that it holds `ticker=XOM` and AAPL expirations from 2016-01-08 to 2026-08-21.
+     The review found that the `swe-local-only` upload stops at tickers A to N and
+     at AAPL 2017-08-25. The records say the MacBook's ~132,862-file corpus was
+     "not recovered" because only `swe-local-only` (17,188 files) was ever measured. The plan counts 118,367
+     SmartWheelData files the root lacks. Card 1b confirms the Theta share from the
+     plan. Two questions follow:
+     - whether Theta, which cannot be pulled again while the subscription is
+       lapsed, gets the same both-copies-proven protection as Bloomberg;
+     - a correction to D33 points 1–2.
+  2. **A credential-shaped file is on Drive:**
+     `SmartWheelData/data_processed/ibkr/flex_credentials.json` (674 B, on Drive
+     since 2026-07-12, last modified 2026-06-09). It has never been opened. The
+     tool leaves it in place and lists it. CLAUDE.md §7 says that file never
+     leaves the desktop. Rotating the Flex token and removing this copy by hand
+     are the Operator's call.
+  3. **The day-bot's `data_raw` looks like the day-bot's own data** (yahoo,
+     ibkr_primary, swe_tests, evaluation files), not a copy of this project's.
+     The plan would copy 1,725 of its files (34,816,381 B) into this project's
+     archive. Keeping or leaving them out is the Operator's call.
 - **Remains.**
-  1. **Desktop card 1, prove and plan** (next). It first runs the tool's tests
-     on the desktop, from `main` and before anything changes, since they have
-     run on Linux only. Nothing is deleted, and
-     nothing on Drive changes. The card:
-     - merges `main` into the desktop branch with guards;
-     - retires the "SWE IBKR Morning Pull" task (Operator: "delete the morning
-       pull");
-     - archives the 7 older swe-ops copies;
-     - copies the 20 `staging/` data files into the root;
-     - restores the bundle locally;
-     - takes the Drive census of the four areas (`docs/DATA_INVENTORY.md` §C.3);
-     - writes the plan.
+  1. **Card 1b, the plan check** (next, read-only). A short run on the desktop over
+     card 1's saved plan:
+     - what the 120,139 files are, by folder;
+     - the Theta count;
+     - the duplicates by reason;
+     - `copy --dry-run`, which contacts no Drive and writes nothing, to prove 0
+       conflicts and enough space;
+     - the census's real duration.
   2. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
-     - copies home everything that exists only on Drive;
+     - copies home everything that exists only on Drive. That is 120,139 files,
+       10.7 GB, into `data_archive/drive-legacy/<area>/…`, never into a live tree.
+       One `copy` run takes two full censuses and all the downloads, an estimated
+       12–20 hours by the tool's design, and it publishes nothing until the end;
      - builds `swe-data/` on Drive and checks it both ways, plus the checksum
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
@@ -168,24 +218,32 @@ described here is no longer accurate.
      byte-identical copy of `portfolio_history.json`), on the desktop and on
      Drive.
   5. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
-     B). Card 1 copies them into the root, so Drive gets them. Untracking them
-     remains proposed.
-- **Next action.** Card 1, revised on 2026-09-25 for the merged tool, is with a
-  fresh-context review (four lenses, each finding verified). Then it goes to the
-  Operator to paste into the desktop terminal.
+     B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
+     them remains proposed.
+- **Next action.** The Operator answers the three questions above, and runs card 1b
+  on the desktop (read-only). The pen then writes card 2.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
-  - Retiring the morning-pull task ("delete the morning pull").
+  - Retiring the morning-pull task ("delete the morning pull"): done 2026-09-25 in
+    card 1, after its gate.
   - Recording the SmartWheelData parent id ("yes on the Drive-id record",
     2026-09-25): done in #536.
   - v4 ("change it right away").
-- **Proposed, not authorized.** Purging the data from git history; the fixture
-  subset; untracking the `staging/` data. Also optional: a stricter areas test,
-  which would require the parent to be the exact last id in the "Folder (id)" cell
-  and the folder name to sit next to its id. The independent check of #536 found
-  seven mismatches the test still misses, such as a truncated parent id. The
-  census catches each against Drive, so none can reach the data.
+- **Proposed, not authorized.**
+  - Purging the data from git history; the fixture subset; untracking the
+    `staging/` data.
+  - Optional: a stricter areas test, which would require the parent to be the
+    exact last id in the "Folder (id)" cell and the folder name to sit next to its
+    id. The independent check of #536 found seven mismatches the test still
+    misses, such as a truncated parent id. The census catches each against Drive,
+    so none can reach the data.
+  - A correction of D33 points 1–2 and of the Theta lines in `docs/DATA_INVENTORY.md`
+    and `docs/deadlines.md`, once card 1b confirms the Theta count. A `DECISIONS.md`
+    change needs the Operator's yes.
+  - Before anyone runs `scripts/data_manifest.py build` after card 2: decide whether
+    `data_archive/drive-legacy/` belongs in the manifest. It would add about 120,000
+    rows.
 - **Dropped.** The MacBook transfer (step 2b) and Theta on Drive as tar chunks
   (D33).
 

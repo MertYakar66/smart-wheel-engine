@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-09-25 — D33 card 1: prove and plan (desktop, `e13220f`)
+## 2026-09-25 — D33 card 1: prove and plan (desktop; #538, `610f9c8`)
 
 **Changed** — the desktop run that prepares D33's consolidation. Nothing was
 deleted from the data root or from Drive, and nothing on Drive changed.
@@ -28,9 +28,10 @@ deleted from the data root or from Drive, and nothing on Drive changed.
   files, 0 went missing and 0 changed. `docs/worklog/INDEX.md` was regenerated, not
   taken from one side.
 - `scripts/drive_consolidate.py` from `main` passes on Windows: 190 passed, 12
-  skipped (links unavailable without Developer Mode, and the `\\?\` path cases).
-- The last local strays are home: 20 CSVs (7,152,880 B) from the checkout's
-  `staging\`; all 61 swe-ops data files were already in the root by bytes.
+  skipped (9 links unavailable without Developer Mode, 1 Windows `..` case and 2
+  `\\?\` path cases).
+- The 20 git-tracked CSVs under `staging/` (the D31 gap) are now also in the root;
+  git still tracks them. All 61 swe-ops data files were already in the root by bytes.
 - The 1.7 GB history bundle restores into an empty bare repo — sha256 matched,
   `fsck` clean, no promisor or alternates, all four data-branch tips present.
 - The Drive census (read-only) covers 7 areas and 332,772 objects, each area equal
@@ -38,6 +39,11 @@ deleted from the data root or from Drive, and nothing on Drive changed.
   (10,716,801,880 B) to copy home, one unresolved row — the credential-shaped
   `flex_credentials.json`, named but never read. The root checks 144/0/0 before and
   after.
+- Round 3 of the desktop (2026-09-23) lands in the same pull request: the
+  full-history bundle, built from a full clone and proved by readback; `data_archive`
+  and the bundle on Drive (0 differences, 33 matching); and every child of
+  `swe-local-only` pulled home and checked. That was 12,072 files identical, 2 `ibkr`
+  conflicts kept on both sides, and theta's 17,188 files with 0 differences.
 
 ## 2026-09-25 — the SmartWheelData area's Drive parent id (N-7 of #534; #536, `f26e785`)
 

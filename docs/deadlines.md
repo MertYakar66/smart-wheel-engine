@@ -27,7 +27,7 @@ close.
 | ------- | --------- | -------------- | ------ |
 | Prices and IV (Bloomberg CSVs) | 2026-07-02, frozen: the Terminal is gone (D29) | the desktop root, `data/bloomberg/` | `data/DATA_MANIFEST.json` frontier |
 | Earnings-calendar overlay | 2026-07-03 snapshot | the desktop root | `PROJECT_STATE.md` §0 C |
-| IBKR portfolio snapshot | 2026-07-18 (`portfolio_snapshot.json`); the morning pull that refreshed it is being retired | the desktop root, `data_processed/ibkr/` | the desktop's round-3 worklog, 2026-09-23 |
-| Theta (partial: 17,188 of ~132,862 files) | unknown; the subscription has lapsed, and Theta is collected again later (D33) | the desktop root, `data_processed/theta/`; also Drive `swe-local-only/theta` | `DECISIONS.md` D33; `docs/DATA_INVENTORY.md` §C.1 |
+| IBKR portfolio snapshot | 2026-07-18 (`portfolio_snapshot.json`); the morning pull was retired on 2026-09-25 (card 1), and its two recorded runs, 2026-09-23 and 2026-09-25, had failed | the desktop root, `data_processed/ibkr/` | the round-3 and card-1 worklogs |
+| Theta (the desktop: 17,188 of ~132,862 files) | unknown; the subscription has lapsed, and Theta is collected again later (D33) | the desktop root, `data_processed/theta/`; Drive `swe-local-only/theta`; and a far fuller upload in Drive `SmartWheelData/data_processed/theta`, found by card 1, whose size card 1b confirms | `DECISIONS.md` D33; `docs/DATA_INVENTORY.md` §C.1, §C.3 |
 
-*Last updated: 2026-09-25 (reviewed at the close after #536: no row new, moved or closed).*
+*Last updated: 2026-09-26 (the close after #538: the IBKR snapshot row records the retired morning pull; the Theta row records the fuller Drive copy).*

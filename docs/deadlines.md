@@ -15,7 +15,7 @@ Rules for this file:
 | Due | What | Owner | Status | Source |
 | --- | ---- | ----- | ------ | ------ |
 | Undated | ThetaData subscription: when does it renew or lapse? The laptop's Theta corpus and every Theta pull depend on it. | Operator: supply the date | **CLOSED 2026-09-24**: the subscription is no longer active (the Operator, recorded in D33). Theta is collected again later, from a source not yet chosen | `docs/LAPTOP_SETUP.md` §3 (the tier record); `DECISIONS.md` D33 |
-| Conditional: before the next Flex trades update | The IBKR Flex token is IP-locked and rotates. If a pull answers `1012 Token invalid/expired`, the Operator regenerates it. | Operator | **OPEN**: last known good state unrecorded. On 2026-09-26 the Operator undertook to rotate it, because card 1 found an old copy of `flex_credentials.json` on Drive; the pen moved that copy to Drive's trash the same day, on the Operator's instruction | `docs/DASHBOARD_TRADES.md` §1; `docs/DASHBOARD_TERMINAL.md` §3.3; `PROJECT_STATE.md` §0 B |
+| Conditional: before the next Flex trades update | The IBKR Flex token is IP-locked and rotates. If a pull answers `1012 Token invalid/expired`, the Operator regenerates it. | Operator | **OPEN**: last known good state unrecorded. On 2026-09-26 the Operator undertook to rotate it, because card 1 found an old copy of `flex_credentials.json` on Drive; the pen moved that copy to Drive's trash the same day, on the Operator's instruction. It stays recoverable there until the Operator deletes it forever, which with the rotation closes this row | `docs/DASHBOARD_TRADES.md` §1; `docs/DASHBOARD_TERMINAL.md` §3.3; `PROJECT_STATE.md` §0 B |
 
 ## Data dates
 

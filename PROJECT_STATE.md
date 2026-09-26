@@ -211,10 +211,12 @@ locally.
      tool leaves it in place and lists it. CLAUDE.md §7 says that file never
      leaves the desktop. The pen checked its sharing settings, not its contents:
      only the owner has access.
-     **Ruling: "yes, will do both".** The Operator rotates the IBKR Flex token. On
-     the Operator's instruction ("you do ... deleting the drive copy"), the pen
-     moved the Drive copy to Drive's trash on 2026-09-26, unopened; a search by
-     name now finds nothing. The pen cannot rotate the token.
+     **Ruling: "yes, will do both".** On the Operator's instruction ("you do ...
+     deleting the drive copy"), the pen moved the Drive copy to Drive's trash on
+     2026-09-26, unopened. A trashed file stays stored and recoverable for 30 days,
+     and the pen's tools can neither empty the trash nor see into it. So the
+     removal is complete only when the Operator deletes it forever from the trash
+     and rotates the IBKR Flex token; the pen can do neither.
   3. **The day-bot's `data_raw` is the day-bot's own data** (yahoo,
      ibkr_primary, swe_tests, evaluation files), not a copy of this project's.
      The plan would copy 1,725 of its files (34,816,381 B) into this project's
@@ -255,7 +257,8 @@ locally.
 - **Next action.** The Operator gives Codex the card 1b addendum (card 1b's numbers,
   the adjusted card 2 plan and the D34 draft) and pastes back its reply. The pen
   reconciles it, asks the Operator's yes on the plan and on D34, then writes card 2.
-  The Operator rotates the Flex token.
+  The Operator deletes the credential file forever from Drive's trash and rotates
+  the Flex token.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.

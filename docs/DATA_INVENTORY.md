@@ -185,7 +185,9 @@ area's totals equal `rclone size`, and `swe-data exists: False`:
 
 In all, card 1's plan lists 120,139 files (10,716,801,880 B) to copy home, into
 `data_archive/drive-legacy/<area>/`. Without `data_raw`'s 1,725 (34,816,381 B),
-card 2 copies 118,414 files (10,681,985,499 B), subject to its fresh census.
+that is 118,414 files (10,681,985,499 B). The saved plan still holds those 1,725
+rows, and `copy` copies every `copy` row of the plan it is given. So card 2 works
+from a new plan that leaves `data_raw` out, and never runs `copy` on card 1's plan.
 
 After the consolidation (card 2), this project has one Drive folder: `swe-data/`
 at the top of My Drive, laid out exactly like the desktop root. Card 2 records its

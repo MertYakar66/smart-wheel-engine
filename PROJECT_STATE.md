@@ -211,10 +211,12 @@ locally.
        conflicts and enough space;
      - the census's real duration.
   2. **Desktop card 2, copy and prove.** Nothing is deleted. The card:
-     - copies home everything of this project's that exists only on Drive. By
-       card 1's plan that is 118,414 files (10.7 GB) once the day-bot's
-       `data_raw` is left out, into `data_archive/drive-legacy/<area>/…`, never
-       into a live tree.
+     - copies home everything of this project's that exists only on Drive, into
+       `data_archive/drive-legacy/<area>/…`, never into a live tree. Card 1's
+       plan, less the day-bot's `data_raw`, gives 118,414 files (10.7 GB). The
+       saved plan still lists `data_raw`'s 1,725 files, and `copy` copies every
+       `copy` row of the plan it is given. So card 2 works from a new plan that
+       leaves `data_raw` out, and never runs `copy` on card 1's plan.
        One `copy` run takes two full censuses and all the downloads, an estimated
        12–20 hours by the tool's design, and it publishes nothing until the end;
      - builds `swe-data/` on Drive and checks it both ways, plus the checksum

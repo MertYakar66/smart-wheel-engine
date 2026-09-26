@@ -14,6 +14,22 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-26 — D34: Theta kept like Bloomberg; the Theta collection on Drive comes home (#542, `866a8ba`)
+
+**Docs** — `DECISIONS.md` D34, confirmed by the Operator on 2026-09-26 after card 1's
+census and card 1b's count (PR #538):
+- Theta is kept like Bloomberg: nothing that holds it is deleted until the desktop
+  copy and the Drive copy are both proven.
+- Drive's `SmartWheelData/data_processed/theta` (132,862 files, holding the desktop's
+  17,188 byte for byte) comes home into
+  `data_archive/drive-legacy/SmartWheelData/data_processed/theta/`, never over the
+  live tree, and counts as recovered only once verified.
+- The day-bot's `data_raw` stays out of the consolidation.
+- D33 is marked partly superseded in the two clauses D34 replaces.
+  `PROJECT_STATE.md`, `docs/DATA_INVENTORY.md` and `docs/deadlines.md` carry the
+  confirmed card 2 plan: 2a-i (the Bloomberg files and three Theta folders) now,
+  2a-ii after a tool change lets an area name hold `=`.
+
 ## 2026-09-25 — D33 card 1: prove and plan (desktop; #538, `610f9c8`)
 
 **Changed** — the desktop run that prepares D33's consolidation. Nothing was

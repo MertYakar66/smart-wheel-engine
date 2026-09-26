@@ -1,7 +1,9 @@
 # Project State
 
-**Last updated:** 2026-09-26 (D34 written: Theta kept like Bloomberg, the Theta
-collection on Drive comes home, the day-bot's `data_raw` stays out; the card 2 plan
+**Last updated:** 2026-09-26 (D34 merged in #542, `main` at `866a8ba`; card 2a-i
+written with its driver, which checks each chunk's plan against card 1's before it
+copies, and under independent check. Earlier the same day: D34 written: Theta kept
+like Bloomberg, the Theta collection on Drive comes home, the day-bot's `data_raw` stays out; the card 2 plan
 confirmed; `main` at `6b2b6ac` after #541. Earlier the same day: card 1b done, Drive's
 Theta counted; the Drive copy of the credential-shaped file moved to Drive's trash. The
 Operator's rulings on card 1's three findings, and `main` at `3b1203c` after #539,
@@ -83,7 +85,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `6b2b6ac` (2026-09-26). Others on `origin`:
+**Branches:** `main` is at `866a8ba` (2026-09-26). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -192,6 +194,8 @@ locally.
       names, sizes or modified times since card 1's inventory; fresh content hashes
       are still required before any copy.
     - Card 1's census took 312 of its 372 minutes.
+  - D34, the Operator's rulings on card 1's findings and the card 2 plan, merged in
+    #542 (`866a8ba`).
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -241,7 +245,12 @@ locally.
        and the three Theta subfolders that fit one chunk each (`index_reference`,
        `option_history_delisted`, `option_history_deep365`); 2a-ii brings
        `option_history` and the banded backup in ticker chunks, after a reviewed
-       change lets the tool accept `=` in an area name;
+       change lets the tool accept `=` in an area name. In 2a-i a driver runs the
+       tool chunk by chunk and stops before any copy unless Drive under the chunk is
+       exactly as card 1's census saw it and the fresh plan copies exactly card 1's
+       copies not yet home. `option_history_deep365` runs in 2a-i only if each of
+       its 700 duplicates repeats a file that 2a-i brings home; otherwise it waits
+       for 2a-ii, so that each file comes home at the path card 1 chose;
      - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
        verified: it finds what is left, and the verify is the coverage evidence;
      - 2c: `swe-data/` on Drive and the restore tests.
@@ -273,8 +282,8 @@ locally.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** Card 2a-i on the desktop, once the pen has had it checked
-  independently. Meanwhile the pen prepares the tool change for 2a-ii, to merge
+- **Next action.** Card 2a-i on the desktop, once the independent check of the
+  card and its driver has passed. Meanwhile the pen prepares the tool change for 2a-ii, to merge
   only after 2a-i reports. The Operator deletes the credential file forever from
   Drive's trash and rotates the Flex token.
 - **Authorized.**

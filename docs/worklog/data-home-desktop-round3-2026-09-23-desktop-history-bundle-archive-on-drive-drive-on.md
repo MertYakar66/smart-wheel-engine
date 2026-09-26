@@ -2,13 +2,13 @@
 id: data-home-desktop-round3-2026-09-23
 title: "Desktop: history bundle, archive on Drive, Drive-only data pulled home (D31)"
 kind: verification
-status: held
+status: merged
 terminal: desktop
-pr:
+pr: 538
 decisions: [D31]
 date: 2026-09-23
 headline: bundle built and proved to hold all 5 manifest git_sources and 1,101,549,144 B of history-only blobs, but the coverage gate FIRED (main moved to #530 mid-run); 29,262 Drive files pulled home, 29,260 checksum-identical and 2 ibkr conflicts kept on both sides; theta on Drive is only 13% of what the lost laptop held
-surface: [data/DATA_MANIFEST.json, docs/DATA_INVENTORY.md, docs/worklog/INDEX.md]
+surface: [docs/worklog/INDEX.md]
 ---
 
 ## Goal
@@ -418,3 +418,25 @@ executes `swe-ops\scripts\ibkr_gateway_pull.py`.
   unlocks 8 tests that skip today.
 - Helper scripts left at `<root>\_logs\`: `bundle_covers_github.py`,
   `untracked_audit.py`, `tree_vs_root.py`.
+
+## Superseded at the close (the pen, 2026-09-26)
+
+Card 1 (#538) settled or overtook several items above. The text above is kept as
+written.
+
+- **The coverage gate.** D33 point 7 set the standard: the four exact branch
+  commits. Card 1 restored all four from the desktop's bundle. The restore from
+  Drive's copy is still to come, in card 2.
+- **"Do not merge `origin/main`".** Card 1 merged it under guard (`e13220f`), after
+  the Operator's yes. It removed the 87 checkout copies, 566,845,655 B by the
+  manifest (not ~1.4 GB), each first proved identical to the root's copy.
+- **The morning pull.** Card 1 unregistered it, so swe-ops is no longer
+  load-bearing, and its `0x800710E0` failures no longer matter.
+- **"Theta … appears to be gone / Drive holds 13%"** measured only
+  `swe-local-only/theta`. Card 1's census found a second, far fuller Theta upload in
+  `SmartWheelData/data_processed/theta`. Card 1b confirms its size.
+- **"`flex_credentials.json` never left this machine".** The Drive search here
+  covered only `swe-local-only`'s `ibkr`. Card 1 found an older credential-shaped
+  `flex_credentials.json` (674 B) in SmartWheelData's `ibkr`. It has never been
+  opened.
+- **Still open:** the stray `ibkr$p` (card 3), and `SWE_DEEP_TEST_DATA`.

@@ -2,9 +2,9 @@
 id: d33-card1-2026-09-25
 title: "Desktop card 1: prove and plan (D33)"
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 538
 decisions: [D33]
 date: 2026-09-25
 headline: morning-pull task exported and retired; tool 190 passed/12 skipped on Windows; main merged into round 3 removing only the 87 checkout copies (87/87 byte-identical to the root's manifest, 0 gone and 0 changed among 235 untracked files); 20 staging CSVs (7,152,880 B) swept home; the 1.7 GB bundle restores with fsck clean and all four tips; Drive census 7 areas / 332,772 objects all equal to rclone size, plan bytechecked with 120,139 files (10,716,801,880 B) to copy home; root 144/0/0 at the start and at the end; nothing on Drive changed and nothing was deleted from the root or Drive
@@ -252,3 +252,34 @@ The manifest re-check at the end of step 6: **144 ok, 0 missing, 0 mismatched**.
   must be re-pointed, or the task restored with the command above.
 - **`main` may have moved.** This branch carries a merge commit, so it is pushed plainly —
   never rebased, never force-pushed.
+
+## Corrections at the close (the pen, 2026-09-26)
+
+The pen's review of this record found these points wrong or too strong. The text
+above is kept as the Executor wrote it; these lines correct it.
+
+- **The cards.** Card 2 copies home, builds `swe-data/` on Drive and proves it, with
+  nothing deleted. Card 3 cleans up (D33). The record above has card 2 as the plan's
+  review and card 3 running `copy`.
+- **The merge's guard** was the card's `PRESENT` check: none of the 13 paths `main`
+  adds existed, so git had nothing to overwrite. Git ignores `--no-overwrite-ignore`
+  on a true merge like `e13220f`, so that flag protected nothing here.
+- **"No `PASSED` line"** shows that no credential-shaped *data* file was found.
+  `sweep` skips code and log files (39 here) before its credential check, so their
+  names were not examined.
+- **The snapshot.** Its size and modified time were the same before and after
+  (5,279 B, 2026-07-18 01:42), so no run rewrote it after 2026-09-23. "Byte for
+  byte" and "ever" go further than that evidence.
+- **The byte check** had nothing to settle (0 `needs-byte-check` rows) and made no
+  Drive query. Its stamp means only that it ran. Card 2's `copy` takes a fresh census
+  before any download.
+- **"235 untracked files"** means untracked or ignored files outside `.claude/`,
+  `dashboard/` and Python caches. "0 changed" means the same size and modified time.
+- **swe-ops** held no new data. That confirms round 3's finding; it does not
+  contradict it.
+- **The census found more than the record says:**
+  - `SmartWheelData/data_processed/theta` holds a Theta upload far fuller than
+    `swe-local-only`'s. Card 1b settles its size from the plan.
+  - `SmartWheelData/data_processed/ibkr` holds a credential-shaped
+    `flex_credentials.json`, never opened.
+  - Both are with the Operator (PROJECT_STATE.md §0 B).

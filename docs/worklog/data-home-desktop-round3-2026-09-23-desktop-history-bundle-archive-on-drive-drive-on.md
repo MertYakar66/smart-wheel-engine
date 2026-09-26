@@ -7,7 +7,7 @@ terminal: desktop
 pr: 538
 decisions: [D31]
 date: 2026-09-23
-headline: bundle built and proved to hold all 5 manifest git_sources and 1,101,549,144 B of history-only blobs, but the coverage gate FIRED (main moved to #530 mid-run); 29,262 Drive files pulled home, 29,260 checksum-identical and 2 ibkr conflicts kept on both sides; theta on Drive is only 13% of what the lost laptop held
+headline: bundle built and proved to hold all 5 manifest git_sources and 1,101,549,144 B of history-only blobs, but the coverage gate FIRED (main moved to #530 mid-run); 29,262 Drive files pulled home, 29,260 checksum-identical and 2 ibkr conflicts kept on both sides; swe-local-only's theta is only 13% of what the lost laptop held (card 1 then found a far fuller Theta upload in SmartWheelData, under review)
 surface: [docs/worklog/INDEX.md]
 ---
 

@@ -2,9 +2,9 @@
 id: d33-card2a-i
 title: Desktop card 2a-i: Drive-only Bloomberg and Theta files, chunk by chunk (D33, D34)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 546
 decisions: [D33, D34]
 date: 2026-09-28
 headline: 2,223 Drive-only files (1,078,864,189 B) came home into data_archive/drive-legacy/SmartWheelData/ across c0-bloomberg, c1-index_reference and c2-option_history_delisted; c3-option_history_deep365 deferred to 2a-ii; end check "no finding", manifest 144/0/0.

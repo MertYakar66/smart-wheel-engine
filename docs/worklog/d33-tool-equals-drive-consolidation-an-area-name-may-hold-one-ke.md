@@ -2,7 +2,7 @@
 id: d33-tool-equals
 title: "Drive consolidation: an area name may hold one key=value part (2a-ii)"
 kind: feature
-status: in-flight
+status: merged
 terminal: sandbox
 pr: 545
 decisions: [D33, D34]

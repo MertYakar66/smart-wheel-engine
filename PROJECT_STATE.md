@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-09-26 (D34 merged in #542, `main` at `866a8ba`; card 2a-i
+**Last updated:** 2026-09-28 (close after #546 and #545, `main` at `2bb626f`. Desktop
+card 2a-i brought 2,223 Drive-only files home and deferred its fourth chunk to 2a-ii
+(#546); the consolidation tool now takes one `key=value` part in each folder name of
+an area, so card 2a-ii can take one Theta ticker folder at a time (#545).
+2026-09-26: D34 merged in #542, `main` at `866a8ba`; card 2a-i
 written with its driver, which checks each chunk's plan against card 1's before it
 copies, and under independent check. Earlier the same day: D34 written: Theta kept
 like Bloomberg, the Theta collection on Drive comes home, the day-bot's `data_raw` stays out; the card 2 plan
@@ -85,7 +89,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `866a8ba` (2026-09-26). Others on `origin`:
+**Branches:** `main` is at `2bb626f` (2026-09-28). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -196,6 +200,26 @@ locally.
     - Card 1's census took 312 of its 372 minutes.
   - D34, the Operator's rulings on card 1's findings and the card 2 plan, merged in
     #542 (`866a8ba`).
+  - Desktop card 2a-i, 2026-09-28, recorded in #546 (`ad97ad5`). Nothing was deleted,
+    and Drive was only read. The pen checked the Run Summary against the PR; the run's
+    logs are in the root's `_logs/d33-card2a-i/`, outside git.
+    - 2,223 files (1,078,864,189 B) that existed only on Drive came home under
+      `data_archive/drive-legacy/SmartWheelData/`: the 12 Bloomberg files (`c0`),
+      1,261 files of `index_reference` (`c1`) and 950 of `option_history_delisted`
+      (`c2`). Each chunk copied only after its fresh census, inventory and plan
+      matched card 1's, and each `verify` read 0 missing, 0 mismatched.
+    - `option_history_deep365` (`c3`) was deferred by the card's own rule: its 700
+      duplicates repeat files in `option_history`, which 2a-ii brings home.
+    - The end check read "no finding", and the manifest check 144/0/0.
+    - The run stopped once, at step 0: the desktop checkout's
+      `engine/features/dynamics.py` held a stray pasted link. On the Operator's
+      instruction the Executor set it aside as `stash@{0}` on the desktop, not
+      dropped. The file on the branch is `main`'s.
+  - The consolidation tool's area-name rule, merged in #545 (`2bb626f`). Each folder
+    name in an area name may hold one `=`, strictly inside (`ticker=AAPL`).
+    Malformed names stay refused, and no name accepted before is refused now. Five
+    independent checks; 64 new tests; each of the 18 mutants the checks found fails
+    at least one.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -239,18 +263,18 @@ locally.
        Theta subfolders that hold the non-empty `copy` rows, in chunks of at most
        about 20,000 Drive objects and 1 GiB each. Each chunk is censused,
        inventoried, planned, byte-checked if needed, copied and verified, and its
-       census, inventory, plan and ledger are pinned by SHA-256. The tool refuses
-       an area name with `=`, so a chunk cannot yet be a ticker folder
-       (`ticker=AAPL`). 2a therefore splits: 2a-i, now, brings the Bloomberg files
-       and the three Theta subfolders that fit one chunk each (`index_reference`,
-       `option_history_delisted`, `option_history_deep365`); 2a-ii brings
-       `option_history` and the banded backup in ticker chunks, after a reviewed
-       change lets the tool accept `=` in an area name. In 2a-i a driver runs the
-       tool chunk by chunk and stops before any copy unless Drive under the chunk is
-       exactly as card 1's census saw it and the fresh plan copies exactly card 1's
-       copies not yet home. `option_history_deep365` runs in 2a-i only if each of
-       its 700 duplicates repeats a file that 2a-i brings home; otherwise it waits
-       for 2a-ii, so that each file comes home at the path card 1 chose;
+       census, inventory, plan and ledger are pinned by SHA-256. 2a runs in two
+       parts. **2a-i is done** (above). **2a-ii** brings `option_history` and the
+       banded backup home in ticker chunks (the tool takes `ticker=AAPL` since
+       #545), then `option_history_deep365`, which 2a-i deferred. A ticker chunk's
+       plan can differ from card 1's in any field (class, natural path,
+       destination), and no list of the cases is complete. Which differences stop
+       a chunk is for card 2a-ii to define and have checked, starting from 2a-i's
+       driver's `prepare` and `check_plan` (the card on #544). 2a-i's report adds
+       two things for the card. The desktop session could not carry a ~23 KB
+       heredoc, so the driver goes as a file behind its SHA-256 gate. A census of a
+       ~3,700-object folder took about 3.8 minutes, three a chunk, and downloads
+       ran at 0.33–4.06 MiB/s, slower for small files;
      - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
        verified: it finds what is left, and the verify is the coverage evidence;
      - 2c: `swe-data/` on Drive and the restore tests.
@@ -282,10 +306,10 @@ locally.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** Card 2a-i on the desktop, once the independent check of the
-  card and its driver has passed. Meanwhile the pen prepares the tool change for 2a-ii, to merge
-  only after 2a-i reports. The Operator deletes the credential file forever from
-  Drive's trash and rotates the Flex token.
+- **Next action.** The pen writes card 2a-ii and its driver, has them checked
+  independently, and sends the card to the Operator. The Operator deletes the
+  credential file forever from Drive's trash, rotates the Flex token, and decides
+  whether the desktop's `stash@{0}` (the stray paste) is dropped.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -298,10 +322,20 @@ locally.
     3. yes, leave them out". Theta gets Bloomberg's rule; the Operator rotates the
     Flex token and deletes the Drive copy; the day-bot's `data_raw` is left out.
   - The card 2 plan and D34's text ("yes to both, go ahead with card 2a",
-    2026-09-26). D34 is written.
+    2026-09-26). D34 is written; 2a-i is done; 2a-ii is next.
+  - The tool change for 2a-ii ("yes, go ahead with the tool change", 2026-09-28):
+    done in #545.
 - **Proposed, not authorized.**
   - Purging the data from git history; the fixture subset; untracking the
     `staging/` data.
+  - A credential check in the tool's `_check_areas`. It has never refused an area
+    name for being credential-shaped, and the `key=value` rule lets more such
+    names through (`x/token=1`). No Theta folder above a ticker is
+    credential-shaped.
+  - `CLAUDE.md` §4 and §9 name the whole-tree `ruff check .` and
+    `ruff format --check .`, but CI lints a scope, and the whole tree is not clean
+    on `main` (410 findings, 72 files to reformat). A rule-book wording change,
+    for the Operator's yes.
   - Optional: a stricter areas test, which would require the parent to be the
     exact last id in the "Folder (id)" cell and the folder name to sit next to its
     id. The independent check of #536 found seven mismatches the test still

@@ -7,7 +7,7 @@ terminal: sandbox
 pr: 545
 decisions: [D33, D34]
 date: 2026-09-28
-headline: scripts/drive_consolidate.py now takes an area name whose folder names may each hold one '=' between two plain runs (ticker=AAPL), and nothing else, so card 2a-ii can bring the Theta trees home one ticker folder at a time. A ticker area named after the folder's path in card 1's plan gives each file card 1's natural path, though its class and destination can still differ, so the 2a-ii driver must check every row against card 1's plan; malformed names stay refused; no other rule changed. 64 new tests; 14 fail against the old tool; the 18 mutants three checks found each fail.
+headline: scripts/drive_consolidate.py now takes an area name whose folder names may each hold one '=' between two plain runs (ticker=AAPL), and nothing else, so card 2a-ii can bring the Theta trees home one ticker folder at a time. A ticker area's plan can differ from card 1's in any field, and no list of the cases is complete, so the 2a-ii driver must check each chunk against card 1's plan; malformed names stay refused; no other rule changed. 64 new tests; 14 fail against the old tool; the 18 mutants three checks found each fail.
 surface: [scripts/drive_consolidate.py, tests/test_drive_consolidate.py, TESTING.md, CHANGELOG.md]
 ---
 
@@ -79,7 +79,7 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
   - Two smaller overstatements: the worklog said the whole-tree `ruff check .` and `ruff
     format --check .` were clean (only CI's lint scope is), and the records described the
     2a-ii driver's comparison in the present tense, though that driver is not written.
-- **My tests let mutants through, twice.** At `3b8a4d5`, six passed every test:
+- **My tests let mutants through, three times.** At `3b8a4d5`, six passed every test:
   - dropping digits from the rule, `.` from the key, or digits from the value;
   - letting a space, or any character but whitespace, `/` and `=`, into the value;
   - restoring the old refusal message.
@@ -139,15 +139,16 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
 - The PR merges only after the pen has evaluated desktop card 2a-i's report. 2a-i ran
   against the tool's blob `051b83ee`, and `main` must not move the tool under it.
 - **For card 2a-ii's driver, which is still to be written.**
-  - **Every row, both ways.** A chunk named after the folder's path in card 1's plan gives
-    each file card 1's natural path (an area name Windows cannot keep is refused). Its
-    class and destination can differ wherever card 1's outcome depended on something the
-    chunk's plan does not see, or decides on its own: twins, second parents or ancestors
-    outside the chunk; a name that takes the path first; a conflict inside or outside the
-    folder; a path near the length limit. No such difference is to be accepted. The
-    driver must check every row of each chunk's plan against card 1's, both ways: class,
-    destination, and exactly card 1's copies under the folder not yet home. On any
-    difference it stops, or defers the chunk.
+  - **Every row, both ways.** A chunk's plan can differ from card 1's in any field (class,
+    natural path, destination), wherever card 1's outcome depended on something the chunk's
+    plan does not see, or decides on its own. For example: twins, second parents or
+    ancestors outside the chunk; a name that takes the path first; a conflict inside or
+    outside the folder; a path near the length limit. No list of these is complete, and
+    none is to be accepted. So the driver must check each chunk as 2a-i's did. Drive under the chunk must be as card 1's
+    census saw it. The chunk's fresh plan must copy exactly card 1's copies under the folder
+    not yet home, at card 1's destinations. Every other row must keep card 1's class, except
+    that a copy or duplicate whose bytes are now home may read `redundant`. Any other
+    difference must stop the chunk, or defer it.
   - **Unresolved rows.** It must stop on any unresolved row in card 1's plan under the
     chunk, as 2a-i's does. `_check_areas` never refused a credential-shaped area name,
     before this change or after it. The key=value rule admits more of them, such as
@@ -157,7 +158,8 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
     and never a forecast for card 3.
 - **The area name is a label.** The census checks the area's `folder` and `id`, not
   that the name's last part is that folder. The driver must build each name from card
-  1's path and take the folder from it, as 2a-i's does.
+  1's plan, as `SmartWheelData/` plus the folder's `path` there, and take the folder from
+  it, as 2a-i's does.
 - **cmd.exe splits an unquoted argument at `=`.** A `.bat` or `.cmd` wrapper must
   double-quote any argument that holds one. 2a-i passes areas in a JSON file and runs
   the tool from Git Bash, which avoids this.

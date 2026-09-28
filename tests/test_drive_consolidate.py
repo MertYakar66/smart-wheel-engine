@@ -37,9 +37,8 @@ Pins:
   folder: a bad copy never reaches the root, a file that appears mid-run is never
   replaced, and a stale inventory is re-checked;
 - an area name may hold one ``key=value`` part in each folder name (``ticker=AAPL``), and
-  nothing else; a ticker folder planned as its own area, named after its path in the whole
-  tree, gives each file the natural path a plan of the whole tree gives it (its class and
-  destination can still differ: see the end-to-end test);
+  nothing else; a ticker folder can be planned as its own area (its plan can differ from a
+  plan of the whole tree: see the end-to-end test);
 - review 2 (#534): deletable only for bytes already in the root; a later row of the
   same object mirrors the first and is downloaded once; a folder with a second parent
   is never cleaned by path; a file without an MD5 is listed, not fatal; the census
@@ -579,13 +578,12 @@ def test_the_key_value_refusal_names_the_rule(name):
 def test_a_key_value_area_puts_each_file_where_the_whole_tree_plan_does(tmp_path, monkeypatch):
     # Card 1 planned the whole SmartWheelData area; card 2a-ii plans one ticker folder as
     # its own area. Each file must come home at the path card 1's plan gave it. This tree
-    # is simple. In general the two plans give a file the same natural path, but its class
-    # and destination can differ wherever the whole plan's outcome depends on something
-    # the chunk's plan does not see or decides on its own: objects and folders outside
-    # the chunk (twins, second parents, ancestors, a name that takes the path first), a
-    # conflict inside or outside the folder, a path near the length limit. So 2a-ii's
-    # driver must check every row of each chunk's plan against card 1's, both ways, and
-    # stop or defer the chunk on any difference.
+    # is simple. In general the two plans can differ in any field wherever the whole plan's
+    # outcome depends on something the chunk's plan does not see or decides on its own,
+    # for example: objects and folders outside the chunk (twins, second parents,
+    # ancestors, a name that takes the path first), a conflict inside or outside the
+    # folder, a path near the length limit. No list is complete. So 2a-ii's driver must
+    # check each chunk against card 1's plan and must stop or defer it on any difference.
     d = FakeDrive()
     top = d.folder("SmartWheelData", "drivetop", "swd")
     oh = d.folder("option_history", d.folder("theta", d.folder("data_processed", top)))

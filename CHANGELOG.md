@@ -19,17 +19,17 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 **Changed** — `scripts/drive_consolidate.py`: each folder name in an area name may hold
 one `=` between two runs of letters, digits, `.`, `_` and `-` (`ticker=AAPL`), and nothing
 else, so card 2a-ii can plan one Theta ticker folder at a time.
-- A ticker area named after the folder's path in card 1's plan gives each file the natural
-  path card 1's plan of the whole `SmartWheelData` area gives it (an area name Windows cannot
-  keep is refused). Its class and destination can still differ, wherever the whole plan's outcome
-  depends on something the chunk's plan does not see or decides on its own. Examples:
+- A ticker area's plan can differ from card 1's plan of the whole `SmartWheelData` area in
+  any field (class, natural path, destination), wherever card 1's outcome depended on
+  something the chunk's plan does not see or decides on its own. For example:
   - objects and folders outside the chunk: a twin, a second parent, an ancestor, or a name
     that takes the path first;
   - a conflict, inside or outside the folder;
   - a path near the length limit.
-  No list of these is complete. So card 2a-ii's driver must check every row of each chunk's
-  plan against card 1's, both ways, and stop or defer the chunk on any difference. A chunk
-  plan's `path_unique` and `deletable` are never card 1's, and never a forecast for card 3.
+  No list of these is complete, and the tool makes no promise that the two plans agree. So
+  card 2a-ii's driver must check each chunk against card 1's plan, as 2a-i's did, and stop
+  or defer the chunk on any difference. A chunk plan's `path_unique` and `deletable` are
+  never card 1's, and never a forecast for card 3.
 - Every other rule is unchanged. A malformed name (`=AAPL`, `ticker=`, `a==b`, `a=b=c`,
   `ticker=A$B`, `ticker=/AAPL`) is still refused. The rule itself now also refuses a trailing
   newline, which the Windows-name check already refused. `sweep`'s destination follows the

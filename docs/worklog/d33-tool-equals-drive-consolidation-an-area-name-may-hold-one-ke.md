@@ -148,10 +148,8 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
     ancestors outside the chunk; a name that takes the path first; a conflict inside or
     outside the folder; a path near the length limit. No list of these is complete.
   - **The driver's rule is card 2a-ii's.** Which differences stop or defer a chunk is for
-    card 2a-ii to define and have checked, starting from 2a-i's check against card 1's plan
-    (the card on #544). That check compares Drive under the chunk with card 1's census, the
-    chunk's copies with card 1's copies not yet home, and card 1's unresolved and
-    needs-byte-check rows under the chunk.
+    card 2a-ii to define and have checked, starting from 2a-i's checks against card 1's plan:
+    its driver's `prepare` and `check_plan`, in the card on #544.
   - **Credential-shaped names.** `_check_areas` has no credential check: it has never
     refused a name for being credential-shaped, before this change or after it. The
     key=value rule lets more such names through, such as `x/token=1`. No Theta folder above

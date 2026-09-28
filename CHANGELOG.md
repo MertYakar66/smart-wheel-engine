@@ -28,7 +28,8 @@ else, so card 2a-ii can plan one Theta ticker folder at a time.
   - a path near the length limit.
   No list of these is complete, and the tool makes no promise that the two plans agree.
   Which differences stop a chunk is for card 2a-ii to define and have checked, starting
-  from 2a-i's check against card 1's plan (the card on #544). A chunk plan's `path_unique`
+  from 2a-i's checks against card 1's plan (its driver's `prepare` and `check_plan`, in the
+  card on #544). A chunk plan's `path_unique`
   and `deletable` must never be taken as card 1's, nor as a forecast for card 3.
 - Every other rule is unchanged. A malformed name (`=AAPL`, `ticker=`, `a==b`, `a=b=c`,
   `ticker=A$B`, `ticker=/AAPL`) is still refused. The rule itself now also refuses a trailing

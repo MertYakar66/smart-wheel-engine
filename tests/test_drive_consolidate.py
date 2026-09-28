@@ -36,9 +36,10 @@ Pins:
 - sweep copies a local folder's missing bytes, and only those, through the staging
   folder: a bad copy never reaches the root, a file that appears mid-run is never
   replaced, and a stale inventory is re-checked;
-- an area name may hold one ``key=value`` part in each folder name (``ticker=AAPL``): a
-  ticker folder planned as its own area puts each file where a plan of the whole tree does,
-  when the file has no conflict and no duplicate outside the folder;
+- an area name may hold one ``key=value`` part in each folder name (``ticker=AAPL``), and
+  nothing else: a ticker folder planned as its own area classes and places each file as a
+  plan of the whole tree does, when nothing about the file depends on objects outside the
+  folder;
 - review 2 (#534): deletable only for bytes already in the root; a later row of the
   same object mirrors the first and is downloaded once; a folder with a second parent
   is never cleaned by path; a file without an MD5 is listed, not fatal; the census
@@ -506,6 +507,7 @@ KV_AREA = "SmartWheelData/data_processed/theta/option_history/ticker=AAPL"
         "x/expiration=2016-01-22",
         "a=b/c=d",
         "a1.b/c",
+        "x/ticker=BRK_B",
     ],
 )
 def test_an_area_name_may_hold_one_key_value_part(name):
@@ -540,6 +542,7 @@ def test_census_takes_an_area_named_with_a_key_value_part(world, tmp_path):
         "ticker =AAPL",
         "ticker=AA PL",
         "ticker=A$B",
+        "ticker=/AAPL",
         "x/=y",
         "ticker=AAPL\n",
     ],
@@ -555,6 +558,18 @@ def test_census_refuses_a_malformed_key_value_area_name(world, tmp_path, capsys,
     assert not (tmp_path / "c.json").exists()
 
 
+# Every printable ASCII character outside the rule's own, plus a non-ASCII letter and digit.
+_OTHER_CHARS = [chr(i) for i in range(32, 127) if not (chr(i).isascii() and chr(i).isalnum())]
+_OTHER_CHARS = [c for c in _OTHER_CHARS if c not in "._=/-"] + ["\u00c4", "\u0663"]
+
+
+@pytest.mark.parametrize("c", _OTHER_CHARS, ids=lambda c: f"U+{ord(c):04X}")
+def test_a_key_value_name_refuses_any_other_character(c):
+    for name in (f"ticker=A{c}B", f"a{c}b/ticker=AAPL"):
+        with pytest.raises(dc.ToolError):
+            dc._check_areas([{"name": name, "mode": "consolidate"}])
+
+
 @pytest.mark.parametrize("name", ["=AAPL", "a=b=c", "ticker=AA PL"])
 def test_the_key_value_refusal_names_the_rule(name):
     with pytest.raises(dc.ToolError, match="at most one '=' inside each folder name"):
@@ -563,10 +578,13 @@ def test_the_key_value_refusal_names_the_rule(name):
 
 def test_a_key_value_area_puts_each_file_where_the_whole_tree_plan_does(tmp_path, monkeypatch):
     # Card 1 planned the whole SmartWheelData area; card 2a-ii plans one ticker folder as
-    # its own area. Each file must come home at the path card 1's plan gave it. This tree
-    # has no conflict and no duplicate: those differ by design (a conflict goes to the
-    # chunk's own _conflicts/ folder; a duplicate of a file outside the chunk is a copy),
-    # and 2a-ii's driver stops on any difference from card 1's plan.
+    # its own area. Each file must come home at the path card 1's plan gave it. In this
+    # tree nothing depends on objects outside the folder. Where something does, the two
+    # plans differ by design: a conflict goes to the chunk's own _conflicts/ folder; a
+    # file whose twin lies outside the chunk is a copy, not a duplicate; an object with a
+    # second parent outside the chunk is unresolved; a file without SHA-256 whose MD5 is
+    # shared outside the chunk is a copy, not needs-byte-check. So 2a-ii's driver must
+    # check each chunk's plan against card 1's both ways and stop on any difference.
     d = FakeDrive()
     top = d.folder("SmartWheelData", "drivetop", "swd")
     oh = d.folder("option_history", d.folder("theta", d.folder("data_processed", top)))
@@ -2617,6 +2635,7 @@ def test_sweep_takes_a_key_value_destination(sweep_world):
         "data_archive/x=",
         "data_archive/ticker=AA PL",
         "data_archive/ticker=A$B",
+        "data_archive/ticker=A.",
     ],
 )
 def test_sweep_refuses_a_malformed_key_value_destination(sweep_world, dest):

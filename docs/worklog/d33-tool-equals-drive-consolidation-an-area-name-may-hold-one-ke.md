@@ -7,7 +7,7 @@ terminal: sandbox
 pr: 545
 decisions: [D33, D34]
 date: 2026-09-28
-headline: scripts/drive_consolidate.py now takes an area name whose folder names may each hold one '=' between two plain runs (ticker=AAPL), and nothing else, so card 2a-ii can bring the Theta trees home one ticker folder at a time. A ticker area gives each file the natural path a plan of the whole SmartWheelData area gives it, though its class and destination can still differ, so the 2a-ii driver must check every row against card 1's plan; malformed names stay refused; no other rule changed. 64 new tests; 14 fail against the old tool; the 18 mutants three checks found each fail.
+headline: scripts/drive_consolidate.py now takes an area name whose folder names may each hold one '=' between two plain runs (ticker=AAPL), and nothing else, so card 2a-ii can bring the Theta trees home one ticker folder at a time. A ticker area named after the folder's path in card 1's plan gives each file card 1's natural path, though its class and destination can still differ, so the 2a-ii driver must check every row against card 1's plan; malformed names stay refused; no other rule changed. 64 new tests; 14 fail against the old tool; the 18 mutants three checks found each fail.
 surface: [scripts/drive_consolidate.py, tests/test_drive_consolidate.py, TESTING.md, CHANGELOG.md]
 ---
 
@@ -139,7 +139,8 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
 - The PR merges only after the pen has evaluated desktop card 2a-i's report. 2a-i ran
   against the tool's blob `051b83ee`, and `main` must not move the tool under it.
 - **For card 2a-ii's driver, which is still to be written.**
-  - **Every row, both ways.** A chunk's plan gives each file card 1's natural path. Its
+  - **Every row, both ways.** A chunk named after the folder's path in card 1's plan gives
+    each file card 1's natural path (an area name Windows cannot keep is refused). Its
     class and destination can differ wherever card 1's outcome depended on something the
     chunk's plan does not see, or decides on its own: twins, second parents or ancestors
     outside the chunk; a name that takes the path first; a conflict inside or outside the

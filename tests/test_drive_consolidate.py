@@ -37,9 +37,9 @@ Pins:
   folder: a bad copy never reaches the root, a file that appears mid-run is never
   replaced, and a stale inventory is re-checked;
 - an area name may hold one ``key=value`` part in each folder name (``ticker=AAPL``), and
-  nothing else; a ticker folder planned as its own area gives each file the natural path a
-  plan of the whole tree gives it (its class and destination can still differ: see the
-  end-to-end test);
+  nothing else; a ticker folder planned as its own area, named after its path in the whole
+  tree, gives each file the natural path a plan of the whole tree gives it (its class and
+  destination can still differ: see the end-to-end test);
 - review 2 (#534): deletable only for bytes already in the root; a later row of the
   same object mirrors the first and is downloaded once; a folder with a second parent
   is never cleaned by path; a file without an MD5 is listed, not fatal; the census

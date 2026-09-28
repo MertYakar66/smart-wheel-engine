@@ -37,7 +37,8 @@ Pins:
   folder: a bad copy never reaches the root, a file that appears mid-run is never
   replaced, and a stale inventory is re-checked;
 - an area name may hold one ``key=value`` part in each folder name (``ticker=AAPL``): a
-  ticker folder planned as its own area puts each file where a plan of the whole tree does;
+  ticker folder planned as its own area puts each file where a plan of the whole tree does,
+  when the file has no conflict and no duplicate outside the folder;
 - review 2 (#534): deletable only for bytes already in the root; a later row of the
   same object mirrors the first and is downloaded once; a folder with a second parent
   is never cleaned by path; a file without an MD5 is listed, not fatal; the census
@@ -495,7 +496,18 @@ def test_census_refuses_an_unsafe_area_name(world, tmp_path, name):
 KV_AREA = "SmartWheelData/data_processed/theta/option_history/ticker=AAPL"
 
 
-@pytest.mark.parametrize("name", ["ticker=AAPL", KV_AREA, "x/ticker=BRK.B", "a=b/c=d"])
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ticker=AAPL",
+        KV_AREA,
+        "SmartWheelData/data_processed/theta/option_history_banded_backup_2026-06-01/ticker=AAPL",
+        "x/ticker=BRK.B",
+        "x/expiration=2016-01-22",
+        "a=b/c=d",
+        "a1.b/c",
+    ],
+)
 def test_an_area_name_may_hold_one_key_value_part(name):
     dc._check_areas([{"name": name, "mode": "consolidate"}])
 
@@ -518,7 +530,19 @@ def test_census_takes_an_area_named_with_a_key_value_part(world, tmp_path):
 
 @pytest.mark.parametrize(
     "name",
-    ["=AAPL", "ticker=", "=", "a==b", "a=b=c", "ticker=.", "ticker =AAPL", "x/=y", "ticker=AAPL\n"],
+    [
+        "=AAPL",
+        "ticker=",
+        "=",
+        "a==b",
+        "a=b=c",
+        "ticker=.",
+        "ticker =AAPL",
+        "ticker=AA PL",
+        "ticker=A$B",
+        "x/=y",
+        "ticker=AAPL\n",
+    ],
 )
 def test_census_refuses_a_malformed_key_value_area_name(world, tmp_path, capsys, name):
     bad = json.loads(world["areas"].read_text(encoding="utf-8"))
@@ -531,9 +555,18 @@ def test_census_refuses_a_malformed_key_value_area_name(world, tmp_path, capsys,
     assert not (tmp_path / "c.json").exists()
 
 
+@pytest.mark.parametrize("name", ["=AAPL", "a=b=c", "ticker=AA PL"])
+def test_the_key_value_refusal_names_the_rule(name):
+    with pytest.raises(dc.ToolError, match="at most one '=' inside each folder name"):
+        dc._check_areas([{"name": name, "mode": "consolidate"}])
+
+
 def test_a_key_value_area_puts_each_file_where_the_whole_tree_plan_does(tmp_path, monkeypatch):
     # Card 1 planned the whole SmartWheelData area; card 2a-ii plans one ticker folder as
-    # its own area. Each file must come home at the path card 1's plan gave it.
+    # its own area. Each file must come home at the path card 1's plan gave it. This tree
+    # has no conflict and no duplicate: those differ by design (a conflict goes to the
+    # chunk's own _conflicts/ folder; a duplicate of a file outside the chunk is a copy),
+    # and 2a-ii's driver stops on any difference from card 1's plan.
     d = FakeDrive()
     top = d.folder("SmartWheelData", "drivetop", "swd")
     oh = d.folder("option_history", d.folder("theta", d.folder("data_processed", top)))
@@ -2576,7 +2609,16 @@ def test_sweep_takes_a_key_value_destination(sweep_world):
     assert (out / "a/new.csv").read_bytes() == b"only here\n"
 
 
-@pytest.mark.parametrize("dest", ["data_archive/=x", "data_archive/a=b=c", "data_archive/x="])
+@pytest.mark.parametrize(
+    "dest",
+    [
+        "data_archive/=x",
+        "data_archive/a=b=c",
+        "data_archive/x=",
+        "data_archive/ticker=AA PL",
+        "data_archive/ticker=A$B",
+    ],
+)
 def test_sweep_refuses_a_malformed_key_value_destination(sweep_world, dest):
     assert _sweep(sweep_world, dest=dest) == 2
     assert not (sweep_world["root"] / dest).exists()

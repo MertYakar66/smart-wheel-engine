@@ -582,8 +582,8 @@ def test_a_key_value_area_puts_each_file_where_the_whole_tree_plan_does(tmp_path
     # outcome depends on something the chunk's plan does not see or decides on its own,
     # for example: objects and folders outside the chunk (twins, second parents,
     # ancestors, a name that takes the path first), a conflict inside or outside the
-    # folder, a path near the length limit. No list is complete. So 2a-ii's driver must
-    # check each chunk against card 1's plan and must stop or defer it on any difference.
+    # folder, a path near the length limit. No list is complete; which differences stop a
+    # chunk is for card 2a-ii to define.
     d = FakeDrive()
     top = d.folder("SmartWheelData", "drivetop", "swd")
     oh = d.folder("option_history", d.folder("theta", d.folder("data_processed", top)))

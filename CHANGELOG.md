@@ -26,10 +26,10 @@ else, so card 2a-ii can plan one Theta ticker folder at a time.
     that takes the path first;
   - a conflict, inside or outside the folder;
   - a path near the length limit.
-  No list of these is complete, and the tool makes no promise that the two plans agree. So
-  card 2a-ii's driver must check each chunk against card 1's plan, as 2a-i's did, and stop
-  or defer the chunk on any difference. A chunk plan's `path_unique` and `deletable` are
-  never card 1's, and never a forecast for card 3.
+  No list of these is complete, and the tool makes no promise that the two plans agree.
+  Which differences stop a chunk is for card 2a-ii to define and have checked, starting
+  from 2a-i's check against card 1's plan (the card on #544). A chunk plan's `path_unique`
+  and `deletable` must never be taken as card 1's, nor as a forecast for card 3.
 - Every other rule is unchanged. A malformed name (`=AAPL`, `ticker=`, `a==b`, `a=b=c`,
   `ticker=A$B`, `ticker=/AAPL`) is still refused. The rule itself now also refuses a trailing
   newline, which the Windows-name check already refused. `sweep`'s destination follows the

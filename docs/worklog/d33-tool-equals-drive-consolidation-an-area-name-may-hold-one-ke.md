@@ -35,10 +35,11 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
    have worked, but it admits `=AAPL`, `a=` and `a=b=c`, none of which a hive
    partition folder uses. It would also let an area name start with `=`, which a
    spreadsheet opening the ledger reads as a formula.
-3. **Three independent checks**, each by fresh contexts in their own clones, with a
-   skeptic per finding. The first (four lenses: the rule, the tests, the records, Windows
-   and Drive) checked `3b8a4d5`; the second checked the fixes at `04484d8`; the third
-   checked `c0b3d95`. All three are posted on PR #545.
+3. **Five independent checks**, each by fresh contexts in their own clones, with a skeptic
+   per finding. The first (four lenses: the rule, the tests, the records, Windows and
+   Drive) checked `3b8a4d5`; the second checked the fixes at `04484d8`; the third
+   `c0b3d95`; the fourth and fifth checked only the records, at `a63c7e0` and `7ddf7fb`.
+   All five are posted on PR #545.
 
 ## What worked
 
@@ -74,8 +75,10 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
     - an empty file already home at the whole plan's conflict path;
     - a credential-shaped folder, or one with a second parent, above the chunk.
   - The lesson: the chunk plan decides on its own anything that depends on what it does
-    not see, so no list is complete. The records now state that rule, give examples,
-    and require the driver to tolerate no difference.
+    not see, so no list is complete. The records now say only that the plans can differ,
+    with examples. Which differences stop a chunk is left to card 2a-ii: my attempts to
+    state that rule here contradicted themselves, and a rule for a driver belongs with the
+    driver and its own check.
   - Two smaller overstatements: the worklog said the whole-tree `ruff check .` and `ruff
     format --check .` were clean (only CI's lint scope is), and the records described the
     2a-ii driver's comparison in the present tense, though that driver is not written.
@@ -139,27 +142,25 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
 - The PR merges only after the pen has evaluated desktop card 2a-i's report. 2a-i ran
   against the tool's blob `051b83ee`, and `main` must not move the tool under it.
 - **For card 2a-ii's driver, which is still to be written.**
-  - **Every row, both ways.** A chunk's plan can differ from card 1's in any field (class,
+  - **The plans can differ.** A chunk's plan can differ from card 1's in any field (class,
     natural path, destination), wherever card 1's outcome depended on something the chunk's
     plan does not see, or decides on its own. For example: twins, second parents or
     ancestors outside the chunk; a name that takes the path first; a conflict inside or
-    outside the folder; a path near the length limit. No list of these is complete, and
-    none is to be accepted. So the driver must check each chunk as 2a-i's did. Drive under the chunk must be as card 1's
-    census saw it. The chunk's fresh plan must copy exactly card 1's copies under the folder
-    not yet home, at card 1's destinations. Every other row must keep card 1's class, except
-    that a copy or duplicate whose bytes are now home may read `redundant`. Any other
-    difference must stop the chunk, or defer it.
-  - **Unresolved rows.** It must stop on any unresolved row in card 1's plan under the
-    chunk, as 2a-i's does. `_check_areas` never refused a credential-shaped area name,
-    before this change or after it. The key=value rule admits more of them, such as
-    `x/token=1`. No Theta folder above a ticker is credential-shaped, and a later change
-    could refuse such names.
-  - **Deletion flags.** A chunk plan's `path_unique` and `deletable` are never card 1's,
-    and never a forecast for card 3.
+    outside the folder; a path near the length limit. No list of these is complete.
+  - **The driver's rule is card 2a-ii's.** Which differences stop or defer a chunk is for
+    card 2a-ii to define and have checked, starting from 2a-i's check against card 1's plan
+    (the card on #544). That check compares Drive under the chunk with card 1's census, the
+    chunk's copies with card 1's copies not yet home, and card 1's unresolved and
+    needs-byte-check rows under the chunk.
+  - **Credential-shaped names.** `_check_areas` has no credential check: it has never
+    refused a name for being credential-shaped, before this change or after it. The
+    key=value rule lets more such names through, such as `x/token=1`. No Theta folder above
+    a ticker is credential-shaped, and a later change could add the check.
+  - **Deletion flags.** A chunk plan's `path_unique` and `deletable` must never be taken as
+    card 1's, nor as a forecast for card 3.
 - **The area name is a label.** The census checks the area's `folder` and `id`, not
-  that the name's last part is that folder. The driver must build each name from card
-  1's plan, as `SmartWheelData/` plus the folder's `path` there, and take the folder from
-  it, as 2a-i's does.
+  that the name's last part is that folder. 2a-i's driver built each name as
+  `SmartWheelData/` plus the folder's `path` in card 1's plan, and took the folder from it.
 - **cmd.exe splits an unquoted argument at `=`.** A `.bat` or `.cmd` wrapper must
   double-quote any argument that holds one. 2a-i passes areas in a JSON file and runs
   the tool from Git Bash, which avoids this.

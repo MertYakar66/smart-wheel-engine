@@ -32,6 +32,28 @@ one `=` between two runs of letters, digits, `.`, `_` and `-` (`ticker=AAPL`), s
   rule.
 - 31 new tests in `tests/test_drive_consolidate.py`; 13 of them fail against the old tool.
 
+## 2026-09-28 — D33 card 2a-i: Drive-only Bloomberg and Theta files, chunk by chunk (desktop)
+
+**Added** — c3 waits for 2a-ii: three of the four chunks came home and verified, and the
+fourth was deferred by the card's own rule before any Drive read.
+- 2,223 files, 1,078,864,189 B that existed only on Drive now sit under
+  `data_archive/drive-legacy/SmartWheelData/` in the desktop root — `c0-bloomberg`
+  (12 files, 484,917,228 B), `c1-index_reference` (1,261 files, 493,572,169 B) and
+  `c2-option_history_delisted` (950 files, 100,374,792 B). Each on its first attempt,
+  no retry, every `verify` reading `0 missing, 0 mismatched` and `0 object(s) still
+  need a byte check`.
+- `c3-option_history_deep365` is **DEFERRED**: all 700 of its duplicates repeat files in
+  `data_processed/theta/option_history`, which 2a-ii brings home. Copying c3 now would
+  have put those bytes under c3's path instead of the path card 1 chose.
+- Every chunk copied only after its own fresh census, inventory and plan matched card 1's
+  plan object for object — `the same ids, paths, sizes and hashes` in all three.
+- The end check read `endstate: no finding`: 0 files gone, 0 changed in size, 0 changed in
+  bytes of 29,396 hashed, and 0 of the 2,223 additions outside `drive-legacy/`. The
+  manifest check read `144 ok, 0 missing, 0 mismatched` by full hash. Nothing was deleted,
+  on the desktop or on Drive; Drive was only read.
+- The record lives outside git, in `<SWE_DATA_ROOT>\_logs\d33-card2a-i\`, pinned by SHA-256
+  per attempt. Card 1's `plan.json` was unchanged from `prepare` to the end check.
+
 ## 2026-09-26 — D34: Theta kept like Bloomberg; the Theta collection on Drive comes home (#542, `866a8ba`)
 
 **Docs** — `DECISIONS.md` D34, confirmed by the Operator on 2026-09-26 after card 1's

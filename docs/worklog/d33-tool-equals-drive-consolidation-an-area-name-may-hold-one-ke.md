@@ -7,7 +7,7 @@ terminal: sandbox
 pr: 545
 decisions: [D33, D34]
 date: 2026-09-28
-headline: scripts/drive_consolidate.py now takes an area name whose folder names may each hold one '=' between two plain runs (ticker=AAPL), and nothing else, so card 2a-ii can bring the Theta trees home one ticker folder at a time. A ticker area classes and places a file as a plan of the whole SmartWheelData area does, unless something about the file lies outside the folder; malformed names stay refused; no other rule changed. 64 new tests; 14 fail against the old tool.
+headline: scripts/drive_consolidate.py now takes an area name whose folder names may each hold one '=' between two plain runs (ticker=AAPL), and nothing else, so card 2a-ii can bring the Theta trees home one ticker folder at a time. A ticker area gives each file the natural path a plan of the whole SmartWheelData area gives it, though its class and destination can still differ, so the 2a-ii driver must check every row against card 1's plan; malformed names stay refused; no other rule changed. 64 new tests; 14 fail against the old tool; the 18 mutants three checks found each fail.
 surface: [scripts/drive_consolidate.py, tests/test_drive_consolidate.py, TESTING.md, CHANGELOG.md]
 ---
 
@@ -35,10 +35,10 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
    have worked, but it admits `=AAPL`, `a=` and `a=b=c`, none of which a hive
    partition folder uses. It would also let an area name start with `=`, which a
    spreadsheet opening the ledger reads as a formula.
-3. **Two independent checks**, each by fresh contexts in their own clones, with a skeptic
-   per finding. The first (four lenses: the rule, the tests, the records, Windows and
-   Drive) checked `3b8a4d5`; the second checked the fixes at `04484d8`. Both are posted
-   on PR #545.
+3. **Three independent checks**, each by fresh contexts in their own clones, with a
+   skeptic per finding. The first (four lenses: the rule, the tests, the records, Windows
+   and Drive) checked `3b8a4d5`; the second checked the fixes at `04484d8`; the third
+   checked `c0b3d95`. All three are posted on PR #545.
 
 ## What worked
 
@@ -61,18 +61,24 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
 - **The old rule ended in `$`.** Python's `$` also matches before a trailing newline,
   so the old rule accepted `a/b\n`. The Windows-name check refused it next, so no such
   name ever got through. The new rule ends in `\Z` and refuses it itself.
-- **My records overstated, twice over.**
-  - They first said a ticker area always places a file where the whole-area plan does.
-    The first check found two exceptions (conflicts, and duplicates whose twin lies
-    elsewhere), and my correction then listed only those two. The second check found
-    two more: an object with a second parent outside the chunk is `unresolved` in the
-    ticker plan, and a file without a SHA-256 whose MD5 is shared outside the chunk is a
-    `copy` where the whole plan says `needs-byte-check`. It also found that a duplicate
-    whose twin is inside the chunk stays a `duplicate`, which my wording denied.
-  - The worklog said the whole-tree `ruff check .` and `ruff format --check .` were
-    clean. Only CI's lint scope is.
-  - The records described the 2a-ii driver's comparison in the present tense. That
-    driver is not written yet; the comparison is a requirement on it.
+- **My records kept claiming a complete list, and each check found it incomplete.**
+  - First they said a ticker area always places a file where the whole-area plan does.
+    The first check found two exceptions, conflicts and duplicates whose twin lies
+    elsewhere, and my correction listed only those two.
+  - The second check found two more: a second parent outside the chunk, and an MD5
+    shared outside it. My next correction listed four.
+  - The third check found at least five more, among them:
+    - a conflict wholly inside the folder;
+    - a name outside the chunk that takes the path first;
+    - a path near the length limit;
+    - an empty file already home at the whole plan's conflict path;
+    - a credential-shaped folder, or one with a second parent, above the chunk.
+  - The lesson: the chunk plan decides on its own anything that depends on what it does
+    not see, so no list is complete. The records now state that rule, give examples,
+    and require the driver to tolerate no difference.
+  - Two smaller overstatements: the worklog said the whole-tree `ruff check .` and `ruff
+    format --check .` were clean (only CI's lint scope is), and the records described the
+    2a-ii driver's comparison in the present tense, though that driver is not written.
 - **My tests let mutants through, twice.** At `3b8a4d5`, six passed every test:
   - dropping digits from the rule, `.` from the key, or digits from the value;
   - letting a space, or any character but whitespace, `/` and `=`, into the value;
@@ -83,6 +89,8 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
   - letting `\w` or other punctuation into either half;
   - making sweep check only the key half for Windows. Two of these, both in the key half,
     predate this change.
+  At `c0b3d95`, five more passed, because the per-character test never varied the key of
+  a `key=value` folder name, nor any folder name after the first.
   The first commit also left a placeholder in this fragment's Evidence section.
 
 ## How we fixed it
@@ -96,15 +104,15 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
   - a census of an area named `x/ticker=AAPL`;
   - 12 refused names, each refused by a census that writes no output, among them
     `ticker=AA PL`, `ticker=A$B` and `ticker=/AAPL`;
-  - 30 characters, each refused in the value and in the key: every printable ASCII
+  - 30 characters, each refused in four places: the value, a plain first folder name, the
+    key of a later `key=value` name, and a later value. They are every printable ASCII
     character outside the rule's own, plus `Ä` and `٣`;
   - 3 checks that the refusal names the rule;
   - the end-to-end test above;
   - `sweep` into `data_archive/old/ticker=AAPL`, and 6 refused sweep destinations, among
     them `data_archive/ticker=A.`.
-  The "Pins:" docstring gains one line, and the end-to-end test's comment lists the
-  cases in which a ticker plan differs by design. All thirteen mutants the checks found
-  now fail at least one test.
+  The "Pins:" docstring gains one line, and the end-to-end test's comment states the rule
+  above. All eighteen mutants the three checks found now fail at least one test.
 
 ## Evidence
 
@@ -114,10 +122,10 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
   accepted names that hold an `=`, the end-anchor test on `a/b\n` (the old rule's `$`
   accepted it), the census of `x/ticker=AAPL`, the 3 message checks, the end-to-end test
   and the sweep into `ticker=AAPL`. The same in the checkout: `64 passed`.
-- The thirteen mutants, each run with `-k key_value`, fail between 1 and 23 tests each.
-  The Run Summary on PR #545 and its later comment give each count.
-- The whole test file: `232 passed, 1 skipped` at `04484d8`; the count at the final head
-  is in the PR comment that follows the second check. The fast lane: locally at
+- The eighteen mutants, each run with `-k key_value`, fail between 1 and 23 tests each.
+  The Run Summary on PR #545 and its later comments give each count.
+- The whole test file: `232 passed, 1 skipped` at `04484d8`, and `265 passed, 1 skipped`
+  at `c0b3d95` and at the final head. The fast lane: locally at
   `3b8a4d5`, `3201 passed, 272 skipped, 8 deselected, 6 xfailed` (0 failed); at each later
   head, CI's Test Suite (3.11 and 3.12) ran it green, and no record gives its count.
 - Lint: `ruff check` and `ruff format --check` on CI's lint scope (`engine/ data/ tests/
@@ -130,19 +138,22 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on PR
 
 - The PR merges only after the pen has evaluated desktop card 2a-i's report. 2a-i ran
   against the tool's blob `051b83ee`, and `main` must not move the tool under it.
-- **For card 2a-ii's driver, which is still to be written.** A chunk's plan differs from
-  card 1's, by design, wherever something about a file lies outside the chunk:
-  - a conflict goes to the chunk's own `_conflicts/<id>/`;
-  - a file whose twin comes earlier in card 1's plan, outside the chunk, is a `copy` in
-    the chunk's plan (`redundant` once the twin is home), where card 1's says `duplicate`;
-  - an object with a second parent outside the chunk is `unresolved`;
-  - a file without a SHA-256 whose MD5 is shared outside the chunk is a `copy`, where
-    card 1's says `needs-byte-check`. Card 1's plan had none needing a byte check, so
-    this cannot arise against it as it stands.
-  So the driver must check each chunk's plan against card 1's both ways, as 2a-i's did.
-  The chunk's fresh plan must copy exactly card 1's copies under that folder not yet
-  home, at the same destinations, and every other row must match card 1's. On any
-  difference it stops, or defers the chunk.
+- **For card 2a-ii's driver, which is still to be written.**
+  - **Every row, both ways.** A chunk's plan gives each file card 1's natural path. Its
+    class and destination can differ wherever card 1's outcome depended on something the
+    chunk's plan does not see, or decides on its own: twins, second parents or ancestors
+    outside the chunk; a name that takes the path first; a conflict inside or outside the
+    folder; a path near the length limit. No such difference is to be accepted. The
+    driver must check every row of each chunk's plan against card 1's, both ways: class,
+    destination, and exactly card 1's copies under the folder not yet home. On any
+    difference it stops, or defers the chunk.
+  - **Unresolved rows.** It must stop on any unresolved row in card 1's plan under the
+    chunk, as 2a-i's does. `_check_areas` never refused a credential-shaped area name,
+    before this change or after it. The key=value rule admits more of them, such as
+    `x/token=1`. No Theta folder above a ticker is credential-shaped, and a later change
+    could refuse such names.
+  - **Deletion flags.** A chunk plan's `path_unique` and `deletable` are never card 1's,
+    and never a forecast for card 3.
 - **The area name is a label.** The census checks the area's `folder` and `id`, not
   that the name's last part is that folder. The driver must build each name from card
   1's path and take the folder from it, as 2a-i's does.

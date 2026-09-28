@@ -19,23 +19,23 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 **Changed** — `scripts/drive_consolidate.py`: each folder name in an area name may hold
 one `=` between two runs of letters, digits, `.`, `_` and `-` (`ticker=AAPL`), and nothing
 else, so card 2a-ii can plan one Theta ticker folder at a time.
-- A ticker area classes and places a file as a plan of the whole `SmartWheelData` area
-  does, unless something about the file lies outside the folder. Then the two plans differ,
-  by design:
-  - a conflict goes to the chunk's own `_conflicts/<id>/`;
-  - a file whose twin (the same bytes) comes earlier in the whole plan, outside the chunk, is
-    a `copy` in the ticker plan (`redundant` once the twin is home), where the whole plan says
-    `duplicate`; with its twin inside the chunk, it stays a `duplicate`;
-  - an object with a second parent outside the chunk is `unresolved`;
-  - a file without a SHA-256 whose MD5 is shared outside the chunk is a `copy`, where the
-    whole plan says `needs-byte-check`.
-  Card 2a-ii's driver must therefore check each chunk's plan against card 1's both ways, as
-  2a-i's did, and stop or defer the chunk on any difference.
+- A ticker area gives each file the natural path a plan of the whole `SmartWheelData` area
+  gives it. Its class and destination can still differ, wherever the whole plan's outcome
+  depends on something the chunk's plan does not see or decides on its own. Examples:
+  - objects and folders outside the chunk: a twin, a second parent, an ancestor, or a name
+    that takes the path first;
+  - a conflict, inside or outside the folder;
+  - a path near the length limit.
+  No list of these is complete. So card 2a-ii's driver must check every row of each chunk's
+  plan against card 1's, both ways, and stop or defer the chunk on any difference. A chunk
+  plan's `path_unique` and `deletable` are never card 1's, and never a forecast for card 3.
 - Every other rule is unchanged. A malformed name (`=AAPL`, `ticker=`, `a==b`, `a=b=c`,
   `ticker=A$B`, `ticker=/AAPL`) is still refused. The rule itself now also refuses a trailing
   newline, which the Windows-name check already refused. `sweep`'s destination follows the
   same rule.
 - 64 new tests in `tests/test_drive_consolidate.py`; 14 of them fail against the old tool.
+  Each of the 18 mutants that three independent checks found (of the rule, its message or
+  sweep's check) fails at least one.
 
 ## 2026-09-28 — D33 card 2a-i: Drive-only Bloomberg and Theta files, chunk by chunk (desktop)
 

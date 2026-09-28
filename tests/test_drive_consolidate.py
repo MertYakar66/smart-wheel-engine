@@ -36,6 +36,9 @@ Pins:
 - sweep copies a local folder's missing bytes, and only those, through the staging
   folder: a bad copy never reaches the root, a file that appears mid-run is never
   replaced, and a stale inventory is re-checked;
+- an area name may hold one ``key=value`` part in each folder name (``ticker=AAPL``), and
+  nothing else; a ticker folder can be planned as its own area (its plan can differ from a
+  plan of the whole tree: see the end-to-end test);
 - review 2 (#534): deletable only for bytes already in the root; a later row of the
   same object mirrors the first and is downloaded once; a folder with a second parent
   is never cleaned by path; a file without an MD5 is listed, not fatal; the census
@@ -60,6 +63,7 @@ needed.
 
 from __future__ import annotations
 
+import csv
 import errno
 import hashlib
 import importlib.util
@@ -485,6 +489,145 @@ def test_census_refuses_an_unsafe_area_name(world, tmp_path, name):
     p.write_text(json.dumps(bad), encoding="utf-8")
     args = ["census", "--remote", "fake:", "--areas", str(p), "--out", str(tmp_path / "c.json")]
     assert dc.main(args) == 2
+
+
+# Card 2a-ii brings the Theta trees home one ticker folder at a time: a folder named as a
+# hive partition (ticker=AAPL) is an area of its own.
+KV_AREA = "SmartWheelData/data_processed/theta/option_history/ticker=AAPL"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "ticker=AAPL",
+        KV_AREA,
+        "SmartWheelData/data_processed/theta/option_history_banded_backup_2026-06-01/ticker=AAPL",
+        "x/ticker=BRK.B",
+        "x/expiration=2016-01-22",
+        "a=b/c=d",
+        "a1.b/c",
+        "x/ticker=BRK_B",
+    ],
+)
+def test_an_area_name_may_hold_one_key_value_part(name):
+    dc._check_areas([{"name": name, "mode": "consolidate"}])
+
+
+@pytest.mark.parametrize("name", ["a/b\n", "ticker=AAPL\n"])
+def test_the_key_value_rule_itself_refuses_a_trailing_newline(name):
+    # Python's "$" also matches before a final newline, so the rule ends in "\Z".
+    assert not dc.AREA_NAME.match(name)
+
+
+def test_census_takes_an_area_named_with_a_key_value_part(world, tmp_path):
+    areas = json.loads(world["areas"].read_text(encoding="utf-8"))
+    areas[0]["name"] = "x/ticker=AAPL"
+    p = tmp_path / "kv_areas.json"
+    p.write_text(json.dumps(areas), encoding="utf-8")
+    out = tmp_path / "c.json"
+    assert dc.main(["census", "--remote", "fake:", "--areas", str(p), "--out", str(out)]) == 0
+    assert json.loads(out.read_text(encoding="utf-8"))["areas"][0]["name"] == "x/ticker=AAPL"
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "=AAPL",
+        "ticker=",
+        "=",
+        "a==b",
+        "a=b=c",
+        "ticker=.",
+        "ticker =AAPL",
+        "ticker=AA PL",
+        "ticker=A$B",
+        "ticker=/AAPL",
+        "x/=y",
+        "ticker=AAPL\n",
+    ],
+)
+def test_census_refuses_a_malformed_key_value_area_name(world, tmp_path, capsys, name):
+    bad = json.loads(world["areas"].read_text(encoding="utf-8"))
+    bad[0]["name"] = name
+    p = tmp_path / "bad_areas.json"
+    p.write_text(json.dumps(bad), encoding="utf-8")
+    args = ["census", "--remote", "fake:", "--areas", str(p), "--out", str(tmp_path / "c.json")]
+    assert dc.main(args) == 2
+    assert f"area name {name!r}" in capsys.readouterr().err
+    assert not (tmp_path / "c.json").exists()
+
+
+# Every printable ASCII character outside the rule's own, plus a non-ASCII letter and digit.
+_OTHER_CHARS = [chr(i) for i in range(32, 127) if not (chr(i).isascii() and chr(i).isalnum())]
+_OTHER_CHARS = [c for c in _OTHER_CHARS if c not in "._=/-"] + ["\u00c4", "\u0663"]
+
+
+@pytest.mark.parametrize("c", _OTHER_CHARS, ids=lambda c: f"U+{ord(c):04X}")
+def test_a_key_value_name_refuses_any_other_character(c):
+    for name in (f"ticker=A{c}B", f"a{c}b/ticker=AAPL", f"x/tic{c}ker=AAPL", f"x/ticker=A{c}B"):
+        with pytest.raises(dc.ToolError):
+            dc._check_areas([{"name": name, "mode": "consolidate"}])
+
+
+@pytest.mark.parametrize("name", ["=AAPL", "a=b=c", "ticker=AA PL"])
+def test_the_key_value_refusal_names_the_rule(name):
+    with pytest.raises(dc.ToolError, match="at most one '=' inside each folder name"):
+        dc._check_areas([{"name": name, "mode": "consolidate"}])
+
+
+def test_a_key_value_area_puts_each_file_where_the_whole_tree_plan_does(tmp_path, monkeypatch):
+    # Card 1 planned the whole SmartWheelData area; card 2a-ii plans one ticker folder as
+    # its own area. Each file must come home at the path card 1's plan gave it. This tree
+    # is simple. In general the two plans can differ in any field wherever the whole plan's
+    # outcome depends on something the chunk's plan does not see or decides on its own,
+    # for example: objects and folders outside the chunk (twins, second parents,
+    # ancestors, a name that takes the path first), a conflict inside or outside the
+    # folder, a path near the length limit. No list is complete; which differences stop a
+    # chunk is for card 2a-ii to define.
+    d = FakeDrive()
+    top = d.folder("SmartWheelData", "drivetop", "swd")
+    oh = d.folder("option_history", d.folder("theta", d.folder("data_processed", top)))
+    aapl, msft = d.folder("ticker=AAPL", oh), d.folder("ticker=MSFT", oh)
+    exp = d.folder("expiration=2016-01-22", aapl)
+    data = {
+        d.file("2016-01-08.parquet", aapl, b"aapl one\n"): b"aapl one\n",
+        d.file("2016-01-15.parquet", aapl, b"aapl two\n"): b"aapl two\n",
+        d.file("part-0.parquet", exp, b"aapl deep\n"): b"aapl deep\n",
+    }
+    home = d.file("2016-01-29.parquet", aapl, b"already home\n")
+    other = d.file("2016-01-08.parquet", msft, b"msft one\n")
+    whole = {"name": "SmartWheelData", "id": top, "parent": "drivetop"}
+    whole.update({"folder": "SmartWheelData", "mode": "consolidate"})
+    chunk = {"name": KV_AREA, "id": aapl, "parent": oh, "folder": "ticker=AAPL"}
+    chunk["mode"] = "consolidate"
+    files = {
+        "data_processed/theta/option_history/ticker=AAPL/2016-01-29.parquet": b"already home\n"
+    }
+    w = _env(tmp_path, monkeypatch, d, [whole], files)
+    by_whole = _by_id(_plan(w))
+    w["areas"].write_text(json.dumps([chunk]), encoding="utf-8")
+    plan = _plan(w)
+    rows = plan["rows"]
+    assert {r["id"] for r in rows} == {exp, home, *data}
+    assert other not in {r["id"] for r in rows} and other in by_whole
+    for r in rows:
+        assert r["area"] == KV_AREA
+        assert r["class"] == by_whole[r["id"]]["class"], r["path"]
+        assert r["dest"] == by_whole[r["id"]]["dest"], r["path"]
+    legacy = f"{dc.LEGACY}/{KV_AREA}"
+    copies = {r["id"]: r["dest"] for r in rows if r["class"] == "copy"}
+    assert sorted(copies.values()) == [
+        f"{legacy}/2016-01-08.parquet",
+        f"{legacy}/2016-01-15.parquet",
+        f"{legacy}/expiration=2016-01-22/part-0.parquet",
+    ]
+    assert set(copies) == set(data) and _by_id(plan)[home]["class"] == "redundant"
+    with open(w["tmp"] / "p_ledger.csv", encoding="utf-8", newline="") as fh:
+        ledger = {r["id"]: (r["area"], r["dest"]) for r in csv.DictReader(fh)}
+    assert ledger == {r["id"]: (r["area"], r["dest"]) for r in rows}
+    assert _copy(w) == 0 and _verify(w) == 0
+    for oid, dest in copies.items():
+        assert (w["root"] / dest).read_bytes() == data[oid]
 
 
 def test_a_file_drive_lists_without_an_md5_is_listed_not_fatal(tmp_path, monkeypatch, capsys):
@@ -2475,6 +2618,28 @@ def test_sweep_refuses_a_link_on_its_destination_path(sweep_world, tmp_path, whe
 )
 def test_sweep_refuses_the_live_trees_and_odd_destinations(sweep_world, dest):
     assert _sweep(sweep_world, dest=dest) == 2
+
+
+def test_sweep_takes_a_key_value_destination(sweep_world):
+    assert _sweep(sweep_world, dest="data_archive/old/ticker=AAPL") == 0
+    out = sweep_world["root"] / "data_archive/old/ticker=AAPL"
+    assert (out / "a/new.csv").read_bytes() == b"only here\n"
+
+
+@pytest.mark.parametrize(
+    "dest",
+    [
+        "data_archive/=x",
+        "data_archive/a=b=c",
+        "data_archive/x=",
+        "data_archive/ticker=AA PL",
+        "data_archive/ticker=A$B",
+        "data_archive/ticker=A.",
+    ],
+)
+def test_sweep_refuses_a_malformed_key_value_destination(sweep_world, dest):
+    assert _sweep(sweep_world, dest=dest) == 2
+    assert not (sweep_world["root"] / dest).exists()
 
 
 def test_sweep_refuses_a_source_inside_the_root(sweep_world):

@@ -250,7 +250,9 @@ LEDGER_FIELDS = (
     "deletable",
 )
 
-AREA_NAME = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
+# Plain folder names, each with at most one "=" inside (a hive partition folder: ticker=AAPL).
+_AREA_PART = r"[A-Za-z0-9._-]+(?:=[A-Za-z0-9._-]+)?"
+AREA_NAME = re.compile(rf"^{_AREA_PART}(?:/{_AREA_PART})*\Z")  # \Z: no trailing newline
 _WIN_BAD = set('<>:"/\\|?*')
 _WIN_RESERVED = (
     {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
@@ -503,7 +505,8 @@ def _check_areas(areas: list[dict]) -> None:
         name = a.get("name", "")
         if not AREA_NAME.match(name) or ".." in name.split("/"):
             raise ToolError(
-                f"area name {name!r} must be letters, digits, '.', '_', '-' and '/' only"
+                f"area name {name!r} must be letters, digits, '.', '_', '-' and '/' only, "
+                "with at most one '=' inside each folder name (ticker=AAPL)"
             )
         if not all(win_safe(p) for p in name.split("/")):
             raise ToolError(f"area name {name!r} holds a part Windows cannot keep")

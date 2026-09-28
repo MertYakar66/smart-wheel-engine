@@ -14,6 +14,31 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-28 — Drive consolidation: an area name may hold one `key=value` part (for card 2a-ii; #545)
+
+**Changed** — `scripts/drive_consolidate.py`: each folder name in an area name may hold
+one `=` between two runs of letters, digits, `.`, `_` and `-` (`ticker=AAPL`), and nothing
+else, so card 2a-ii can plan one Theta ticker folder at a time.
+- A ticker area's plan can differ from card 1's plan of the whole `SmartWheelData` area in
+  any field (class, natural path, destination), wherever card 1's outcome depended on
+  something the chunk's plan does not see or decides on its own. For example:
+  - objects and folders outside the chunk: a twin, a second parent, an ancestor, or a name
+    that takes the path first;
+  - a conflict, inside or outside the folder;
+  - a path near the length limit.
+  No list of these is complete, and the tool makes no promise that the two plans agree.
+  Which differences stop a chunk is for card 2a-ii to define and have checked, starting
+  from 2a-i's checks against card 1's plan (its driver's `prepare` and `check_plan`, in the
+  card on #544). A chunk plan's `path_unique`
+  and `deletable` must never be taken as card 1's, nor as a forecast for card 3.
+- Every other rule is unchanged. A malformed name (`=AAPL`, `ticker=`, `a==b`, `a=b=c`,
+  `ticker=A$B`, `ticker=/AAPL`) is still refused. The rule itself now also refuses a trailing
+  newline, which the Windows-name check already refused. `sweep`'s destination follows the
+  same rule.
+- 64 new tests in `tests/test_drive_consolidate.py`; 14 of them fail against the old tool.
+  Each of the 18 mutants that three independent checks found (of the rule, its message or
+  sweep's check) fails at least one.
+
 ## 2026-09-28 — D33 card 2a-i: Drive-only Bloomberg and Theta files, chunk by chunk (desktop)
 
 **Added** — c3 waits for 2a-ii: three of the four chunks came home and verified, and the

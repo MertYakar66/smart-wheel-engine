@@ -14,6 +14,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-28 — Drive consolidation: an area name may hold one `key=value` part (for card 2a-ii)
+
+**Changed** — `scripts/drive_consolidate.py`: each folder name in an area name may hold
+one `=` between two runs of letters, digits, `.`, `_` and `-` (`ticker=AAPL`), so card
+2a-ii can plan one Theta ticker folder at a time. A ticker area puts each file at the
+destination a plan of the whole `SmartWheelData` area gives it. Every other rule is
+unchanged: a malformed name (`=AAPL`, `ticker=`, `a==b`, `a=b=c`) is still refused, and
+the rule itself now refuses a trailing newline, which the Windows-name check already
+refused. `sweep`'s destination follows the same rule. 21 new tests in
+`tests/test_drive_consolidate.py`; 8 fail against the old tool (the 7 that accept a new
+name, and the one that pins the rule's end anchor).
+
 ## 2026-09-26 — D34: Theta kept like Bloomberg; the Theta collection on Drive comes home (#542, `866a8ba`)
 
 **Docs** — `DECISIONS.md` D34, confirmed by the Operator on 2026-09-26 after card 1's

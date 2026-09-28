@@ -75,7 +75,10 @@ with the tool change"). The Execution Prompt is on campaign issue #544 and on th
   `-k key_value`: `8 failed, 13 passed`. The 7 acceptance tests fail, and so does the
   end-anchor test on `a/b\n`, which the old rule's `$` accepted. The refusal tests pass on
   both tools. The same in the checkout: `21 passed`.
-- The whole test file and the fast lane: FAST_LANE_EVIDENCE
+- The whole test file, `python -m pytest tests/test_drive_consolidate.py -q`: `222 passed,
+  1 skipped`. The fast lane, `python -m pytest tests/ -m "not backtest_regression" -q`:
+  `3201 passed, 272 skipped, 8 deselected, 6 xfailed` (0 failed), in the sandbox on
+  2026-09-28, at `3b8a4d5`.
 - `ruff check .` and `ruff format --check .` are clean. The four structure checks are
   green (their output is in the Run Summary on the PR).
 

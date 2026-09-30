@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-09-30 — D33 card 2a-ii: Drive's option_history trees, by ticker folder (desktop)
+## 2026-09-30 — D33 card 2a-ii: Drive's option_history trees, by ticker folder (desktop; #548, `14a2e06`)
 
 **Docs** — 100,876 of card 1's 112,382 Drive-only Theta files (8,973,900,655 B) came home into
 `data_archive/drive-legacy/SmartWheelData/data_processed/theta/`, 12 chunks of 15, each on its

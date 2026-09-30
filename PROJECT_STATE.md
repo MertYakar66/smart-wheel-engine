@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-09-28 (close after #546 and #545, `main` at `2bb626f`. Desktop
+**Last updated:** 2026-09-30 (close after #548, `main` at `14a2e06`. Desktop card 2a-ii
+brought 100,876 more Drive-only Theta files home in 12 of its 15 chunks, and
+`option_history` is complete. The run then stopped on a dead Drive sign-in, so its last
+three chunks, 11,506 files, are still on Drive only (#548).
+2026-09-28: close after #546 and #545, `main` at `2bb626f`. Desktop
 card 2a-i brought 2,223 Drive-only files home and deferred its fourth chunk to 2a-ii
 (#546); the consolidation tool now takes one `key=value` part in each folder name of
 an area, so card 2a-ii can take one Theta ticker folder at a time (#545).
@@ -89,7 +93,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `2bb626f` (2026-09-28). Others on `origin`:
+**Branches:** `main` is at `14a2e06` (2026-09-30). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -220,6 +224,30 @@ locally.
     Malformed names stay refused, and no name accepted before is refused now. Five
     independent checks; 64 new tests; each of the 18 mutants the checks found fails
     at least one.
+  - Desktop card 2a-ii, 2026-09-29 to 30, recorded in #548 (`14a2e06`). Nothing was
+    deleted, and Drive was only read. The pen checked the Run Summary against the PR;
+    the run's logs are in the root's `_logs/d33-card2a-ii/`, outside git.
+    - 12 of its 15 chunks came home, each on its first attempt: 100,876 files
+      (8,973,900,655 B) under `data_archive/drive-legacy/SmartWheelData/data_processed/theta/`.
+      Each chunk copied only after its fresh census, inventory and plan matched card
+      1's, and each `verify` read 0 missing, 0 mismatched.
+    - `option_history` is complete: 65,802 files, 7,474,676,020 B, card 1b's counts to
+      the byte. The banded backup has 35,074 of its 46,404 files home.
+    - The run stopped at `c13-banded-RCL-to-WBD`. During its copy, on the morning of
+      2026-09-30 (UTC), every Drive call began to fail with `Error 401: Invalid
+      Credentials`: the desktop's Drive sign-in (rclone's `gdrive:`) had died. Six
+      attempts in two runs failed the same way and published nothing; c14 and c15 were
+      never tried. The sign-in died about seven days after the last reconnect
+      (2026-09-23, 07:35Z). Likely cause, not yet confirmed: Google ends the sign-in
+      after 7 days when the Google Cloud app behind it is still in "Testing".
+    - The end check read "no finding": of the root's 31,620 files at the start, none
+      gone or changed, and 100,876 added, all in this card's folders. The manifest
+      check read 144/0/0 by full hash.
+    - The Run Summary quotes one Drive folder id, as the Operator chose. The pen
+      checked that folder's sharing: only the owner has access.
+    - For the next cards' estimates: a census took 15–21 minutes a chunk (about
+      19,000 objects), and downloads 0.31 s a file (about 286 KB/s). The twelve
+      chunks took 18.5 hours.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -264,17 +292,13 @@ locally.
        about 20,000 Drive objects and 1 GiB each. Each chunk is censused,
        inventoried, planned, byte-checked if needed, copied and verified, and its
        census, inventory, plan and ledger are pinned by SHA-256. 2a runs in two
-       parts. **2a-i is done** (above). **2a-ii** brings `option_history` and the
-       banded backup home in ticker chunks (the tool takes `ticker=AAPL` since
-       #545), then `option_history_deep365`, which 2a-i deferred. A ticker chunk's
-       plan can differ from card 1's in any field (class, natural path,
-       destination), and no list of the cases is complete. Which differences stop
-       a chunk is for card 2a-ii to define and have checked, starting from 2a-i's
-       driver's `prepare` and `check_plan` (the card on #544). 2a-i's report adds
-       two things for the card. The desktop session could not carry a ~23 KB
-       heredoc, so the driver goes as a file behind its SHA-256 gate. A census of a
-       ~3,700-object folder took about 3.8 minutes, three a chunk, and downloads
-       ran at 0.33–4.06 MiB/s, slower for small files;
+       parts. **2a-i is done**, and **2a-ii has 12 of its 15 chunks home** (both
+       above). Its last three chunks are still on Drive only: `c13-banded-RCL-to-WBD`
+       (9,997 files), `c14-banded-WDAY-to-ZTS` (1,333) and `c15-deep365` (176), in all
+       11,506 files and 581,529,511 B. They wait for the desktop's Drive sign-in to be
+       renewed. The driver can finish them as it is: a rerun skips the DONE chunks and
+       checks each remaining chunk against card 1's plan again. Until they are home,
+       card 3 must not treat their Drive copies as deletable;
      - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
        verified: it finds what is left, and the verify is the coverage evidence;
      - 2c: `swe-data/` on Drive and the restore tests.
@@ -306,10 +330,12 @@ locally.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** The pen writes card 2a-ii and its driver, has them checked
-  independently, and sends the card to the Operator. The Operator deletes the
-  credential file forever from Drive's trash, rotates the Flex token, and decides
-  whether the desktop's `stash@{0}` (the stray paste) is dropped.
+- **Next action.** The Operator renews the desktop's Drive sign-in
+  (`rclone config reconnect gdrive:`, a browser login), and says whether rclone signs
+  in through a Google Cloud app of the Operator's own. The pen then writes the short
+  card that finishes c13–c15, for the Operator's yes. Still open from before: the
+  Operator deletes the credential file forever from Drive's trash, rotates the Flex
+  token, and decides whether the desktop's `stash@{0}` (the stray paste) is dropped.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -322,10 +348,16 @@ locally.
     3. yes, leave them out". Theta gets Bloomberg's rule; the Operator rotates the
     Flex token and deletes the Drive copy; the day-bot's `data_raw` is left out.
   - The card 2 plan and D34's text ("yes to both, go ahead with card 2a",
-    2026-09-26). D34 is written; 2a-i is done; 2a-ii is next.
+    2026-09-26). D34 is written; 2a-i is done; 2a-ii ran 12 of its 15 chunks (#548),
+    after its gate's "yes" (2026-09-29).
   - The tool change for 2a-ii ("yes, go ahead with the tool change", 2026-09-28):
     done in #545.
 - **Proposed, not authorized.**
+  - Finishing 2a-ii's last three chunks with a rerun of its driver, unchanged. The card
+    first checks that the Drive sign-in works, with one read-only call: the Executor's
+    proposal, taken into the card rather than the driver.
+  - For card 2b's driver: a Drive `401` stops the run for the Operator instead of
+    being retried.
   - Purging the data from git history; the fixture subset; untracking the
     `staging/` data.
   - A credential check in the tool's `_check_areas`. It has never refused an area

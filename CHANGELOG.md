@@ -14,6 +14,31 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-09-30 — D33 card 2a-ii: Drive's option_history trees, by ticker folder (desktop)
+
+**Docs** — 100,876 of card 1's 112,382 Drive-only Theta files (8,973,900,655 B) came home into
+`data_archive/drive-legacy/SmartWheelData/data_processed/theta/`, 12 chunks of 15, each on its
+first attempt; the run then stopped on an expired Drive OAuth credential, leaving c13-c15
+(11,506 files, 581,529,511 B) for a later run (D33, D34; campaign #544).
+- `option_history` is **complete**: 65,802 files, 7,474,676,020 B, matching card 1b to the byte.
+  The banded backup stands at 35,074 of 46,404; `option_history_deep365` was never attempted.
+- Every one of the twelve chunks' fresh censuses found Drive exactly as card 1 saw it
+  (`the same ids, paths, sizes and hashes`), and every plan copied exactly card 1's
+  copies not home yet. Each verify read `0 missing, 0 mismatched`.
+- Step 2 left **nothing** for card 2b: no ticker folder failed the settle rules, and the two
+  loose objects are already home.
+- `c13-banded-RCL-to-WBD` failed six attempts across two runs, all with Drive
+  `Error 401: Invalid Credentials` — a dead refresh token, not an outage. It published nothing:
+  every download failed, no staging folder was left, and the copy logs record 0 files.
+  Clearing it needs `rclone config reconnect gdrive:`, an interactive login outside the
+  Executor's reach.
+- End check `== endstate: no finding`: of the root's 31,620 files at chunk 0's first inventory,
+  0 gone, 0 resized, 0 changed; 100,876 added, none outside this card's folders. Card 1's
+  `plan.json` unchanged; manifest 144/0/0 by full hash.
+- Record outside git in `_logs\d33-card2a-ii\`, pinned by sha256 in the worklog fragment.
+
+---
+
 ## 2026-09-28 — Drive consolidation: an area name may hold one `key=value` part (for card 2a-ii; #545, `2bb626f`)
 
 **Changed** — `scripts/drive_consolidate.py`: each folder name in an area name may hold

@@ -2,9 +2,9 @@
 id: d33-card2a-ii
 title: Desktop card 2a-ii: Drive's option_history trees, by ticker folder (D33, D34)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 548
 decisions: [D33, D34]
 date: 2026-09-30
 headline: 100,876 of card 1's 112,382 Drive-only Theta files (8,973,900,655 B) came home into data_archive/drive-legacy/SmartWheelData/ across 12 chunks, each on its first attempt; option_history is complete; c13-c15 (11,506 files, 581,529,511 B) stopped on an expired Drive OAuth credential (Error 401) and wait for a later run; end check "no finding", manifest 144/0/0.

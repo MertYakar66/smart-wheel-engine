@@ -2,9 +2,9 @@
 id: d33-card2a-iii
 title: Desktop card 2a-iii: the last three chunks of card 2a-ii (D33, D34)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 550
 decisions: [D33, D34]
 date: 2026-10-01
 headline: card 2a-ii's last three chunks came home, each on its first attempt of this run — 11,506 files, 581,529,511 B — completing all three Theta folders at card 1b's counts to the byte; all 15 chunks DONE at 112,382 files and 9,555,430,166 B; end check "no finding" against a baseline taken before any copy; manifest 144/0/0 by full hash.
@@ -31,8 +31,9 @@ This card finishes those three chunks with the same tool, the same driver and th
 | **in all** | **26,032** | **11,506** | **581,529,511** |
 
 Card 2a-ii's own handoff asked for one addition, and this card is where it landed: **a credential
-probe before anything reads Drive**, reported as a stop the pen clears rather than as a retry. That
-is step 2, and it is the only procedural change from 2a-ii.
+probe before anything reads Drive**, reported as a stop that waits for the Operator's new login
+rather than as a retry. That is step 2. It runs once, at the start; 2a-ii's handoff proposed it
+before each chunk. With step 3's baseline, it is one of the two procedural changes from 2a-ii.
 
 ## What we tried
 
@@ -106,18 +107,21 @@ cost one API call and about a second.
 (2026-09-29T10:40:24Z), 0 gone, 0 resized, 0 bytes changed of 31,619 hashed, and the 100,876 added
 were all inside this card's folders. So in the 24 hours after card 2a-ii's own end check, no file in
 the root changed name, size or bytes and nothing was added outside `drive-legacy` — either the
-Dashboard's `update` did not run, or it rewrote nothing. Step 5 then found the same "no finding"
+Dashboard's `update` did not run, or it wrote only identical bytes, or it wrote outside the root
+(its runbook points `SWE_IBKR_DATA_DIR` at the checkout's `data_processed\ibkr`). Step 5 then
+found the same "no finding"
 with 11,506 more files, all in this card's folders.
 
 ## What didn't
 
 **Nothing failed in this run.** Three observations worth leaving behind anyway:
 
-1. **`inventory` time does not track the root's size.** It hashes nothing new between chunks, yet it
-   took 1.9 min at 132,496 files (c13), 8.4 min at 142,493 (c14) and 1.6 min at 143,826 (c15) — a
-   4.4× spread with the root growing monotonically. The variance is the OS file cache and the disk,
-   not the work. A card that budgets per-chunk time from the file count will misjudge it; the census
-   is the predictable cost.
+1. **`inventory` time does not track the root's size.** It hashes every file in the root each time
+   (`scripts/drive_consolidate.py`, `inventory`), yet it took 1.9 min at 132,496 files (c13), 8.4 min
+   at 142,493 (c14) and 1.6 min at 143,826 (c15) — up to a 5.3× spread with the root growing
+   monotonically. The likely cause is the OS file cache and the disk, not the work; that is not
+   proven. A card that budgets per-chunk time from the file count will misjudge it; the census is
+   the predictable cost.
 2. **The whole run hung on c13's one remaining attempt, and nothing in the card could have saved it.**
    c13 carried two `RUN-STOP` marks, so three failures in this run would have made its stop final and
    ended the copying at once. Step 2's probe reduces that exposure but does not remove it: the sign-in
@@ -212,3 +216,7 @@ No BLOCKED or STOPPED note was needed.
    it only guards the start. A probe between chunks — or a stop that distinguishes a 401 from an
    outage *during* a copy, which this card's step 4 rule already does by reading the chunk's log —
    would shorten the next dead-credential run further.
+7. **Corrected at the close, by the pen:** three small claims above. The probe's placement (once,
+   at the start) and the second procedural change (the baseline); the third way the Dashboard could
+   leave the root unchanged (writing to the checkout); and the inventory's spread (5.3×, not 4.4×),
+   with its cause marked as unproven. No number from a step file changed.

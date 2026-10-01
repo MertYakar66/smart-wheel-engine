@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-01 — D33 card 2a-iii: the last three chunks of card 2a-ii (desktop)
+## 2026-10-01 — D33 card 2a-iii: the last three chunks of card 2a-ii (desktop; #550, `e45f359`)
 
 **Docs** — every chunk home: card 2a-ii's last three chunks came home, each on its first attempt of
 this run — 11,506 files, 581,529,511 B — so all 15 of its chunks are DONE at 112,382 files and

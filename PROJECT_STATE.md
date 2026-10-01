@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-09-30 (close after #548, `main` at `14a2e06`. Desktop card 2a-ii
+**Last updated:** 2026-10-01 (close after #550, `main` at `e45f359`. Desktop card 2a-iii
+brought card 2a-ii's last three chunks home, 11,506 files, each on its first attempt. All
+112,382 Drive-only Theta files of card 1's plan are now home and verified (#550).
+2026-09-30: close after #548, `main` at `14a2e06`. Desktop card 2a-ii
 brought 100,876 more Drive-only Theta files home in 12 of its 15 chunks, and
 `option_history` is complete. The run then stopped on a dead Drive sign-in, so its last
 three chunks, 11,506 files, are still on Drive only (#548).
@@ -93,7 +96,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `14a2e06` (2026-09-30). Others on `origin`:
+**Branches:** `main` is at `e45f359` (2026-10-01). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -248,6 +251,25 @@ locally.
     - For the next cards' estimates: a census took 15–21 minutes a chunk (about
       19,000 objects), and downloads 0.31 s a file (about 286 KB/s). The twelve
       chunks took 18.5 hours.
+  - Desktop card 2a-iii, 2026-10-01, recorded in #550 (`e45f359`). It finished card
+    2a-ii's last three chunks with the same driver, unchanged. Nothing was deleted, and
+    Drive was only read. The pen checked the Run Summary against the PR; the run's logs
+    are in the root's `_logs/d33-card2a-ii/`, outside git.
+    - A read-only check that the Drive sign-in works ran first (step 2), then the end
+      check as a baseline before any copy (step 3). The baseline read "no finding",
+      so nothing in the root had changed since card 2a-ii.
+    - c13 (as attempt `a7`), c14 and c15 came home, each on its first attempt of the
+      run: 11,506 files, 581,529,511 B. Each copied only after its fresh plan matched
+      card 1's, and each `verify` read 0 missing, 0 mismatched. c15's verify also
+      byte-checked its 1,506 `redundant` objects against the copies already home.
+    - All 15 of card 2a-ii's chunks are DONE: 112,382 files, 9,555,430,166 B, the
+      three Theta folders complete at card 1b's counts. The end check, against the
+      baseline, found the same (no finding) and nothing added but this card's
+      copies; the manifest check read 144/0/0 by full hash.
+    - For card 2b's estimates: c13's census took 17.2 minutes (19,994 objects);
+      downloads about 0.28 s a file (an estimate); `inventory` re-hashes the whole
+      root (about 144,000 files, 18.5 GB) and took 1.6 to 8.4 minutes. Step 4 took
+      2 h 17 min.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -291,14 +313,9 @@ locally.
        Theta subfolders that hold the non-empty `copy` rows, in chunks of at most
        about 20,000 Drive objects and 1 GiB each. Each chunk is censused,
        inventoried, planned, byte-checked if needed, copied and verified, and its
-       census, inventory, plan and ledger are pinned by SHA-256. 2a runs in two
-       parts. **2a-i is done**, and **2a-ii has 12 of its 15 chunks home** (both
-       above). Its last three chunks are still on Drive only: `c13-banded-RCL-to-WBD`
-       (9,997 files), `c14-banded-WDAY-to-ZTS` (1,333) and `c15-deep365` (176), in all
-       11,506 files and 581,529,511 B. They wait for the desktop's Drive sign-in to be
-       renewed. The driver can finish them as it is: a rerun skips the DONE chunks and
-       checks each remaining chunk against card 1's plan again. Until they are home,
-       card 3 must not treat their Drive copies as deletable;
+       census, inventory, plan and ledger are pinned by SHA-256. **2a is done**, in
+       three runs (2a-i, 2a-ii and 2a-iii, above): every Drive-only file of card 1's
+       plan in those folders is home and verified;
      - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
        verified: it finds what is left, and the verify is the coverage evidence;
      - 2c: `swe-data/` on Drive and the restore tests.
@@ -330,12 +347,15 @@ locally.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** The Operator renews the desktop's Drive sign-in
-  (`rclone config reconnect gdrive:`, a browser login), and says whether rclone signs
-  in through a Google Cloud app of the Operator's own. The pen then writes the short
-  card that finishes c13–c15, for the Operator's yes. Still open from before: the
-  Operator deletes the credential file forever from Drive's trash, rotates the Flex
-  token, and decides whether the desktop's `stash@{0}` (the stray paste) is dropped.
+- **Next action.** Card 2b, the rest of Drive. The pen writes it, with its driver, for
+  the Operator's yes. Before it runs, the Operator makes the Drive sign-in last: if the
+  Google Cloud app behind rclone is still in "Testing", publish it, remove rclone's
+  access in the Google account, and log in again once (`rclone config reconnect
+  gdrive:`). That also retires the current sign-in, which the session that renewed it
+  on 2026-09-30 may have seen when it inspected the rclone config. Still open from
+  before: the Operator deletes the credential file forever from Drive's trash, rotates
+  the Flex token, and decides whether the desktop's `stash@{0}` (the stray paste) is
+  dropped.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -352,12 +372,12 @@ locally.
     after its gate's "yes" (2026-09-29).
   - The tool change for 2a-ii ("yes, go ahead with the tool change", 2026-09-28):
     done in #545.
+  - Finishing 2a-ii's last three chunks with the same driver, after a check that the
+    Drive sign-in works ("1. yes 2. yes 3. I dont know", 2026-09-30): done in #550.
 - **Proposed, not authorized.**
-  - Finishing 2a-ii's last three chunks with a rerun of its driver, unchanged. The card
-    first checks that the Drive sign-in works, with one read-only call: the Executor's
-    proposal, taken into the card rather than the driver.
-  - For card 2b's driver: a Drive `401` stops the run for the Operator instead of
-    being retried.
+  - For card 2b's driver: the sign-in check runs in the driver, before each chunk, and
+    a Drive `401` stops the run for the Operator instead of being retried (#548's and
+    #550's Run Summaries).
   - Purging the data from git history; the fixture subset; untracking the
     `staging/` data.
   - A credential check in the tool's `_check_areas`. It has never refused an area

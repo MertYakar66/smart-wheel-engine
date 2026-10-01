@@ -14,6 +14,34 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-01 — D33 card 2a-iii: the last three chunks of card 2a-ii (desktop)
+
+**Docs** — every chunk home: card 2a-ii's last three chunks came home, each on its first attempt of
+this run — 11,506 files, 581,529,511 B — so all 15 of its chunks are DONE at 112,382 files and
+9,555,430,166 B (D33, D34; campaign #544).
+- **All three Theta folders are now complete, at card 1b's counts to the byte**:
+  `option_history` 65,802 files / 7,474,676,020 B (c01–c08), the banded backup 46,404 /
+  1,971,068,860 (c09–c14), `option_history_deep365` 176 / 109,685,286 (c15). c13 and c14 closed the
+  banded backup exactly: 35,074 + 9,997 + 1,333 = 46,404.
+- `c13-banded-RCL-to-WBD` came home as attempt `a7`, after the six that died on an expired Drive
+  credential in #548. c14 and c15 ran as `a1`. Every fresh census found Drive as card 1 saw it
+  (`the same ids, paths, sizes and hashes`); every plan copied exactly card 1's copies not home yet;
+  every verify read `0 missing, 0 mismatched`.
+- **The credential probe card 2a-ii asked for shipped as step 2** — one read-only `rclone about`
+  before anything else reads Drive. It passed, and no `Error 401` or `invalid_grant` appeared
+  anywhere in the run.
+- c15's duplicate count fell to 0 and its redundant count rose by exactly the same 700 files and
+  92,979,972 B, the shift 2a-ii predicted; its verify byte-checked all 1,506 redundant objects
+  against the copies already home (`1506 ok, 0 missing or changed`).
+- End check `== endstate: no finding`, against a **baseline taken before any copy**: of the root's
+  31,620 files at chunk 0's first inventory, 0 gone, 0 resized, 0 changed; 112,382 added, none
+  outside this card's folders. Card 1's `plan.json` unchanged; no staging folder; manifest 144/0/0
+  by full hash.
+- Record outside git in `_logs\d33-card2a-ii\`, pinned by sha256 in the worklog fragment. c13's
+  `a1`–`a6` and its two `RUN-STOP` marks are left in place beside `a7`.
+
+---
+
 ## 2026-09-30 — D33 card 2a-ii: Drive's option_history trees, by ticker folder (desktop; #548, `14a2e06`)
 
 **Docs** — 100,876 of card 1's 112,382 Drive-only Theta files (8,973,900,655 B) came home into

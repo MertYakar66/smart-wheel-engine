@@ -2,9 +2,9 @@
 id: d33-card2b
 title: Desktop card 2b: the rest of Drive, and the coverage evidence (D33, D34)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 552
 decisions: [D33, D34]
 date: 2026-10-03
 headline: every Drive file in the six areas now has a byte-identical copy at home — 3,809 files and 47,691,144 B came home, exactly card 1's remainder, and the verify re-hashed all 178,216 non-folder Drive objects' home counterparts with 0 missing, 0 mismatched and 0 unresolved; one copy attempt was lost to a transient DNS failure and the driver's own retry carried it; end check "no finding" and manifest 144/0/0 by full hash.
@@ -182,3 +182,11 @@ No BLOCKED, WAITING or STOPPED note was needed. Step 0's and step 4's manifest c
   retried attempt reuses when an area's object, file and byte counts are unchanged. On this run it
   would have spared three of the four full-area census passes over 327,825 unchanged objects, and
   it would make a transient network error cost minutes instead of a five-hour pass.
+- **The pen, at the close (2026-10-03).** No number from a step file changed. On the census-cache
+  proposal: the slow part is the listing itself, and knowing that an area's counts are unchanged
+  takes a fresh listing. The copy step's two re-listings are also the evidence that Drive did not
+  change under the plan, which the coverage rests on. A cache could save that time safely only by
+  reading Drive's own change feed, a larger change, so it is not adopted for now (`PROJECT_STATE.md`
+  §0 B). After the report, the Executor also saved a note to Claude's local memory on the desktop
+  (the Operator's paste shows it). That is not one of the project's records: this fragment, PR #552
+  and #544 are.

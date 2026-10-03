@@ -192,6 +192,15 @@ that is 118,414 files (10,681,985,499 B). Card 1b (2026-09-26) found that 114,59
 rows, and `copy` copies every `copy` row of the plan it is given. So card 2 works
 from a new plan that leaves `data_raw` out, and never runs `copy` on card 1's plan.
 
+Card 2b, 2026-10-02 to 03 (#552; `swe-data/_logs/d33-card2b/` on the desktop), took a
+fresh census of the six areas, `data_raw` left out: 327,825 objects, each area equal to
+`rclone size`. It brought the last 3,809 files home (47,691,144 B), so
+`data_archive/drive-legacy/` now holds card 1's whole `copy` class less `data_raw`:
+118,414 files, 10,681,985,499 B. Its verify of the whole plan shows that each of the
+178,216 Drive files in the six areas has a byte-identical copy at home: 3,809 copied,
+174,394 matching live root files, 13 duplicates of those, 0 unresolved. That holds for
+Drive as it stood on 2026-10-02 at 13:32:41 UTC; card 3 checks again before it deletes.
+
 After the consolidation (card 2), this project has one Drive folder: `swe-data/`
 at the top of My Drive, laid out exactly like the desktop root. Card 2 records its
 id and layout here, with the routine that keeps it current.

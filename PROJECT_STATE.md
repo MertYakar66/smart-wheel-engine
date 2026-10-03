@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-01 (close after #550, `main` at `e45f359`. Desktop card 2a-iii
+**Last updated:** 2026-10-03 (close after #552, `main` at `88ff791`. Desktop card 2b
+brought the last 3,809 Drive-only files of the six areas home and verified the whole plan:
+every Drive file in those areas has a byte-identical copy at home (#552).
+2026-10-01: close after #550, `main` at `e45f359`. Desktop card 2a-iii
 brought card 2a-ii's last three chunks home, 11,506 files, each on its first attempt. All
 112,382 Drive-only Theta files of card 1's plan are now home and verified (#550).
 2026-09-30: close after #548, `main` at `14a2e06`. Desktop card 2a-ii
@@ -96,7 +99,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `e45f359` (2026-10-01). Others on `origin`:
+**Branches:** `main` is at `88ff791` (2026-10-03). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -270,6 +273,35 @@ locally.
       downloads about 0.28 s a file (an estimate); `inventory` re-hashes the whole
       root (about 144,000 files, 18.5 GB) and took 1.6 to 8.4 minutes. Step 4 took
       2 h 17 min.
+  - Desktop card 2b, 2026-10-02 to 03, recorded in #552 (`88ff791`). Nothing was deleted,
+    and Drive was only read. The pen checked the Run Summary and step 3's output against
+    the PR and card 1's record; the run's logs are in the root's `_logs/d33-card2b/`,
+    outside git.
+    - One census of the six areas (card 1's seven less `data_raw`): 327,825 objects, each
+      area equal to `rclone size`. Against card 1's census, one object is gone, the
+      credential file the pen moved to the trash (674 B), and nothing is new or changed.
+    - The fresh plan asked for exactly card 1's remainder, 3,809 files (47,691,144 B), and
+      passed its check against card 1's plan with no `LOST`, `TWIN` or other such line.
+    - The first copy attempt failed after 312.7 minutes, still listing Drive, on a
+      transient DNS error. The driver tried again five minutes later, and the second
+      attempt copied and verified all 3,809. The driver checked the sign-in before each
+      step, three times, and each check passed.
+    - The verify of the whole plan: the 3,809 copies, and the 143,690 root files that Drive
+      objects match, all read the same bytes; 0 needed a byte check.
+    - Coverage: each of the 178,216 Drive files in the six areas has a byte-identical copy
+      at home (3,809 copied, 174,394 already home, 13 duplicates of those, 0 unresolved),
+      as Drive stood at 2026-10-02 13:32:41 UTC. The copy step's two later censuses read
+      the same counts in every area.
+    - `data_archive/drive-legacy/` holds 118,414 files, 10,681,985,499 B: card 1's whole
+      `copy` class less `data_raw`. The end check read "no finding" against the plan's
+      inventory: nothing gone or changed, nothing added but this card's copies. The
+      manifest check read 144/0/0 by full hash.
+    - The run took about 21 hours against a forecast of 16: each listing of the six areas
+      takes about 5 hours, and the retry cost one more.
+    - Two process slips, both declared: the 20-hour WAITING note was owed and not posted,
+      and the Executor's first line was once written from memory. After the report it
+      also saved a note to Claude's local memory on the desktop, which is not one of the
+      project's records.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -317,7 +349,9 @@ locally.
        three runs (2a-i, 2a-ii and 2a-iii, above): every Drive-only file of card 1's
        plan in those folders is home and verified;
      - 2b: one fresh full plan of the D33 areas without `data_raw`, copied and
-       verified: it finds what is left, and the verify is the coverage evidence;
+       verified: it finds what is left, and the verify is the coverage evidence.
+       **2b is done** (#552, above): every Drive file in the six areas has a
+       byte-identical copy at home;
      - 2c: `swe-data/` on Drive and the restore tests.
      Card 3 then takes its own fresh census and hashed inventory; card 2's
      forecast is never deletion authority. The card:
@@ -343,19 +377,26 @@ locally.
      the card first. Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a
      byte-identical copy of `portfolio_history.json`), on the desktop and on
-     Drive.
+     Drive. Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
+     UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
+     covers match live root files rather than archive copies, and 13 are duplicates
+     of those; card 3 re-hashes those root files when it deletes. None of it covers
+     the day-bot's `data_raw`.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** Card 2b, the rest of Drive. The pen writes it, with its driver, for
-  the Operator's yes. Before it runs, the Operator makes the Drive sign-in last: if the
-  Google Cloud app behind rclone is still in "Testing", publish it, remove rclone's
-  access in the Google account, and log in again once (`rclone config reconnect
-  gdrive:`). That also retires the current sign-in, which the session that renewed it
-  on 2026-09-30 may have seen when it inspected the rclone config. Still open from
-  before: the Operator deletes the credential file forever from Drive's trash, rotates
-  the Flex token, and decides whether the desktop's `stash@{0}` (the stray paste) is
-  dropped.
+- **Next action.** Card 2c: `swe-data/` on Drive, laid out like the root and checked
+  both ways, with the checksum list and the restore tests (the 144 manifest files into
+  an empty root, and the bundle into an empty repository). It is the campaign's first
+  write to Drive: card 2b's plan puts `swe-data/` at about 147,810 files, 18.6 GB. The
+  pen restates it for the Operator's yes, then writes it. Before it runs, the Drive
+  sign-in must last: if the Google Cloud app behind rclone is still in "Testing", the
+  sign-in made on 2026-09-30 ends on 2026-10-07 at 13:03 UTC; publishing the app,
+  removing rclone's access and logging in again once (`rclone config reconnect
+  gdrive:`) ends that limit, and also retires the sign-in the 2026-09-30 session may
+  have seen. Still open from before: the Operator deletes the credential file forever
+  from Drive's trash, rotates the Flex token, and decides whether the desktop's
+  `stash@{0}` (the stray paste) is dropped.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -374,10 +415,16 @@ locally.
     done in #545.
   - Finishing 2a-ii's last three chunks with the same driver, after a check that the
     Drive sign-in works ("1. yes 2. yes 3. I dont know", 2026-09-30): done in #550.
+  - Card 2b, the rest of Drive ("yes, go ahead with card 2b", 2026-10-01): done in
+    #552.
 - **Proposed, not authorized.**
-  - For card 2b's driver: the sign-in check runs in the driver, before each chunk, and
-    a Drive `401` stops the run for the Operator instead of being retried (#548's and
-    #550's Run Summaries).
+  - A census cache for the consolidation tool, so that a retry need not list Drive
+    again (card 2b's Run Summary, heading 12). The pen's view: not now. Knowing that an
+    area is unchanged takes a fresh listing, and the copy step's listings are the
+    evidence that Drive did not change under the plan; a safe cache would need Drive's
+    own change feed. Card 2c does not list the old areas, and card 3 lists them once.
+  - For long cards: the Executor sets a timer for the 20-hour WAITING note instead of
+    catching it between look-ins (card 2b's Run Summary, heading 12).
   - Purging the data from git history; the fixture subset; untracking the
     `staging/` data.
   - A credential check in the tool's `_check_areas`. It has never refused an area
@@ -394,8 +441,7 @@ locally.
     misses, such as a truncated parent id. The census catches each against Drive,
     so none can reach the data.
   - Before anyone runs `scripts/data_manifest.py build` after card 2: decide whether
-    `data_archive/drive-legacy/` belongs in the manifest. It would add about 120,000
-    rows.
+    `data_archive/drive-legacy/` belongs in the manifest. It would add 118,414 rows.
 - **Dropped.** The MacBook transfer (step 2b) and Theta on Drive as tar chunks
   (D33).
 

@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-03 — D33 card 2b: the rest of Drive (desktop)
+## 2026-10-03 — D33 card 2b: the rest of Drive (desktop; #552, `88ff791`)
 
 **Docs** — every Drive file home: all six D33 areas on Drive are now shown to have a
 byte-identical copy on the desktop, which is the evidence card 3 needs before anything on Drive

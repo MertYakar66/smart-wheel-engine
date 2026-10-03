@@ -14,6 +14,28 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-03 — D33 card 2b: the rest of Drive (desktop)
+
+**Docs** — every Drive file home: all six D33 areas on Drive are now shown to have a
+byte-identical copy on the desktop, which is the evidence card 3 needs before anything on Drive
+may be deleted (D33, D34; campaign #544).
+- **Card 1's plan is wholly home.** The 3,809 files and 47,691,144 B that cards 2a-i to 2a-iii
+  could not reach — files sitting directly in big folders — came home into
+  `data_archive/drive-legacy/`, exactly card 1's forecast for this card. `drive-legacy` now holds
+  118,414 files and 10,681,985,499 B, which is card 1's entire `copy` class to the byte.
+- **A whole-area census, not a chunk.** 327,825 Drive objects across the six areas (card 1's seven
+  less the day-bot's `data_raw`, per D34), every area's counts equal to `rclone size`. The fresh
+  plan was checked against card 1's before a byte moved: gone 1, new 0, changed 0 — the one gone
+  being the credential-shaped file the pen trashed on 2026-09-26.
+- **Coverage, verified by re-hashing.** Of 178,216 non-folder Drive objects in the plan: 3,809
+  copied home, 174,394 already home, 13 byte-identical duplicates, 0 unresolved; the verify read
+  `0 missing, 0 mismatched` and `0 missing or changed`. The claim is pinned to Drive as the plan's
+  census saw it, with two later full censuses reading identical counts in every area.
+- **One lost attempt, carried by the driver.** Copy attempt a1 died 312.7 min in on a transient
+  DNS failure (`lookup www.googleapis.com: getaddrinfow`); the driver retried five minutes later
+  and attempt a2 copied and verified all 3,809. Nothing was overwritten or deleted; Drive was only
+  read. End check `no finding`; manifest 144/0/0 by full hash.
+
 ## 2026-10-01 — D33 card 2a-iii: the last three chunks of card 2a-ii (desktop; #550, `e45f359`)
 
 **Docs** — every chunk home: card 2a-ii's last three chunks came home, each on its first attempt of

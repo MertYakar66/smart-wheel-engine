@@ -14,6 +14,46 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-07 — D33 card 2c: swe-data on Drive (desktop)
+
+**Docs** — the second copy is on Drive, and one duplicate folder stopped the proof: `swe-data/`
+at the top of My Drive now holds every file of the desktop root but `_logs/` and the
+credential-shaped names, at the same paths, and 147,810 of the baseline's 147,811 files match the
+root by MD5 — but a duplicate Drive folder left one file uncheckable, so the card stopped for the
+pen before the count-and-bytes check and the two restore tests (D33 points 3 and 7, D31 step 6;
+campaign #544).
+- **The baseline, approved and pinned.** 147,811 files and 18,644,236,641 B: the root less
+  `_logs/` and the one credential-shaped name, `data_processed/ibkr/flex_credentials.json`, which
+  was excluded by name and never opened. rclone, given the tool's exclusions, saw exactly those
+  147,811 files. `SHA256SUMS` was written into the root before the baseline was taken and lists
+  147,810 files (the baseline but itself), 18,617,103,830 B, its own sha256
+  `e22d8579bed1ce7a81a90ccb1096d0397a29de8471f8b56f466f05f13f882989` — the fingerprint D33 asks
+  to be recorded in git.
+- **The upload is complete.** `swe-data/` was made once at the top of My Drive and reached
+  afterwards only by its pinned id. 147,811 files uploaded in this attempt, 147,811 in all
+  attempts — no file sent twice — in 3,166.9 min (52.8 h, against a day and a half forecast:
+  with the root's 132,053 folders each a Drive object too, the copy made ~279,864 objects at
+  ~1.5 a second, against the card's model of 2). 0 errors, 0 "Removing failed copy" lines,
+  0 retries: nothing was written over and nothing was deleted on Drive.
+- **The check found one file it could not read.** `rclone check`, both ways by MD5, read 147,810
+  matching files and then 1 missing, 1 difference and 1 error: Drive holds two folders named
+  `expiration=20201113` under
+  `data_archive/drive-legacy/SmartWheelData/data_processed/theta/option_history/ticker=FDX/`, and
+  rclone ignored one, leaving the single `data.parquet` behind it unresolvable. The root holds
+  that file intact and `SHA256SUMS` carries its hash; what is wrong is one redundant container on
+  Drive. Clearing it needs a deletion on Drive, which this card forbids — the pen's decision,
+  with the Operator's yes, in a later card.
+- **What the stop cost.** `rclone size` of `swe-data/` with no filter never ran, so nothing extra
+  or duplicated on Drive is yet ruled out by count and bytes; and neither restore test ran, so
+  **D31 step 6 is not satisfied** and the four data branches must not be deleted on the strength
+  of this run.
+- **The root is untouched.** The end check read the root against the baseline — gone 0, size
+  changed 0, bytes changed 0 of 147,811 hashed, added 0 — and its verdict is `no finding`; the
+  manifest checks 144 ok, 0 missing, 0 mismatched by full hash. The run's record is under
+  `_logs\d33-card2c\`, outside git.
+
+---
+
 ## 2026-10-03 — D33 card 2b: the rest of Drive (desktop; #552, `88ff791`)
 
 **Docs** — every Drive file home: all six D33 areas on Drive are now shown to have a

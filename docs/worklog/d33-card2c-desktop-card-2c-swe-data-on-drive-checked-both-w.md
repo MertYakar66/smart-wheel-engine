@@ -2,9 +2,9 @@
 id: d33-card2c
 title: Desktop card 2c: swe-data on Drive, checked both ways, and the restore tests (D33)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 554
 decisions: [D33]
 date: 2026-10-07
 headline: swe-data/ on Drive holds all 147,811 baseline files and 147,810 of them match the root by MD5, but a duplicate Drive folder left one file uncheckable, so the check stopped for the pen and the restore tests did not run.
@@ -232,3 +232,13 @@ tests left no copies anywhere.
    the routine at the close.
 6. The checkout still carries `stash@{0}`, the stray paste set aside by card 2a-i. Left as it
    is, as every card since has left it.
+
+**The pen, at the close (2026-10-07).** The figures above match the step files pasted in
+PR #554's comments. rclone's own log stamps (`2026/10/06 22:56:11` and the rest) are the
+desktop's local time, UTC+3: by the step file's UTC stamps the check ran from 19:41:46 to
+23:21:55 UTC on 2026-10-06. The pen read both duplicate folders on Drive: the first, made on
+2026-10-05 at 15:33:06 UTC, is empty; the second, made 95 seconds later, holds
+`data.parquet` (147,522 B). The Operator renewed the Drive sign-in during the upload
+(2026-10-05, 06:19 UTC), and the upload's 0 errors show it switched over cleanly. After the
+report the Executor saved a note to Claude's local memory on the desktop. That is not one
+of the project's records: this fragment, PR #554 and #544 are.

@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-07 — D33 card 2c: swe-data on Drive (desktop)
+## 2026-10-07 — D33 card 2c: swe-data on Drive (desktop; #554, `c32b6ed`)
 
 **Docs** — the second copy is on Drive, and one duplicate folder stopped the proof: `swe-data/`
 at the top of My Drive now holds every file of the desktop root but `_logs/` and the

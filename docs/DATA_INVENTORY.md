@@ -201,9 +201,21 @@ fresh census of the six areas, `data_raw` left out: 327,825 objects, each area e
 174,394 matching live root files, 13 duplicates of those, 0 unresolved. That holds for
 Drive as it stood on 2026-10-02 at 13:32:41 UTC; card 3 checks again before it deletes.
 
-After the consolidation (card 2), this project has one Drive folder: `swe-data/`
-at the top of My Drive, laid out exactly like the desktop root. Card 2 records its
-id and layout here, with the routine that keeps it current.
+Card 2c, 2026-10-04 to 07 (#554; `swe-data/_logs/d33-card2c/` on the desktop), made the
+new folder: `swe-data/` at the top of My Drive (`13h0HIy_kLjsN431YJFRewJ8FAZGjxe3b`,
+created 2026-10-04, shared with nobody). It holds the desktop root laid out the same way,
+less `_logs/` and the credential-shaped names: 147,811 files, 18,644,236,641 B, among them
+`SHA256SUMS` (147,810 entries; its own sha256
+`e22d8579bed1ce7a81a90ccb1096d0397a29de8471f8b56f466f05f13f882989`). The two-way check
+matched 147,810 files by MD5 and stopped on one duplicate folder: Drive holds two folders
+named
+`data_archive/drive-legacy/SmartWheelData/data_processed/theta/option_history/ticker=FDX/expiration=20201113`,
+and the older one is empty. `rclone size` and the restore tests have not run, so the copy
+is not yet proven complete.
+
+After the consolidation (card 2), this project has one Drive folder, `swe-data/` (above),
+laid out exactly like the desktop root. The routine that keeps it current is recorded
+here once card 2's proof is complete.
 
 ---
 

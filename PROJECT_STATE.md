@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-10-03 (close after #552, `main` at `88ff791`. Desktop card 2b
+**Last updated:** 2026-10-07 (close after #554, `main` at `c32b6ed`. Desktop card 2c
+made `swe-data/` on Drive and uploaded all 147,811 files of the root. Its check matched
+147,810 of them and stopped on a duplicate folder Drive had made, so the count and the
+restore tests did not run (#554).
+2026-10-03: close after #552, `main` at `88ff791`. Desktop card 2b
 brought the last 3,809 Drive-only files of the six areas home and verified the whole plan:
 every Drive file in those areas has a byte-identical copy at home (#552).
 2026-10-01: close after #550, `main` at `e45f359`. Desktop card 2a-iii
@@ -99,7 +103,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `88ff791` (2026-10-03). Others on `origin`:
+**Branches:** `main` is at `c32b6ed` (2026-10-07). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
@@ -302,6 +306,37 @@ locally.
       and the Executor's first line was once written from memory. After the report it
       also saved a note to Claude's local memory on the desktop, which is not one of the
       project's records.
+  - Desktop card 2c, 2026-10-04 to 07, recorded in #554 (`c32b6ed`): the campaign's first
+    write to Drive. Nothing was deleted anywhere. The pen checked the Run Summary and step
+    3's output against the PR; the run's logs are in the root's `_logs/d33-card2c/`, outside
+    git.
+    - The plan wrote `SHA256SUMS` into the root first: 147,810 files, its own sha256
+      `e22d8579bed1ce7a81a90ccb1096d0397a29de8471f8b56f466f05f13f882989`, recorded in the
+      fragment as D33 asks. The baseline then came to 147,811 files, 18,644,236,641 B,
+      inside the band the Operator approved, and rclone, given the tool's exclusions, saw
+      exactly those files. The credential file was excluded by name and never opened.
+    - The upload made `swe-data/` once at the top of My Drive (shared with nobody: the pen
+      read its sharing on 2026-10-07) and copied 147,811 files into it, each once, in 52.8
+      hours: about 1.5 Drive objects a second against the card's 2, because each of the
+      root's 132,053 folders is a Drive object too. 0 errors; nothing written over or
+      removed.
+    - The check, both ways by MD5, took 3.7 hours: 147,810 files matched, and one it could
+      not reach. Drive holds two folders named `expiration=20201113` under
+      `data_archive/drive-legacy/SmartWheelData/data_processed/theta/option_history/ticker=FDX/`,
+      and rclone ignored one of them. The pen read both on Drive on 2026-10-07. The one
+      made on 2026-10-05 at 15:33:06 UTC (`1vmXZWDo79BKXkgi0-YtHHyfH7uQi_D20`) is empty.
+      The one made 95 seconds later (`1UEtEA6GtmPuLDNjT3D53Z7adt-ECz2jZ`) holds the file,
+      `data.parquet` (147,522 B). Most likely a reply from Drive was lost and rclone made
+      the folder again, the hazard the card names.
+    - So `rclone size` and both restore tests did not run, and D31 step 6 is not
+      satisfied.
+    - The end check read "no finding": the root gained only `SHA256SUMS`. The manifest
+      check read 144/0/0 by full hash.
+    - The Operator renewed the Drive sign-in during the upload (2026-10-05, 06:19 UTC,
+      in a separate terminal, and checked it was the right account). The upload switched
+      to it with no error. The Executor did not know of it; its sign-in checks all passed.
+    - As after card 2b, the Executor saved a note to Claude's local memory on the desktop
+      after the report. That is not one of the project's records.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -352,7 +387,10 @@ locally.
        verified: it finds what is left, and the verify is the coverage evidence.
        **2b is done** (#552, above): every Drive file in the six areas has a
        byte-identical copy at home;
-     - 2c: `swe-data/` on Drive and the restore tests.
+     - 2c: `swe-data/` on Drive and the restore tests. **2c is partly done** (#554,
+       above): the upload is complete and 147,810 of its 147,811 files match; a duplicate
+       folder stopped the check before the count and the restore tests, which card 2d
+       finishes.
      Card 3 then takes its own fresh census and hashed inventory; card 2's
      forecast is never deletion authority. The card:
      - copies home everything of this project's that exists only on Drive, into
@@ -385,18 +423,26 @@ locally.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** Card 2c: `swe-data/` on Drive, laid out like the root and checked
-  both ways, with the checksum list and the restore tests (the 144 manifest files into
-  an empty root, and the bundle into an empty repository). It is the campaign's first
-  write to Drive: card 2b's plan puts `swe-data/` at about 147,810 files, 18.6 GB. The
-  pen restates it for the Operator's yes, then writes it. Before it runs, the Drive
-  sign-in must last: if the Google Cloud app behind rclone is still in "Testing", the
-  sign-in made on 2026-09-30 ends on 2026-10-07 at 13:03 UTC; publishing the app,
-  removing rclone's access and logging in again once (`rclone config reconnect
-  gdrive:`) ends that limit, and also retires the sign-in the 2026-09-30 session may
-  have seen. Still open from before: the Operator deletes the credential file forever
-  from Drive's trash, rotates the Flex token, and decides whether the desktop's
-  `stash@{0}` (the stray paste) is dropped.
+- **Next action.** Finish card 2c, in two parts, once the Operator answers:
+  1. The pen moves the empty duplicate folder (`1vmXZWDo79BKXkgi0-YtHHyfH7uQi_D20`) to
+     Drive's trash through the Drive connector, by its id, then reads its parent again:
+     one `expiration=20201113` folder must remain, holding `data.parquet`. A trashed
+     folder stays recoverable for 30 days. It is a deletion on Drive, so it waits for the
+     Operator's yes to that action.
+  2. Card 2d runs card 2c's driver again, unchanged, in the same run folder. Its plan and
+     upload are DONE, so it runs the two-way check, `rclone size` with no filter, and both
+     restore tests: about 7 to 8 hours, unattended, with nothing uploaded or deleted. The
+     check first compares the root with the baseline by name and size, so nothing may
+     write to the root until card 2d ends. The Dashboard's `update` stays on hold: card
+     2c's Executor said it could resume, and the pen asked the Operator on 2026-10-07 to
+     keep holding it.
+
+  Asked of the Operator on 2026-10-07: has the Dashboard's `update` run since card 2c
+  reported; and is the Google Cloud app behind rclone in "Testing" or "In production"?
+  If it is in "Testing", the sign-in made on 2026-10-05 ends on 2026-10-12 at 06:19 UTC.
+  Still open from before: the Operator deletes the credential file forever from Drive's
+  trash, rotates the Flex token, and decides whether the desktop's `stash@{0}` (the stray
+  paste) is dropped.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -417,6 +463,9 @@ locally.
     Drive sign-in works ("1. yes 2. yes 3. I dont know", 2026-09-30): done in #550.
   - Card 2b, the rest of Drive ("yes, go ahead with card 2b", 2026-10-01): done in
     #552.
+  - Card 2c, `swe-data/` on Drive ("yes, go ahead with card 2c", 2026-10-03): ran in
+    #554, and stopped at the check on a duplicate Drive folder, whose removal needs its
+    own yes (above).
 - **Proposed, not authorized.**
   - A census cache for the consolidation tool, so that a retry need not list Drive
     again (card 2b's Run Summary, heading 12). The pen's view: not now. Knowing that an

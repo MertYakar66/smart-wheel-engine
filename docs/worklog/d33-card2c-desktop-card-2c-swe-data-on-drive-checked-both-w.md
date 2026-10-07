@@ -2,9 +2,9 @@
 id: d33-card2c
 title: Desktop card 2c: swe-data on Drive, checked both ways, and the restore tests (D33)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 554
 decisions: [D33]
 date: 2026-10-07
 headline: swe-data/ on Drive holds all 147,811 baseline files and 147,810 of them match the root by MD5, but a duplicate Drive folder left one file uncheckable, so the check stopped for the pen and the restore tests did not run.

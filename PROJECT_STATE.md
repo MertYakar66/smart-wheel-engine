@@ -320,8 +320,9 @@ locally.
       hours: about 1.5 Drive objects a second against the card's 2, because each of the
       root's 132,053 folders is a Drive object too. 0 errors; nothing written over or
       removed.
-    - The check, both ways by MD5, took 3.7 hours: 147,810 files matched, and one it could
-      not reach. Drive holds two folders named `expiration=20201113` under
+    - The check, both ways by MD5, took 3.7 hours (19:41:46 to 23:21:55 UTC on 2026-10-06;
+      rclone's own log stamps in the fragment, such as `2026/10/06 22:56:11`, are the
+      desktop's local time, UTC+3): 147,810 files matched, and one it could not reach. Drive holds two folders named `expiration=20201113` under
       `data_archive/drive-legacy/SmartWheelData/data_processed/theta/option_history/ticker=FDX/`,
       and rclone ignored one of them. The pen read both on Drive on 2026-10-07. The one
       made on 2026-10-05 at 15:33:06 UTC (`1vmXZWDo79BKXkgi0-YtHHyfH7uQi_D20`) is empty.
@@ -424,18 +425,22 @@ locally.
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
 - **Next action.** Finish card 2c, in two parts, once the Operator answers:
-  1. The pen moves the empty duplicate folder (`1vmXZWDo79BKXkgi0-YtHHyfH7uQi_D20`) to
-     Drive's trash through the Drive connector, by its id, then reads its parent again:
-     one `expiration=20201113` folder must remain, holding `data.parquet`. A trashed
-     folder stays recoverable for 30 days. It is a deletion on Drive, so it waits for the
-     Operator's yes to that action.
-  2. Card 2d runs card 2c's driver again, unchanged, in the same run folder. Its plan and
-     upload are DONE, so it runs the two-way check, `rclone size` with no filter, and both
-     restore tests: about 7 to 8 hours, unattended, with nothing uploaded or deleted. The
-     check first compares the root with the baseline by name and size, so nothing may
-     write to the root until card 2d ends. The Dashboard's `update` stays on hold: card
-     2c's Executor said it could resume, and the pen asked the Operator on 2026-10-07 to
-     keep holding it.
+  1. Card 2d, a desktop Executor's change run, first merges the two folders with rclone's
+     own duplicate-folder repair (`rclone dedupe`), scoped to `ticker=FDX/` and shown by a
+     dry run first. rclone v1.74.4 keeps the folder that holds the most (the one with
+     `data.parquet`, `1UEtEA6GtmPuLDNjT3D53Z7adt-ECz2jZ`) and moves the empty one
+     (`1vmXZWDo79BKXkgi0-YtHHyfH7uQi_D20`) to Drive's trash, where it stays recoverable
+     for 30 days. The card then lists the parent by id: one `expiration=20201113` folder
+     must remain, holding `data.parquet`. It is a deletion on Drive, so the card carries
+     the Operator's yes to that action. Codex's review of #555 moved this step from the
+     pen to the Executor: the pen does not change data on Drive itself.
+  2. The card then runs card 2c's driver again, unchanged, in the same run folder. Its plan
+     and upload are DONE, so it runs the two-way check, `rclone size` with no filter, and
+     both restore tests: about 7 to 8 hours, unattended, with nothing uploaded and nothing
+     else deleted. The check first compares the root with the baseline by name and
+     size, so nothing may write to the root until card 2d ends. The Dashboard's `update`
+     stays on hold: card 2c's Executor said it could resume, and the pen asked the
+     Operator on 2026-10-07 to keep holding it.
 
   Asked of the Operator on 2026-10-07: has the Dashboard's `update` run since card 2c
   reported; and is the Google Cloud app behind rclone in "Testing" or "In production"?

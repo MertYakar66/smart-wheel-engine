@@ -14,6 +14,38 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-09 — D31 step 6: the four data branches deleted; main untouched (desktop)
+
+**Docs** — GitHub is no longer a data store: the four data-carrier branches are gone, deleted in
+one atomic push with a lease on each, on the Operator's `yes` at the run's one gate (campaign
+#544). Nothing else was deleted anywhere, and no history was rewritten.
+- **The push, first and only attempt.** `git push --atomic --porcelain` with four
+  `--force-with-lease=refs/heads/<branch>:<tip>` options and four `:refs/heads/<branch>` delete
+  refspecs printed four `[deleted]` lines in name order, `Done` and `push exit 0`. Its own gate
+  read `keep-refs: 4 of 4` and named the step 1 file and G1 record it had checked. The lease is
+  what made this safe on a delete: upstream's release-gating test `t/t5533-push-cas.sh` at tag
+  `v2.53.0` — the installed git is 2.53.0.windows.1 — asserts that a delete refspec with a stale
+  lease is refused and the branch survives.
+- **Exactly four refs went.** The remote advertised 532 refs before (1 `HEAD`, 5 `refs/heads/*`,
+  526 `refs/pull/*`, 0 tags) and 528 after (1 `HEAD`, 1 `refs/heads/*`, 526 `refs/pull/*`, 0 tags).
+  `main` is unmoved at `ed85e1d9193861f25931145202d20207b962640e`, and `refs/pull/507/head` still
+  holds `24835719ffa6d83a2c5e1dce4a7605b356695ede` as D33 point 7 requires — now the only ref on
+  GitHub pointing at any of the four tips.
+- **Every premise checked before the gate, and two of the card's own found wrong.** The root read
+  `checked 144 manifest files: 144 ok, 0 missing, 0 mismatched (size only)`; all four branches sat
+  at their checked commits; the bundle read `1698024795 B, sha256 ee15dd9c…` and listed all four
+  tips among its 9 heads; no pull request was open. An independent read-only audit in separate
+  contexts (19 agents, no writes) then found the card's `<context>` wrong twice: a local branch
+  *does* hold one of the four tips (`refs/heads/data/drive-migration`), and this checkout is a
+  blobless partial clone, so its keep-refs hold the four commits but not 75 of the blobs at their
+  trees. Both were put to the Operator before the gate's question.
+- **Where the four commits live now.** In the full-history bundle (1,698,024,795 B, sha256
+  `ee15dd9c…`) on the desktop and on Drive, restored `fsck`-clean in cards 1 and 2d, and in four
+  never-pushed `refs/kept/d31-step6/<branch>` refs on the desktop. The data itself is untouched by
+  any of this: all 144 manifest rows still resolve to a blob present in the checkout (0 missing),
+  and the 57 rows sourced from the four branches are on the desktop root, verified by full sha256 —
+  57 ok, 0 mismatched, 0 absent, 1,176,919,803 B.
+
 ## 2026-10-09 — D33 card 2d: the duplicate folder, and swe-data's checks (desktop; #556, `49c297f`)
 
 **Docs** — the duplicate is cleared and the second copy is proven: `swe-data/` on Drive now

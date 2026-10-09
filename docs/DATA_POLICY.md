@@ -109,7 +109,7 @@ step.)
 
 | Path | Regen via | Size |
 |---|---|---|
-| `data/bloomberg/`, `data_raw/` | not regenerable — the Terminal is gone; the desktop root + Drive (`materialize` can still read the bytes from git history until the data branches are deleted) | 536 MB + 365 MB deep + 491 MB ticks |
+| `data/bloomberg/`, `data_raw/` | not regenerable — the Terminal is gone; the desktop root + Drive's `swe-data/`. `materialize` can still read the bytes from git history: `main`'s on GitHub, and since D31 step 6 (2026-10-09) the four deleted branches' commits from the full-history bundle (first fill, step 1) | 536 MB + 365 MB deep + 491 MB ticks |
 | `data_processed/` | `scripts/pull_all.py` | many GB across theta sub-dirs |
 | `data/features/**/ticker=*/` | `scripts/backfill_features.py` | ~1.2 GB |
 | `dashboard/node_modules/` | `npm install` | ~hundreds of MB |
@@ -274,11 +274,17 @@ working unchanged; the root is what lets the checkout become disposable.
 **First fill, in this order (each step verified before the next):**
 
 ```powershell
-# 1. the non-main branches hold the deep slices, the day-bot ticks and the archive rows
-git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull backup/drive-tier-c-2026-07-22 data/drive-migration
+# 1. restore the full-history bundle into a repository of its own, outside the root and the
+#    checkout (about 1.7 GB). It holds every commit the manifest's git_sources name, the four
+#    data branches' among them: those left GitHub on 2026-10-09 (D31 step 6). On a new root,
+#    copy the bundle first from Drive's swe-data\data_archive\git\. Do not fetch it into
+#    the checkout: a checkout that already holds those commits gains no missing files.
+git init --bare D:\swe-history.git
+git -C D:\swe-history.git fetch D:\swe-data\data_archive\git\smart-wheel-engine-all-refs-2026-09-23.bundle "+refs/*:refs/*"
+git -C D:\swe-history.git fsck --full --no-dangling   # expect exit 0
 # 2. create every manifest file that is missing from the root, byte-verified;
 #    nothing that already exists is overwritten (a differing file is reported)
-python scripts/data_manifest.py materialize --root D:\swe-data
+python scripts/data_manifest.py materialize --root D:\swe-data --repo D:\swe-history.git
 # 3. prove the root: expect "<N> ok, 0 missing, 0 mismatched" — N = the manifest's rows (144 on 2026-09-23)
 python scripts/data_manifest.py check --root D:\swe-data
 python scripts/data_manifest.py census --root D:\swe-data

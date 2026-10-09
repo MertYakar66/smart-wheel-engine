@@ -1,5 +1,13 @@
 # Fresh lab-box bring-up — pulling Bloomberg from a transient machine
 
+> **Retired as written (2026-10-09).** Under D31, market data never goes into git. The
+> branches this guide checks out and pushes to are gone: `data/bloomberg-refresh-2026-06-02`
+> earlier, and `deep-history/bloomberg-raw` on 2026-10-09 (D31 step 6). Do not follow its
+> `git checkout`, `git commit` or `git push` steps for data, nor the appendix's prompt. The
+> Terminal is no longer available (`docs/DATA_POLICY.md`). If a Bloomberg lab box is used
+> again, this guide is rewritten first, by its own Execution Prompt, so the pull lands in a
+> data root (`SWE_DATA_ROOT`) and reaches the desktop root, never git.
+
 Use this when you sit down at a **fresh or shared machine that has a Bloomberg
 Terminal** and want to pull data into the repo — a university lab box, a
 borrowed desktop, any managed workstation where **nothing of ours persists**
@@ -151,9 +159,10 @@ browser OAuth grant (revoke it at teardown — see below).
 - **venv off the repo tree** — keep `bbg-venv` outside the working copy.
 - **Monoliths stay frozen < 100 MB.** The connector reads the committed
   monoliths on the refresh branch; do not let a pull balloon them. Deep history
-  is written as separate `.gz` slices under `data/bloomberg/deep/` and pushed to
-  the **buffer branch `deep-history/bloomberg-raw`** (never merged). Anything
-  too big for GitHub even gzipped → Google Drive.
+  is written as separate `.gz` slices under `data/bloomberg/deep/` in the data
+  root, never pushed to git (D31). The **buffer branch
+  `deep-history/bloomberg-raw`** that carried the June 2026 slices was deleted on
+  2026-10-09; its history is in the full-history bundle.
 - **OHLCV rotation contract (load-bearing).** The committed `sp500_ohlcv.csv`
   stores columns *rotated*; the connector compensates on read. A correct pull
   must use `FIELD_MAP = {"PX_HIGH":"open","PX_LAST":"high","PX_LOW":"low",
@@ -183,9 +192,11 @@ sessions can leave — don't.
 ## Then what — start pulling
 
 Bring-up ends at "ready to pull." The actual backfill (pull → rotation/seam
-gate → gzip → push to `deep-history/bloomberg-raw`, with the storage model and
-exact commands) lives in the Bloomberg deep-history worklog on the refresh
-branch (`docs/worklog/bloomberg-deep-history-2026-06-04.md`). Pull **newest
+gate → gzip, with the storage model and exact commands) lives in the Bloomberg
+deep-history worklog (`docs/worklog/bloomberg-deep-history-2026-06-04.md`). Its
+steps that check out and push `deep-history/bloomberg-raw` are history: that
+branch was deleted on 2026-10-09, and a new pull lands in the data root, never in
+git (D31). Pull **newest
 window first, walking backward** toward the floor (1994 for IV-bearing series —
 Bloomberg's implied-vol hard floor; the engine is option/IV-centric, so
 pre-1994 price-only history isn't comparable), committing each window as it

@@ -36,9 +36,9 @@ under it; unset = the repository folder, the old behaviour — `docs/DATA_POLICY
 | 3 | Verify the desktop root by checksum | **done** — `checked 144 manifest files: 144 ok, 0 missing, 0 mismatched` (2026-09-23, after #528; the first pass read 99/99 and was confirmed by an independent three-way byte audit, #527) |
 | 4 | CI / sandbox posture without data (`requires_data` skips, no data root) | **done** |
 | 5 | Untrack the data from git (no history rewrite) | **done 2026-09-23** — the 87 tracked data files left the index (`git rm --cached`; every earlier commit still holds them, so `materialize` can still read them from history); `.gitignore` keeps data out, and `tests/test_data_manifest.py` fails if a data file is tracked again; CI runs without data, with the two per-file floors that only held with data recalibrated to the no-data measurement (`scripts/check_coverage_floors.py`). A `git pull` of this change removes the tracked copies from a checkout's working tree — expected; the root holds them |
-| 6 | Delete the four non-`main` branches | **held, under D33.** Three conditions: (a) the root checks 144/0/0; (b) Drive's `swe-data/` equals the root, checked both ways (step 7, card 2); (c) the full-history bundle restores from Drive's copy into an empty repository, with `git fsck --full` clean and the four exact commits present. Then one atomic push deletes the four, with a lease on each; it refuses if any branch has moved. Afterwards, 32 older data versions that only the branches' histories hold (not `main`'s history, not #507's retained head) live only in the bundle, on the desktop and on Drive. #507 has been closed since 2026-09-23. The ticks' Drive copy is done (2026-09-23: `swe-local-only/ticks`, 15 matching, 0 differences). Card 1 (2026-09-25) re-proved (a) and restored the desktop's copy of the bundle; (c), the restore from Drive's copy, is still open |
+| 6 | Delete the four non-`main` branches | **held, under D33.** Three conditions: (a) the root checks 144/0/0; (b) Drive's `swe-data/` equals the root, checked both ways (step 7, card 2); (c) the full-history bundle restores from Drive's copy into an empty repository, with `git fsck --full` clean and the four exact commits present. Then one atomic push deletes the four, with a lease on each; it refuses if any branch has moved. Afterwards, 32 older data versions that only the branches' histories hold (not `main`'s history, not #507's retained head) live only in the bundle, on the desktop and on Drive. #507 has been closed since 2026-09-23. The ticks' Drive copy is done (2026-09-23: `swe-local-only/ticks`, 15 matching, 0 differences). Card 1 (2026-09-25) re-proved (a) and restored the desktop's copy of the bundle. **Card 2d (2026-10-09, #556) met (b) and (c):** `swe-data/` matches the root both ways by MD5, and the bundle restored from Drive's copy into an empty repository with `fsck` clean and the four tips present (§C.3). The deletion waits for its own Execution Prompt and the Operator's yes at the push |
 | 2b | The data laptop's local-only stores onto the desktop | **abandoned 2026-09-24 (D33):** "we will forget the macbook exists". The MacBook's feature shards and `sim` are not recovered. Nothing is taken from the MacBook for Theta either; the Theta collection on Drive comes home instead (D34), and Theta is still to be collected again later, from a source not yet chosen. The root holds everything Drive's `swe-local-only` held, checked on 2026-09-23 (the desktop's round 3, recorded on `claude/data-home-desktop-round3`): `theta` 17,188 files, `features` 11,858, `option_premium` 155 and `ibkr` 19. Two `ibkr` files differed, so both versions are kept, Drive's under `data_archive/drive-swe-local-only/ibkr/`. **Since D34 (2026-09-26):** Drive's `SmartWheelData/data_processed/theta` (uploaded 2026-07-12/13) held 132,862 Theta files (11,633,788,580 B) at card 1's census. The desktop's 17,188 are among them byte for byte, and the other 115,293 come home in card 2, into `data_archive/drive-legacy/`, beside the live tree. Theta is kept like Bloomberg: nothing that holds it is deleted until the desktop copy and the Drive copy are both proven. |
-| 7 | Drive consolidation (D33): one folder, `swe-data/`, laid out like the root; the old Drive areas (§C.3) checked object by object | **approved 2026-09-24; card 1 done 2026-09-25 (#538):** the census of 7 areas, 332,772 objects, each equal to `rclone size`; the plan, 120,139 files (10,716,801,880 B) to copy home, 0 needing a byte check, 1 unresolved (a credential-shaped file, §C.3); nothing deleted, Drive unchanged. The checking tool comes first, then three desktop cards: (1) prove and plan, with no deletions and no Drive writes; (2) copy home what only Drive holds, build `swe-data/`, check it both ways and run the restore tests from Drive, with no deletions; (3) clean up the proven duplicates from a named list, with the Operator's yes |
+| 7 | Drive consolidation (D33): one folder, `swe-data/`, laid out like the root; the old Drive areas (§C.3) checked object by object | **approved 2026-09-24; card 1 done 2026-09-25 (#538):** the census of 7 areas, 332,772 objects, each equal to `rclone size`; the plan, 120,139 files (10,716,801,880 B) to copy home, 0 needing a byte check, 1 unresolved (a credential-shaped file, §C.3); nothing deleted, Drive unchanged. The checking tool comes first, then three desktop cards: (1) prove and plan, with no deletions and no Drive writes; (2) copy home what only Drive holds, build `swe-data/`, check it both ways and run the restore tests from Drive, with no deletions; (3) clean up the proven duplicates from a named list, with the Operator's yes **Card 2 done 2026-10-09** (cards 2a-i to 2d, #546 to #556): every Drive-only file of the six areas is home and verified, and `swe-data/` is proven both ways, by its count and by both restore tests (§C.3). Card 3 remains |
 
 ## §B. Fill and verify the desktop root (once)
 
@@ -210,12 +210,37 @@ less `_logs/` and the credential-shaped names: 147,811 files, 18,644,236,641 B, 
 matched 147,810 files by MD5 and stopped on one duplicate folder: Drive holds two folders
 named
 `data_archive/drive-legacy/SmartWheelData/data_processed/theta/option_history/ticker=FDX/expiration=20201113`,
-and the older one is empty. `rclone size` and the restore tests have not run, so the copy
-is not yet proven complete.
+and the older one is empty. `rclone size` and the restore tests did not run.
+
+Card 2d, 2026-10-07 to 09 (#556; the same run folder, `swe-data/_logs/d33-card2c/` on the
+desktop), finished the proof.
+- **The duplicate.** rclone's own `dedupe` merged the two folders, scoped to `ticker=FDX/` by
+  its id, with a dry run first and the Operator's yes. It kept the folder holding
+  `data.parquet` (147,522 B) and moved the empty one to Drive's trash.
+- **The check, both ways by MD5:** `147811 the same; 0 only in the root; 0 only in swe-data/;
+  0 differ; 0 could not be checked`.
+- **`rclone size`, with no filter:** 147,811 files, 18,644,236,641 B, the baseline's count
+  and bytes.
+- **The restore tests from Drive:** the manifest's 144 files into an empty folder,
+  `144 ok, 0 missing, 0 mismatched`; and the bundle (1,698,024,795 B, sha256 `ee15dd9c…`,
+  card 1's) into an empty repository, with `fsck` clean and the four data-branch tips
+  present.
+
+So `swe-data/` is proven complete for the root as it stood at card 2c's baseline
+(2026-10-04), which card 2d's end check found unchanged on 2026-10-09.
+
+One lesson for every long Drive listing. rclone v1.74.4 does not retry a failed name lookup
+(it ends at Go's `*net.DNSError`), though it retries a failed connection about 100 times. An
+80-second lapse in name resolution failed one four-hour count. Card 2d's last attempt ran
+with the desktop's DNS set by hand to public resolvers and Google's two API names pinned in
+the hosts file. The pin comes off after the run (`docs/deadlines.md`).
 
 After the consolidation (card 2), this project has one Drive folder, `swe-data/` (above),
-laid out exactly like the desktop root. The routine that keeps it current is recorded
-here once card 2's proof is complete.
+laid out exactly like the desktop root. Card 2's proof is now complete. The routine that
+keeps the folder current (D33 point 8) is drafted in `PROJECT_STATE.md` §0 B, under
+"Proposed". It waits for the Operator's answer to one question: when a file leaves the
+root, does it leave `swe-data/` too? It is recorded here once agreed. Until then nothing
+refreshes `swe-data/`.
 
 ---
 

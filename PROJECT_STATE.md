@@ -1,6 +1,11 @@
 # Project State
 
-**Last updated:** 2026-10-07 (close after #554, `main` at `c32b6ed`. Desktop card 2c
+**Last updated:** 2026-10-09 (close after #556, `main` at `49c297f`. Desktop card 2d
+cleared the duplicate Drive folder and finished card 2c's proof: `swe-data/` matches the root
+both ways by MD5 (147,811 files), its count with no filter is the baseline's (147,811 files,
+18,644,236,641 B), and both restore tests pass. D31 step 6's three conditions are met; the
+deletion of the four data branches waits for its own card and the Operator's yes (#556).
+2026-10-07: close after #554, `main` at `c32b6ed`. Desktop card 2c
 made `swe-data/` on Drive and uploaded all 147,811 files of the root. Its check matched
 147,810 of them and stopped on a duplicate folder Drive had made, so the count and the
 restore tests did not run (#554).
@@ -103,14 +108,15 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `c32b6ed` (2026-10-07). Others on `origin`:
+**Branches:** `main` is at `49c297f` (2026-10-09). Others on `origin`:
 - the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
   `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
   `data/drive-migration`;
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 Merging a pull request deletes its head branch on GitHub (a repository setting). So
-`claude/data-home-desktop-round3` went when #538 merged, on 2026-09-26. All its commits
+`claude/data-home-desktop-round3` went when #538 merged, on 2026-09-26, and
+`claude/d33-card2d` when #556 merged, on 2026-10-09. All its commits
 are in `main`, and the PR page can restore it. The desktop's checkout still has it
 locally.
 
@@ -329,8 +335,8 @@ locally.
       The one made 95 seconds later (`1UEtEA6GtmPuLDNjT3D53Z7adt-ECz2jZ`) holds the file,
       `data.parquet` (147,522 B). Most likely a reply from Drive was lost and rclone made
       the folder again, the hazard the card names.
-    - So `rclone size` and both restore tests did not run, and D31 step 6 is not
-      satisfied.
+    - So `rclone size` and both restore tests did not run, and D31 step 6 was not
+      satisfied. Card 2d finished both (below).
     - The end check read "no finding": the root gained only `SHA256SUMS`. The manifest
       check read 144/0/0 by full hash.
     - The Operator renewed the Drive sign-in during the upload (2026-10-05, 06:19 UTC,
@@ -338,6 +344,99 @@ locally.
       to it with no error. The Executor did not know of it; its sign-in checks all passed.
     - As after card 2b, the Executor saved a note to Claude's local memory on the desktop
       after the report. That is not one of the project's records.
+  - Desktop card 2d, 2026-10-07 to 09, recorded in #556 (`49c297f`). It cleared the
+    duplicate folder and ran card 2c's driver again, unchanged, in card 2c's run folder
+    (the root's `_logs/d33-card2c/`, outside git). The pen checked the Run Summary
+    (PR #556 comment 6072528597) and step 7's output (14 parts from comment 6072529006)
+    against the PR, through four independent checkers and a skeptic (OPERATING_MODEL.md
+    §4.5).
+    - **The repair.** G1 was asked on 2026-10-07 at about 14:56 UTC with the dry run's one
+      line, and the Operator answered yes. rclone's own `dedupe`, on `ticker=FDX/` alone (by
+      its Drive id, with `--fast-list`, `--max-delete 0` and `--drive-use-trash=true`), kept
+      the folder holding `data.parquet` (147,522 B) and moved the empty one to Drive's trash,
+      recoverable for 30 days. `ticker=FDX` went from 515 objects to 514, each name once.
+      The pen read Drive before and after.
+    - **The first run** (2026-10-07 15:04 UTC to 2026-10-08 07:41 UTC) failed three
+      attempts. In `a2`, name lookups failed from 15:42:17 UTC, and the check ended
+      `exit 1 (986.4 min)` with 38,780 folders unlisted. `a3` and `a4` each ended
+      `rclone about exited 3221225794` (0xC0000142): these were the first programs the
+      driver started after the Executor's session ended, when the Operator closed VS Code
+      before bed. That left `check/RUN-STOP-1.txt`, so one more three-attempt failure of
+      the check would have been final.
+    - **Amendment 1** (#544 comment 6057077651) started the second run in a window of its
+      own (10:01:08 UTC on 2026-10-08), after a test call, with a tripwire for programs
+      that cannot start. In `a5` the check passed (220.1 min), but the count failed: rclone
+      counted 900 errors (899 ERROR lines), all `no such host`, from 15:10:06 to 15:11:27
+      UTC. In `a6` the check (220.2 min) and the count both passed. The restore passed on
+      its first attempt.
+    - **The results**, from step 7's output (parts 13 and 14):
+      - `147811 the same; 0 only in the root; 0 only in swe-data/; 0 differ; 0 could not
+        be checked`;
+      - `147811 files, 18,644,236,641 B: the baseline's count and bytes`;
+      - the manifest's 144 files from Drive: `144 ok, 0 missing, 0 mismatched`;
+      - the bundle from Drive, 1,698,024,795 B, sha256 `ee15dd9c…` (card 1's), fetched
+        into an empty repository with `fsck exit 0`, no config tying it elsewhere, and the
+        four tips present;
+      - `== END run`, `run exit 0`.
+
+      Step 8 found the root unchanged against card 2c's baseline (gone 0, size changed 0,
+      bytes changed 0, added 0) and the manifest at 144/0/0 by full hash. Nothing was
+      deleted anywhere but the one empty Drive folder.
+    - **What the run taught**, for every Drive card to come:
+      - rclone v1.74.4 never retries a failed name lookup: the error chain ends at Go's
+        `*net.DNSError`, which is neither a timeout nor temporary. It does retry a failed
+        connection, about 100 times. The pen read this in rclone's source, and a fresh
+        context confirmed it.
+      - The Operator set the desktop's DNS by hand on 2026-10-08 (1.1.1.1 and 8.8.8.8, in
+        place of 10.0.0.50 by DHCP) at about 08:30 UTC. They pinned `www.googleapis.com`
+        and `oauth2.googleapis.com` in the hosts file at 18:02:52 UTC, 36 minutes after
+        `a6`'s check began, so the pin covered `a6`'s count only. After the pin, no lookup
+        failed in about seven hours of listing; the run cannot prove the pin was the cause.
+      - The cause of the failures is not established. The Executor's read of the System
+        event log (attested) showed no link drop. Two MediaTek Wi-Fi driver entries
+        bracket the 80-second burst, so that hypothesis stays open. The Operator ruled, by
+        18:11 UTC, to leave Wi-Fi as it is.
+    - **The evaluation** found the outcome fully evidenced. The gaps below do not touch it.
+      - **Corrections to the fragment**, which is the Executor's, so the pen records them
+        here:
+        - Item 1 gives the event-log finding and the two MediaTek entries to the first
+          outage, but they belong to the 15:08–15:14 UTC window of `a5`'s burst.
+        - The long-outage window, stated as 18:30Z to 08:00Z, does not cover the outage's
+          start at 15:42 UTC. rclone's log stamps are local time, UTC+3.
+        - "The three `RETRY:` lines are quoted in What didn't": they are not. They are in
+          step 7's comment, parts 1 and 13.
+        - "The fix that worked" over-credits the pin.
+        - "Six check attempts" counts card 2c's `a1`; this card made five, `a2` to `a6`.
+        - "Nothing was deleted anywhere" leaves out the one trashed folder.
+        - `<the folder's Drive id>` stands for `ticker=FDX`'s id in the dedupe line, and
+          for `swe-data/`'s in the check and size lines.
+      - **Missing from the Run Summary:**
+        - the background time-limit line (card step 0, Resuming row 17, amendment 1 item 1);
+        - `swe-card2d-run7b.log`, which it twice says is pasted;
+        - each block run from a file: its path, sha256 and comparison with the card's block
+          (the pen asked for these, 6054871334), and `run7b.sh`'s text and diff;
+        - the event-log queries' bounds and output.
+
+        Several runtime facts are attested only: the DNS and registry reads, the process
+        listing, the tripwire's stand-down, `a2`'s counts and "the wireless adapter was
+        down". Headings 4, 6 and 9 follow card 2c's set, not §4.4's titles, as #554's did.
+        Its "about 59 hours" from step 0 to the push cannot be right: the span is at most
+        about 41 hours.
+      - **Requested:** one read-only addendum from the next desktop session carrying those
+        items, and the Executor's correction of its fragment.
+    - **Process slips.** The Executor's, both declared: the background wait it "cancelled"
+      survived and ran step 2 at 09:41:11 UTC (`swe-card2d-step2b.txt`, a valid test call),
+      and two stray files were written under `%TEMP%\claude\…` and left in place. The
+      pen's: its "start nothing" rested on a stale picture, since `a2` had already ended;
+      and its note of the Wi-Fi ruling says about 18:20 UTC, though it was posted at 18:11.
+    - **Left on the desktop:**
+      - the restore tests' copies (175 files, 5,140,134,098 B, under
+        `%TEMP%\swe-card2d-scratch`);
+      - the hosts pin, with `hosts.bak-card2d` beside it;
+      - the hand-set DNS.
+
+      The Executor again saved notes to Claude's local memory on the desktop. Those are not
+      among the project's records.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -388,10 +487,10 @@ locally.
        verified: it finds what is left, and the verify is the coverage evidence.
        **2b is done** (#552, above): every Drive file in the six areas has a
        byte-identical copy at home;
-     - 2c: `swe-data/` on Drive and the restore tests. **2c is partly done** (#554,
-       above): the upload is complete and 147,810 of its 147,811 files match; a duplicate
-       folder stopped the check before the count and the restore tests, which card 2d
-       finishes.
+     - 2c: `swe-data/` on Drive and the restore tests. **2c is done, with card 2d**
+       (#554 and #556, above): `swe-data/` is proven both ways by MD5, by its count
+       with no filter, and by both restore tests.
+     **Card 2 is done.**
      Card 3 then takes its own fresh census and hashed inventory; card 2's
      forecast is never deletion authority. The card:
      - copies home everything of this project's that exists only on Drive, into
@@ -409,9 +508,12 @@ locally.
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
        root, and the bundle into an empty repository.
-  2. **D31 step 6, under D33.** It runs after card 2. The four data branches are
-     deleted in one atomic push with a lease on each, and only with the Operator's
-     yes. #507 has been closed since 2026-09-23.
+  2. **D31 step 6, under D33.** Card 2d met its three conditions (#556): the root at
+     144/0/0, `swe-data/` equal to the root both ways, and the bundle restored from
+     Drive's copy, with `fsck` clean and the four tips present. The four data branches
+     are deleted by an Execution Prompt of their own: each tip is checked first, then
+     one atomic push removes all four, with a lease on each, and only with the
+     Operator's yes at the push. #507 has been closed since 2026-09-23.
   3. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
      the card first. Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a
@@ -424,27 +526,29 @@ locally.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-- **Next action.** Finish card 2c, in two parts, once the Operator answers:
-  1. Card 2d, a desktop Executor's change run, first merges the two folders with rclone's
-     own duplicate-folder repair (`rclone dedupe`), scoped to `ticker=FDX/` and shown by a
-     dry run first. rclone v1.74.4 keeps the folder that holds the most (the one with
-     `data.parquet`, `1UEtEA6GtmPuLDNjT3D53Z7adt-ECz2jZ`) and moves the empty one
-     (`1vmXZWDo79BKXkgi0-YtHHyfH7uQi_D20`) to Drive's trash, where it stays recoverable
-     for 30 days. The card then lists the parent by id: one `expiration=20201113` folder
-     must remain, holding `data.parquet`. It is a deletion on Drive, so the card carries
-     the Operator's yes to that action. Codex's review of #555 moved this step from the
-     pen to the Executor: the pen does not change data on Drive itself.
-  2. The card then runs card 2c's driver again, unchanged, in the same run folder. Its plan
-     and upload are DONE, so it runs the two-way check, `rclone size` with no filter, and
-     both restore tests: about 7 to 8 hours, unattended, with nothing uploaded and nothing
-     else deleted. The check first compares the root with the baseline by name and
-     size, so nothing may write to the root until card 2d ends. The Dashboard's `update`
-     stays on hold: card 2c's Executor said it could resume, and the pen asked the
-     Operator on 2026-10-07 to keep holding it.
+  5. **The hosts pin comes off** (the Operator; `docs/deadlines.md`). Run the removal
+     command in #544 comment 6065992701, which restores `hosts.bak-card2d`, then look in
+     Defender's Protection history for a `HostsFileHijack` entry. Left in place, the
+     pinned addresses go stale and break Google's API clients on the desktop.
+  6. **D33 point 8, keeping `swe-data/` current.** Card 2's proof is complete, so the
+     routine is due. A draft is under "Proposed"; it waits for one answer from the
+     Operator. Until a routine is agreed, nothing refreshes `swe-data/`, which holds the
+     root as it stood at card 2c's baseline (2026-10-04, unchanged through card 2d's end
+     check on 2026-10-09).
+  7. **Card 2d's addendum**, read only, from the next desktop session: the evidence the
+     evaluation lists above, and the Executor's correction of its fragment.
+- **Next action.**
+  1. Now, the Operator removes the hosts pin (Remains 5).
+  2. D31 step 6: once the Operator says "authorize", the pen writes its Execution Prompt
+     (Remains 2), checked by a fresh context before it is sent.
+  3. Card 2d's addendum (Remains 7) runs in the next desktop session.
 
-  Asked of the Operator on 2026-10-07: has the Dashboard's `update` run since card 2c
-  reported; and is the Google Cloud app behind rclone in "Testing" or "In production"?
-  If it is in "Testing", the sign-in made on 2026-10-05 ends on 2026-10-12 at 06:19 UTC.
+  The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
+  census before it deletes anything.
+
+  Asked of the Operator on 2026-10-07 and still open: is the Google Cloud app behind
+  rclone in "Testing" or "In production"? If it is in "Testing", the sign-in made on
+  2026-10-05 ends on 2026-10-12 at 06:19 UTC, before card 3 or any other Drive read.
   Still open from before: the Operator deletes the credential file forever from Drive's
   trash, rotates the Flex token, and decides whether the desktop's `stash@{0}` (the stray
   paste) is dropped.
@@ -469,9 +573,31 @@ locally.
   - Card 2b, the rest of Drive ("yes, go ahead with card 2b", 2026-10-01): done in
     #552.
   - Card 2c, `swe-data/` on Drive ("yes, go ahead with card 2c", 2026-10-03): ran in
-    #554, and stopped at the check on a duplicate Drive folder, whose removal needs its
-    own yes (above).
+    #554, and stopped at the check on a duplicate Drive folder.
+  - Card 2d ("2. yes", 2026-10-07): the duplicate removed with rclone's `dedupe`, the
+    empty folder to Drive's trash, then card 2c's checks. G1's "yes" came on 2026-10-07
+    at about 14:56 UTC. Amendment 1, the pen's, was passed to the Executor by the
+    Operator on 2026-10-08. Done in #556. The DNS change and the hosts pin of 2026-10-08
+    were the Operator's own acts on the desktop.
 - **Proposed, not authorized.**
+  - **D33 point 8, the refresh routine** (a draft). After a data change in the root, run
+    an `rclone copy`, never a `sync`, of the root to `swe-data/`, with the tool's
+    exclusions. Then check both ways by checksum, and compare `rclone size` with the
+    root's count, as card 2d's step 7 did.
+    - One question for the Operator first: when a file leaves the root, does it leave
+      `swe-data/` too? `copy` keeps it there, and the two-way check then reports it.
+      `sync` deletes it on Drive.
+    - Name resolution must hold for the whole run (see card 2d).
+  - **For the next long cards:**
+    - ship long blocks as files fetched from GitHub and checked by sha256, as the driver
+      is, not as heredocs through the terminal's transport;
+    - start long runs in a window of their own, with a tripwire (amendment 1);
+    - write the background time-limit line into a step file, so a check owns it;
+    - keep name resolution steady: a hosts pin for Google's API names, or a driver that
+      retries a failed lookup.
+  - **A rule-book question:** the cards' Run Summary template names headings 4, 6 and 9
+    differently from `OPERATING_MODEL.md` §4.4 ("Opportunistic fixes", "What I did not
+    do", "Risks"). Either align §4.4, or have the cards use its titles word for word.
   - A census cache for the consolidation tool, so that a retry need not list Drive
     again (card 2b's Run Summary, heading 12). The pen's view: not now. Knowing that an
     area is unchanged takes a fresh listing, and the copy step's listings are the

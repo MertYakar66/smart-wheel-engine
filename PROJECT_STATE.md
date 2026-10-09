@@ -575,8 +575,13 @@ desktop's checkout still has the round 3 branch locally.
        GitHub: `scripts/data_manifest.py`'s docstring and its materialize hint
        (`git fetch origin <branch>`, which `tests/test_data_manifest.py` asserts);
        `scripts/pull_iv_surface.py`'s note on pushing slices to `deep-history/bloomberg-raw`;
-       and `docs/FRESH_LAB_BOX_SETUP.md`, whose lab procedure still pushes deep slices to
-       that branch;
+       and `tests/test_deep_read_connector.py`'s note. The hint should name the method the
+       first fill now uses: restore the bundle into a repository of its own, then
+       `materialize --repo` it. A fetch into a checkout that already holds the commits adds
+       no missing files (Codex on #560, reproduced by the pen);
+     - `docs/FRESH_LAB_BOX_SETUP.md` is marked retired as written: its steps still check out
+       and push data branches. It is rewritten by its own prompt only if a Bloomberg lab box
+       is used again;
      - filling the desktop checkout's object store, so its keep-refs hold the four tips'
        whole trees (approved, by its own prompt: below). It is smaller than #559 says:
        65 of the 71 missing files come from GitHub by an ordinary lazy fetch, and only 6

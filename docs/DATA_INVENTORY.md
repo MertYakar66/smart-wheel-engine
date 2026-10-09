@@ -43,12 +43,12 @@ under it; unset = the repository folder, the old behaviour — `docs/DATA_POLICY
 ## §B. Fill and verify the desktop root (once)
 
 ```powershell
-# the four commits the non-main rows come from are no longer on GitHub (step 6, 2026-10-09): fetch them
-# from the full-history bundle (on a new root, copy it first from Drive's swe-data\data_archive\git\)
-$b = "D:\swe-data\data_archive\git\smart-wheel-engine-all-refs-2026-09-23.bundle"
-$k = "refs/kept/d31-step6"
-git fetch $b "refs/remotes/origin/deep-history/bloomberg-raw:$k/deep-history/bloomberg-raw" "refs/remotes/origin/claude/daybot-bloomberg-pull:$k/claude/daybot-bloomberg-pull" "refs/remotes/origin/backup/drive-tier-c-2026-07-22:$k/backup/drive-tier-c-2026-07-22" "refs/remotes/origin/data/drive-migration:$k/data/drive-migration"
-python scripts/data_manifest.py materialize --root D:\swe-data   # creates only what is missing; verifies every byte; never overwrites
+# the four data branches left GitHub on 2026-10-09 (step 6): restore the full-history bundle into a
+# repository of its own (on a new root, copy the bundle first from Drive's swe-data\data_archive\git\)
+git init --bare D:\swe-history.git
+git -C D:\swe-history.git fetch D:\swe-data\data_archive\git\smart-wheel-engine-all-refs-2026-09-23.bundle "+refs/*:refs/*"
+git -C D:\swe-history.git fsck --full --no-dangling                                    # expect exit 0
+python scripts/data_manifest.py materialize --root D:\swe-data --repo D:\swe-history.git   # creates only what is missing; verifies every byte; never overwrites
 python scripts/data_manifest.py check --root D:\swe-data         # expect: checked 144 manifest files: 144 ok, 0 missing, 0 mismatched
 python scripts/data_manifest.py census --root D:\swe-data        # presence by dataset group
 ```

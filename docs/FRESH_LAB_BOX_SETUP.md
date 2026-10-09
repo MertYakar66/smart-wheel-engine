@@ -1,5 +1,13 @@
 # Fresh lab-box bring-up — pulling Bloomberg from a transient machine
 
+> **Retired as written (2026-10-09).** Under D31, market data never goes into git. The
+> branches this guide checks out and pushes to are gone: `data/bloomberg-refresh-2026-06-02`
+> earlier, and `deep-history/bloomberg-raw` on 2026-10-09 (D31 step 6). Do not follow its
+> `git checkout`, `git commit` or `git push` steps for data, nor the appendix's prompt. The
+> Terminal is no longer available (`docs/DATA_POLICY.md`). If a Bloomberg lab box is used
+> again, this guide is rewritten first, by its own Execution Prompt, so the pull lands in a
+> data root (`SWE_DATA_ROOT`) and reaches the desktop root, never git.
+
 Use this when you sit down at a **fresh or shared machine that has a Bloomberg
 Terminal** and want to pull data into the repo — a university lab box, a
 borrowed desktop, any managed workstation where **nothing of ours persists**

@@ -274,15 +274,17 @@ working unchanged; the root is what lets the checkout become disposable.
 **First fill, in this order (each step verified before the next):**
 
 ```powershell
-# 1. the deep slices, the day-bot ticks and the archive rows come from four commits that
-#    GitHub no longer holds (D31 step 6, 2026-10-09). Fetch them from the full-history
-#    bundle; on a new root, copy it first from Drive's swe-data\data_archive\git\
-$b = "D:\swe-data\data_archive\git\smart-wheel-engine-all-refs-2026-09-23.bundle"
-$k = "refs/kept/d31-step6"
-git fetch $b "refs/remotes/origin/deep-history/bloomberg-raw:$k/deep-history/bloomberg-raw" "refs/remotes/origin/claude/daybot-bloomberg-pull:$k/claude/daybot-bloomberg-pull" "refs/remotes/origin/backup/drive-tier-c-2026-07-22:$k/backup/drive-tier-c-2026-07-22" "refs/remotes/origin/data/drive-migration:$k/data/drive-migration"
+# 1. restore the full-history bundle into a repository of its own, outside the root and the
+#    checkout (about 1.7 GB). It holds every commit the manifest's git_sources name, the four
+#    data branches' among them: those left GitHub on 2026-10-09 (D31 step 6). On a new root,
+#    copy the bundle first from Drive's swe-data\data_archive\git\. Do not fetch it into
+#    the checkout: a checkout that already holds those commits gains no missing files.
+git init --bare D:\swe-history.git
+git -C D:\swe-history.git fetch D:\swe-data\data_archive\git\smart-wheel-engine-all-refs-2026-09-23.bundle "+refs/*:refs/*"
+git -C D:\swe-history.git fsck --full --no-dangling   # expect exit 0
 # 2. create every manifest file that is missing from the root, byte-verified;
 #    nothing that already exists is overwritten (a differing file is reported)
-python scripts/data_manifest.py materialize --root D:\swe-data
+python scripts/data_manifest.py materialize --root D:\swe-data --repo D:\swe-history.git
 # 3. prove the root: expect "<N> ok, 0 missing, 0 mismatched" — N = the manifest's rows (144 on 2026-09-23)
 python scripts/data_manifest.py check --root D:\swe-data
 python scripts/data_manifest.py census --root D:\swe-data

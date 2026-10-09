@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-09 (close after #559, `main` at `6b75aee`. D31 step 6 is
+**Last updated:** 2026-10-09 (close after #561, `main` at `a0e59a0`. The data_manifest hint
+fix: `materialize` names the bundle restore for a deleted branch and the fetch for `main`,
+and a test restores a bundle end to end (#561).
+Earlier the same day: close after #559, `main` at `6b75aee`. D31 step 6 is
 done: the four data branches are gone from GitHub, deleted in one atomic push with a lease
 on each after the Operator's yes; `main` and `refs/pull/507/head` are untouched, and the four
 commits are in the full-history bundle, on the desktop and on Drive (#559).
@@ -112,7 +115,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `6b75aee` (2026-10-09). Others on `origin`:
+**Branches:** `main` is at `a0e59a0` (2026-10-09). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -122,8 +125,8 @@ Their commits are in the full-history bundle, and `refs/pull/507/head` still hol
 
 Merging a pull request deletes its head branch on GitHub (a repository setting). So
 `claude/data-home-desktop-round3` went when #538 merged, on 2026-09-26, and
-`claude/d33-card2d` when #556 merged, and `claude/d31-step6` when #559 merged, both on
-2026-10-09. All their commits are in `main`, and each PR page can restore its branch. The
+`claude/d33-card2d` when #556 merged, `claude/d31-step6` when #559 merged and
+`claude/data-manifest-bundle-hint` when #561 merged, all on 2026-10-09. All their commits are in `main`, and each PR page can restore its branch. The
 desktop's checkout still has the round 3 branch locally.
 
 ### 0 A. Business direction
@@ -496,6 +499,16 @@ desktop's checkout still has the round 3 branch locally.
           commit proves the commit, not its tree.
         - A "can no longer be fetched" claim needs the fetch attempt pasted.
         - A step's own redirect creates its file before the step's body runs.
+  - The data_manifest hint fix, 2026-10-09, merged in #561 (`a0e59a0`) by the pen, with CI
+    green (9 of 9 on `5613277`). It ran in a cloud Executor session from #544 comment
+    6087402728. `materialize`'s message for a missing object now names the bundle restore
+    for a branch D31 step 6 deleted, and `git fetch origin main` or the restored bundle for
+    `main`. A new test restores a bundle into a bare repository and fills a root from it.
+    Two code notes and one registry row agree. The pen evaluated it in a context that did
+    not write it: the card's changes are in the diff word for word, the old text is gone
+    from `scripts/` and `tests/`, the touched tests pass (18 passed, 7 skipped), and the
+    renamed test fails on `main`'s old script (1 failed, 14 passed). Codex's automatic
+    review found nothing. The Run Summary is PR #561 comment 6087805535.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -567,26 +580,17 @@ desktop's checkout still has the round 3 branch locally.
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
        root, and the bundle into an empty repository.
-  2. **After D31 step 6** (done, #559, above). This close corrected the records that
-     named the four branches as live: `docs/DATA_POLICY.md`'s first fill and
-     `docs/DATA_INVENTORY.md` §A, §B and §2 now fetch the four commits from the bundle.
-     Still to do:
-     - one Execution Prompt for what is code, or a procedure that would put data back on
-       GitHub: `scripts/data_manifest.py`'s docstring and its materialize hint
-       (`git fetch origin <branch>`, which `tests/test_data_manifest.py` asserts);
-       `scripts/pull_iv_surface.py`'s note on pushing slices to `deep-history/bloomberg-raw`;
-       and `tests/test_deep_read_connector.py`'s note. The hint should name the method the
-       first fill now uses: restore the bundle into a repository of its own, then
-       `materialize --repo` it. A fetch into a checkout that already holds the commits adds
-       no missing files (Codex on #560, reproduced by the pen);
+  2. **After D31 step 6** (done, #559, above). The records that named the four branches as
+     live were corrected at #559's close; the code's hint, its test and two code notes in
+     #561 (above). Left:
      - `docs/FRESH_LAB_BOX_SETUP.md` is marked retired as written: its steps still check out
        and push data branches. It is rewritten by its own prompt only if a Bloomberg lab box
-       is used again;
-     - filling the desktop checkout's object store, so its keep-refs hold the four tips'
-       whole trees (approved, by its own prompt: below). It is smaller than #559 says:
-       65 of the 71 missing files come from GitHub by an ordinary lazy fetch, and only 6
-       need the bundle (§0 B, Done). A plain `git fetch` from the bundle adds nothing here,
-       because the commits are already present.
+       is used again.
+
+     Dropped: filling the desktop checkout's object store from the bundle. The Operator had
+     approved it by its own prompt, then dropped it on 2026-10-09 ("drop it"). The four
+     tips' whole trees stay in the bundle; the desktop's keep-refs hold the commits and
+     every blob the manifest needs.
   3. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
      the card first. Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a
@@ -611,17 +615,20 @@ desktop's checkout still has the round 3 branch locally.
   7. **Card 2d's addendum**, read only, from the next desktop session: the evidence the
      evaluation lists above, and the Executor's correction of its fragment.
 - **Next action.**
-  1. Card 2d's addendum (Remains 7) runs in the next desktop session, read only. Its
-     evidence sits in the desktop's `%TEMP%` and event log, which are not kept forever.
-  2. Then D31 step 6's follow-ups (Remains 2): the pen writes one Execution Prompt for the
-     code and the lab procedure, and one for filling the desktop's object store.
+  1. Card 2d's addendum (Remains 7), read only, on the desktop. Its evidence sits in the
+     desktop's `%TEMP%` and event log, which are not kept forever. Its pull request waits
+     for the Operator's yes to the fragment corrections beyond the evaluation's.
+  2. Card 3 (Remains 3): its design goes to Codex for review before any card is written.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.
 
   Asked of the Operator on 2026-10-07 and still open: is the Google Cloud app behind
-  rclone in "Testing" or "In production"? If it is in "Testing", the sign-in made on
-  2026-10-05 ends on 2026-10-12 at 06:19 UTC, before card 3 or any other Drive read.
+  rclone in "Testing" or "In production"? The Operator signed in again on 2026-10-09,
+  pasting `Success!` at 18:54 UTC. If the app is in "Testing", that sign-in ends about
+  2026-10-16 at 18:54 UTC. The first attempt failed: Windows refused rclone's sign-in
+  port, 127.0.0.1:53682, which lay inside a range the Windows NAT driver (WinNAT) had
+  reserved (53671–53770). `net stop winnat`, the sign-in, then `net start winnat` fixed it.
   Still open from before: the Operator deletes the credential file forever from Drive's
   trash, rotates the Flex token, and decides whether the desktop's `stash@{0}` (the stray
   paste) is dropped.
@@ -656,7 +663,10 @@ desktop's checkout still has the round 3 branch locally.
   - The Operator's answers to #559's open questions (2026-10-09, put by the Executor):
     keep the desktop's local `data/drive-migration` branch ("Keep it"); fill the desktop
     checkout's object store from the bundle, by its own prompt ("Yes, but via its own
-    prompt").
+    prompt"). The fill was dropped later the same day ("drop it").
+  - The data_manifest hint fix ("authorize the data_manifest hint fix", 2026-10-09): done
+    in #561.
+  - Card 2d's addendum ("authorize card 2d's addendum", 2026-10-09).
 - **Proposed, not authorized.**
   - **D33 point 8, the refresh routine** (a draft). After a data change in the root, run
     an `rclone copy`, never a `sync`, of the root to `swe-data/`, with the tool's

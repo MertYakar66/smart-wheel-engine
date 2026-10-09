@@ -2,9 +2,9 @@
 id: data-manifest-bundle-hint
 title: The data_manifest hint: the bundle, not deleted branches
 kind: fix
-status: in-flight
+status: merged
 terminal: remote-sandbox
-pr:
+pr: 561
 decisions: [D31]
 date: 2026-10-09
 headline: materialize names the bundle restore for a deleted branch and the fetch for main; a test restores a bundle end to end

@@ -109,7 +109,7 @@ step.)
 
 | Path | Regen via | Size |
 |---|---|---|
-| `data/bloomberg/`, `data_raw/` | not regenerable — the Terminal is gone; the desktop root + Drive (`materialize` can still read the bytes from git history until the data branches are deleted) | 536 MB + 365 MB deep + 491 MB ticks |
+| `data/bloomberg/`, `data_raw/` | not regenerable — the Terminal is gone; the desktop root + Drive's `swe-data/`. `materialize` can still read the bytes from git history: `main`'s on GitHub, and since D31 step 6 (2026-10-09) the four deleted branches' commits from the full-history bundle (first fill, step 1) | 536 MB + 365 MB deep + 491 MB ticks |
 | `data_processed/` | `scripts/pull_all.py` | many GB across theta sub-dirs |
 | `data/features/**/ticker=*/` | `scripts/backfill_features.py` | ~1.2 GB |
 | `dashboard/node_modules/` | `npm install` | ~hundreds of MB |

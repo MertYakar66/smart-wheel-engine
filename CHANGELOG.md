@@ -14,11 +14,12 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-09 — D31 step 6: the four data branches deleted; main untouched (desktop)
+## 2026-10-09 — D31 step 6: the four data branches deleted; main untouched (desktop; #559, `6b75aee`)
 
-**Docs** — GitHub is no longer a data store: the four data-carrier branches are gone, deleted in
-one atomic push with a lease on each, on the Operator's `yes` at the run's one gate (campaign
-#544). Nothing else was deleted anywhere, and no history was rewritten.
+**Docs** — GitHub no longer carries the four data branches (D33 point 7; `main`'s history keeps
+its own data until the purge the Operator decides later). They were deleted in one atomic push
+with a lease on each, on the Operator's `yes` at the run's one gate (campaign #544). Nothing
+else was deleted anywhere, and no history was rewritten.
 - **The push, first and only attempt.** `git push --atomic --porcelain` with four
   `--force-with-lease=refs/heads/<branch>:<tip>` options and four `:refs/heads/<branch>` delete
   refspecs printed four `[deleted]` lines in name order, `Done` and `push exit 0`. Its own gate

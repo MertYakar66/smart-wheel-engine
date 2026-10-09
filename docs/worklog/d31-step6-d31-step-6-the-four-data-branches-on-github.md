@@ -2,9 +2,9 @@
 id: d31-step6
 title: D31 step 6: the four data branches on GitHub
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 559
 decisions: [D31, D33]
 date: 2026-10-09
 headline: The four data branches deleted from GitHub in one atomic push with a lease on each; main and refs/pull/507/head untouched, and exactly four of the remote's 532 refs went.

@@ -1,6 +1,6 @@
 # Project State
 
-**Last updated:** 2026-10-09 (close after #559, `main` at `MERGEHASH`. D31 step 6 is
+**Last updated:** 2026-10-09 (close after #559, `main` at `6b75aee`. D31 step 6 is
 done: the four data branches are gone from GitHub, deleted in one atomic push with a lease
 on each after the Operator's yes; `main` and `refs/pull/507/head` are untouched, and the four
 commits are in the full-history bundle, on the desktop and on Drive (#559).
@@ -112,7 +112,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `MERGEHASH` (2026-10-09). Others on `origin`:
+**Branches:** `main` is at `6b75aee` (2026-10-09). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -443,6 +443,59 @@ desktop's checkout still has the round 3 branch locally.
 
       The Executor again saved notes to Claude's local memory on the desktop. Those are not
       among the project's records.
+  - D31 step 6, 2026-10-09, recorded in #559 (`6b75aee`). The four data branches are gone
+    from GitHub. The pen checked the Run Summary (PR #559 comment 6083017228) and its
+    addendum (6084035095) against GitHub, through four independent checkers, each finding
+    put to a skeptic (OPERATING_MODEL.md §4.5).
+    - **The push.** After G1's "yes", one `git push --atomic` with a lease on each branch
+      ran once: four `[deleted]` lines, `Done`, `push exit 0`. The pen read GitHub
+      afterwards. `git ls-remote --exit-code` exits 2 for each of the four. `main` did not
+      move from `ed85e1d`, and `refs/pull/507/head` still holds `24835719`. The remote went
+      from 532 refs to 528 (526 `refs/pull/*` before and after, no tags); #559 then added
+      its own two.
+    - **Where the four commits are now:**
+      - in the full-history bundle (1,698,024,795 B, sha256 `ee15dd9c…`), under the root and
+        in Drive's `swe-data/`, which card 2d restored into an empty repository with
+        `fsck --full` clean;
+      - in four never-pushed `refs/kept/d31-step6/<branch>` refs on the desktop;
+      - for `24835719`, also in `refs/pull/507/head`.
+
+      GitHub still serves the other three commits by id, as unreferenced objects, until its
+      own clean-up. No record names GitHub as their source.
+    - **The card was wrong twice.** The Executor's read-only audit before G1 found both, and
+      the pen confirmed them:
+      - the desktop has a local branch at one of the tips, `data/drive-migration`. The
+        Operator ruled to keep it ("Keep it");
+      - the desktop's checkout is a blobless partial clone. Its keep-refs hold the four
+        commits and every blob the manifest's 144 rows need, but not the whole trees.
+
+      The step 0 Expected list was wrong too: `files already here:` always names the step's
+      own file, because the redirect creates it first.
+    - **The evaluation found the outcome fully evidenced.** Every step file is pasted whole,
+      and the step files in the fragment and in the Run Summary are identical. CI was green
+      on all nine checks. The corrections below concern the records, not the deletion.
+      - **Corrections to the fragment and the Run Summary**, which are the Executor's, so the
+        pen records them here:
+        - "74 of them can no longer be fetched from GitHub" is false, and the pen repeated it
+          to the Operator before G1. The 75 absences at the four tips are 71 distinct files.
+          69 of the 75 are still reachable on GitHub, through `main`'s history or
+          `refs/pull/507/head`. Only 6 distinct files are kept in the bundle alone: four
+          June 2026 session transcripts and `scripts/pull_context_index.py` at `68a48b24`,
+          and an older `docs/DATA_INVENTORY.md` at `597cc6af`. All four tips can still be
+          checked out in full from the bundle.
+        - The fragment's Goal credits card 1 with restoring Drive's copy of the bundle. Card
+          1 restored the desktop's copy; card 2d restored Drive's.
+        - "(32 of 984, …)" divides missing blobs by all objects at the tip: commits, trees and
+          blobs together.
+        - "§B already carries the replacement two lines down": it did not. This close
+          replaced the first-fill step instead.
+        - 532, the ref count before the push, is the audit's figure, not pasted output.
+          Heading 10 gives no PR URL, and its 528 predates #559's own refs.
+      - **What the run taught:**
+        - A card must not assume the checkout it runs in is complete. `cat-file -e` on a
+          commit proves the commit, not its tree.
+        - A "can no longer be fetched" claim needs the fetch attempt pasted.
+        - A step's own redirect creates its file before the step's body runs.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -524,8 +577,11 @@ desktop's checkout still has the round 3 branch locally.
        `scripts/pull_iv_surface.py`'s note on pushing slices to `deep-history/bloomberg-raw`;
        and `docs/FRESH_LAB_BOX_SETUP.md`, whose lab procedure still pushes deep slices to
        that branch;
-     - filling the desktop checkout's object store from the bundle, so its keep-refs hold
-       the four tips' whole trees (approved, by its own prompt: below).
+     - filling the desktop checkout's object store, so its keep-refs hold the four tips'
+       whole trees (approved, by its own prompt: below). It is smaller than #559 says:
+       65 of the 71 missing files come from GitHub by an ordinary lazy fetch, and only 6
+       need the bundle (§0 B, Done). A plain `git fetch` from the bundle adds nothing here,
+       because the commits are already present.
   3. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
      the card first. Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a

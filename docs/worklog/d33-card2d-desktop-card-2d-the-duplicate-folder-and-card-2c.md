@@ -2,9 +2,9 @@
 id: d33-card2d
 title: Desktop card 2d: the duplicate folder, and card 2c's check and restore tests (D33)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 556
 decisions: [D33]
 date: 2026-10-09
 headline: The duplicate Drive folder is cleared and swe-data/ is proven: 147,811 files the same both ways by MD5, 147,811 files and 18,644,236,641 B by count with no filter, and both restore tests pass — so D31 step 6's evidence now exists.

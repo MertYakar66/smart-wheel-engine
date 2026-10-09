@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-09 — D33 card 2d: the duplicate folder, and swe-data's checks (desktop)
+## 2026-10-09 — D33 card 2d: the duplicate folder, and swe-data's checks (desktop; #556, `49c297f`)
 
 **Docs** — the duplicate is cleared and the second copy is proven: `swe-data/` on Drive now
 matches the desktop root both ways by checksum, equals it by count and bytes with no filter, and

@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-09 — data_manifest: materialize names the bundle restore, not deleted branches
+## 2026-10-09 — data_manifest: materialize names the bundle restore, not deleted branches (cloud; #561, `a0e59a0`)
 
 **Fixed** — `scripts/data_manifest.py materialize` no longer tells anyone to `git fetch origin
 <branch>` for the four data branches D31 step 6 deleted (campaign #544).

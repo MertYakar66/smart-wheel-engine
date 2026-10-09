@@ -432,7 +432,7 @@ locally.
     - **Left on the desktop:**
       - the restore tests' copies (175 files, 5,140,134,098 B, under
         `%TEMP%\swe-card2d-scratch`);
-      - the hosts pin, with `hosts.bak-card2d` beside it;
+      - the hosts pin, until the Operator removed it on 2026-10-09 (Remains 5);
       - the hand-set DNS.
 
       The Executor again saved notes to Claude's local memory on the desktop. Those are not
@@ -526,10 +526,10 @@ locally.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.
-  5. **The hosts pin comes off** (the Operator; `docs/deadlines.md`). Run the removal
-     command in #544 comment 6065992701, which restores `hosts.bak-card2d`, then look in
-     Defender's Protection history for a `HostsFileHijack` entry. Left in place, the
-     pinned addresses go stale and break Google's API clients on the desktop.
+  5. **The hosts pin is off** (2026-10-09). The Operator ran the removal command in #544
+     comment 6065992701, which restores `hosts.bak-card2d`, and pasted its output,
+     `pin removed`. Still to report: whether Defender's Protection history shows a
+     `HostsFileHijack` entry from the run.
   6. **D33 point 8, keeping `swe-data/` current.** Card 2's proof is complete, so the
      routine is due. A draft is under "Proposed"; it waits for one answer from the
      Operator. Until a routine is agreed, nothing refreshes `swe-data/`, which holds the
@@ -538,10 +538,9 @@ locally.
   7. **Card 2d's addendum**, read only, from the next desktop session: the evidence the
      evaluation lists above, and the Executor's correction of its fragment.
 - **Next action.**
-  1. Now, the Operator removes the hosts pin (Remains 5).
-  2. D31 step 6: once the Operator says "authorize", the pen writes its Execution Prompt
+  1. D31 step 6: once the Operator says "authorize", the pen writes its Execution Prompt
      (Remains 2), checked by a fresh context before it is sent.
-  3. Card 2d's addendum (Remains 7) runs in the next desktop session.
+  2. Card 2d's addendum (Remains 7) runs in the next desktop session.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.

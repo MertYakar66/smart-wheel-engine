@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-10-09 (close after #556, `main` at `49c297f`. Desktop card 2d
+**Last updated:** 2026-10-09 (close after #559, `main` at `MERGEHASH`. D31 step 6 is
+done: the four data branches are gone from GitHub, deleted in one atomic push with a lease
+on each after the Operator's yes; `main` and `refs/pull/507/head` are untouched, and the four
+commits are in the full-history bundle, on the desktop and on Drive (#559).
+Earlier the same day: close after #556, `main` at `49c297f`. Desktop card 2d
 cleared the duplicate Drive folder and finished card 2c's proof: `swe-data/` matches the root
 both ways by MD5 (147,811 files), its count with no filter is the baseline's (147,811 files,
 18,644,236,641 B), and both restore tests pass. D31 step 6's three conditions are met; the
@@ -108,17 +112,19 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `49c297f` (2026-10-09). Others on `origin`:
-- the four data branches that D31 step 6 deletes: `deep-history/bloomberg-raw`,
-  `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and
-  `data/drive-migration`;
+**Branches:** `main` is at `MERGEHASH` (2026-10-09). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
+
+D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
+`claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and `data/drive-migration`.
+Their commits are in the full-history bundle, and `refs/pull/507/head` still holds
+`24835719` on GitHub.
 
 Merging a pull request deletes its head branch on GitHub (a repository setting). So
 `claude/data-home-desktop-round3` went when #538 merged, on 2026-09-26, and
-`claude/d33-card2d` when #556 merged, on 2026-10-09. All its commits
-are in `main`, and the PR page can restore it. The desktop's checkout still has it
-locally.
+`claude/d33-card2d` when #556 merged, and `claude/d31-step6` when #559 merged, both on
+2026-10-09. All their commits are in `main`, and each PR page can restore its branch. The
+desktop's checkout still has the round 3 branch locally.
 
 ### 0 A. Business direction
 
@@ -508,12 +514,18 @@ locally.
        list;
      - runs the restore tests from Drive: the 144 manifest files into an empty
        root, and the bundle into an empty repository.
-  2. **D31 step 6, under D33.** Card 2d met its three conditions (#556): the root at
-     144/0/0, `swe-data/` equal to the root both ways, and the bundle restored from
-     Drive's copy, with `fsck` clean and the four tips present. The four data branches
-     are deleted by an Execution Prompt of their own: each tip is checked first, then
-     one atomic push removes all four, with a lease on each, and only with the
-     Operator's yes at the push. #507 has been closed since 2026-09-23.
+  2. **After D31 step 6** (done, #559, above). This close corrected the records that
+     named the four branches as live: `docs/DATA_POLICY.md`'s first fill and
+     `docs/DATA_INVENTORY.md` §A, §B and §2 now fetch the four commits from the bundle.
+     Still to do:
+     - one Execution Prompt for what is code, or a procedure that would put data back on
+       GitHub: `scripts/data_manifest.py`'s docstring and its materialize hint
+       (`git fetch origin <branch>`, which `tests/test_data_manifest.py` asserts);
+       `scripts/pull_iv_surface.py`'s note on pushing slices to `deep-history/bloomberg-raw`;
+       and `docs/FRESH_LAB_BOX_SETUP.md`, whose lab procedure still pushes deep slices to
+       that branch;
+     - filling the desktop checkout's object store from the bundle, so its keep-refs hold
+       the four tips' whole trees (approved, by its own prompt: below).
   3. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
      the card first. Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a
@@ -538,9 +550,10 @@ locally.
   7. **Card 2d's addendum**, read only, from the next desktop session: the evidence the
      evaluation lists above, and the Executor's correction of its fragment.
 - **Next action.**
-  1. D31 step 6: once the Operator says "authorize", the pen writes its Execution Prompt
-     (Remains 2), checked by a fresh context before it is sent.
-  2. Card 2d's addendum (Remains 7) runs in the next desktop session.
+  1. Card 2d's addendum (Remains 7) runs in the next desktop session, read only. Its
+     evidence sits in the desktop's `%TEMP%` and event log, which are not kept forever.
+  2. Then D31 step 6's follow-ups (Remains 2): the pen writes one Execution Prompt for the
+     code and the lab procedure, and one for filling the desktop's object store.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.
@@ -578,6 +591,11 @@ locally.
     at about 14:56 UTC. Amendment 1, the pen's, was passed to the Executor by the
     Operator on 2026-10-08. Done in #556. The DNS change and the hosts pin of 2026-10-08
     were the Operator's own acts on the desktop.
+  - D31 step 6 ("authorize D31 step 6", 2026-10-09): G1's "yes" the same day. Done in #559.
+  - The Operator's answers to #559's open questions (2026-10-09, put by the Executor):
+    keep the desktop's local `data/drive-migration` branch ("Keep it"); fill the desktop
+    checkout's object store from the bundle, by its own prompt ("Yes, but via its own
+    prompt").
 - **Proposed, not authorized.**
   - **D33 point 8, the refresh routine** (a draft). After a data change in the root, run
     an `rclone copy`, never a `sync`, of the root to `swe-data/`, with the tool's

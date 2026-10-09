@@ -274,8 +274,12 @@ working unchanged; the root is what lets the checkout become disposable.
 **First fill, in this order (each step verified before the next):**
 
 ```powershell
-# 1. the non-main branches hold the deep slices, the day-bot ticks and the archive rows
-git fetch origin deep-history/bloomberg-raw claude/daybot-bloomberg-pull backup/drive-tier-c-2026-07-22 data/drive-migration
+# 1. the deep slices, the day-bot ticks and the archive rows come from four commits that
+#    GitHub no longer holds (D31 step 6, 2026-10-09). Fetch them from the full-history
+#    bundle; on a new root, copy it first from Drive's swe-data\data_archive\git\
+$b = "D:\swe-data\data_archive\git\smart-wheel-engine-all-refs-2026-09-23.bundle"
+$k = "refs/kept/d31-step6"
+git fetch $b "refs/remotes/origin/deep-history/bloomberg-raw:$k/deep-history/bloomberg-raw" "refs/remotes/origin/claude/daybot-bloomberg-pull:$k/claude/daybot-bloomberg-pull" "refs/remotes/origin/backup/drive-tier-c-2026-07-22:$k/backup/drive-tier-c-2026-07-22" "refs/remotes/origin/data/drive-migration:$k/data/drive-migration"
 # 2. create every manifest file that is missing from the root, byte-verified;
 #    nothing that already exists is overwritten (a differing file is reported)
 python scripts/data_manifest.py materialize --root D:\swe-data

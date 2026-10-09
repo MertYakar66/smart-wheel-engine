@@ -4,15 +4,16 @@ Pins: build hashes every data file under the three conventional dirs and skips
 code; check exits 0 on a byte-identical root and 1 on a missing or altered
 file, naming it; --group narrows the check; census counts presence by group;
 materialize creates only the files missing from a root, byte-verified from the
-git objects the manifest names, never overwrites, and names the branch to
-fetch when an object is absent; an archive row (data_archive/, D31) is read
-from its git_path and written to its own path; build carries the ledger
-metadata (git_sources, drive, per-file git_source and git_path) over from the
-manifest it replaces; build records the data frontier (the last date of the
-dated datasets) and keeps the previous one when the file is absent (D32); the
-committed data/DATA_MANIFEST.json parses with the expected schema, covers the
-datasets git held (bloomberg, broad_pull, deep, ticks) and records a frontier;
-and git tracks no market data under the data trees (D31).
+git objects the manifest names, never overwrites, and names the bundle restore
+for a deleted branch, and the fetch for ``main``, when an object is absent; an
+archive row (data_archive/, D31) is read from its git_path and written to its
+own path; build carries the ledger metadata (git_sources, drive, per-file
+git_source and git_path) over from the manifest it replaces; build records the
+data frontier (the last date of the dated datasets) and keeps the previous one
+when the file is absent (D32); the committed data/DATA_MANIFEST.json parses
+with the expected schema, covers the datasets git held (bloomberg, broad_pull,
+deep, ticks) and records a frontier; and git tracks no market data under the
+data trees (D31).
 
 Fixture files are written as bytes so the git round trip is byte-stable on
 Windows, where ``write_text`` emits CRLF and ``core.autocrlf`` may rewrite it.
@@ -226,7 +227,7 @@ def test_materialize_fills_an_empty_root_and_verifies(tmp_path, git_repo_with_da
     assert not list(target.rglob("*.materializing"))
 
 
-def test_materialize_never_overwrites_and_names_the_branch_to_fetch(
+def test_materialize_never_overwrites_and_names_the_bundle_restore(
     tmp_path, git_repo_with_data, capsys
 ):
     repo, manifest, m = git_repo_with_data
@@ -245,8 +246,51 @@ def test_materialize_never_overwrites_and_names_the_branch_to_fetch(
     assert rc == 1
     assert altered.read_text() == "operator's newer bytes\n"  # kept, not overwritten
     assert "MISMATCH   data/bloomberg/sp500_ohlcv.csv" in text
-    assert "git fetch origin data-branch" in text
+    assert "restore the full-history bundle into a repository of its own" in text
+    assert "--repo" in text
+    assert "git fetch origin data-branch" not in text
     assert "1 mismatched (kept, not overwritten), 2 unavailable" in text
+
+
+def test_materialize_names_the_fetch_for_main(tmp_path, git_repo_with_data, capsys):
+    repo, manifest, m = git_repo_with_data
+    m2 = json.loads(manifest.read_text())
+    for f in m2["files"]:
+        f["git_source"] = "git:main"
+    m2["git_sources"] = {"git:main": "0" * 40}
+    manifest.write_text(json.dumps(m2))
+    target = tmp_path / "desktop"
+    rc = dm.main(
+        ["materialize", "--root", str(target), "--manifest", str(manifest), "--repo", str(repo)]
+    )
+    text = capsys.readouterr().out
+    assert rc == 1, text
+    assert "git fetch origin main" in text
+    assert "restore the full-history bundle into a repository of its own" not in text
+
+
+def test_materialize_from_a_restored_bundle(tmp_path, git_repo_with_data, capsys):
+    """The documented first fill (docs/DATA_POLICY.md), end to end: bundle the
+    history, restore it into a bare repository of its own, then materialize."""
+    repo, manifest, m = git_repo_with_data
+    bundle = tmp_path / "all.bundle"
+    history = tmp_path / "h.git"
+    _git(repo, "bundle", "create", str(bundle), "--all")
+    subprocess.run(["git", "init", "-q", "--bare", str(history)], check=True)
+    _git(history, "fetch", "-q", str(bundle), "+refs/*:refs/*")
+    fsck = subprocess.run(
+        ["git", "-C", str(history), "fsck", "--full", "--no-dangling"], capture_output=True
+    )
+    assert fsck.returncode == 0, fsck.stderr
+    target = tmp_path / "desktop"
+    rc = dm.main(
+        ["materialize", "--root", str(target), "--manifest", str(manifest), "--repo", str(history)]
+    )
+    text = capsys.readouterr().out
+    assert rc == 0, text
+    assert "wrote 3" in text
+    assert dm.main(["check", "--root", str(target), "--manifest", str(manifest)]) == 0
+    assert "3 ok, 0 missing, 0 mismatched" in capsys.readouterr().out
 
 
 def test_materialize_dry_run_writes_nothing(tmp_path, git_repo_with_data, capsys):

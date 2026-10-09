@@ -10,8 +10,9 @@ Two tiers:
   when present, a delisted name returns its last bar, the rotation invariant holds
   post-assembly, and schema parity.
 
-The deep + delisted gz are not committed (they live on the buffer branch), so the
-assembly assertions run locally against a materialized data dir and skip in CI.
+The deep + delisted gz are not committed (they live under ``data/bloomberg/deep/``
+in the data root, D31), so the assembly assertions run locally against a
+materialized data dir and skip in CI.
 """
 
 from __future__ import annotations

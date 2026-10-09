@@ -6,11 +6,12 @@ material for put-side strike selection and skew/term-structure signals.
 
 WIDE layout (operator decision 2026-06-05): one row per (date,ticker) with one
 IV column per tenor x moneyness. ~4x smaller than the tidy-long alternative, so
-the gz fits GitHub's 100 MB limit on the deep-history buffer branch (the tidy
+the gz fitted GitHub's 100 MB limit on the deep-history buffer branch, which
+carried the June 2026 slices until D31 step 6 deleted it (2026-10-09) (the tidy
 long shape melts out of this in one line downstream). Like the other deep
 per-name panels it is grown in an OFF-MONOLITH scratch via SWE_OUT_PATH and
-carved to a gz on `deep-history/bloomberg-raw`; the connector read-path is
-deferred (see worklog DEFER).
+carved to a gz under `data/bloomberg/deep/` in the data root (D31: data never
+goes into git); the connector read-path is deferred (see worklog DEFER).
 
 Grid (VERIFIED 2026-06-05 on AAPL -- the worklog's "90DAY/120DAY/180DAY" tokens
 are INVALID; Bloomberg uses 30DAY/60DAY then 3MTH/6MTH/12MTH; moneyness is fixed

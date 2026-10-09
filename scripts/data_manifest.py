@@ -7,6 +7,12 @@ objects themselves (2026-09-18: the tracked ``data/`` tree on ``main``, the 13
 deep-history slices on ``deep-history/bloomberg-raw`` and the 15 day-bot tick
 files on ``claude/daybot-bloomberg-pull``), so it is the exact checklist a
 data root must satisfy before anything is removed from git (DECISIONS.md D31).
+The two branches other than ``main`` named here, and two more data branches
+(``backup/drive-tier-c-2026-07-22`` and ``data/drive-migration``), were deleted
+from GitHub on 2026-10-09 (D31 step 6); ``main`` was not. Their commits are in
+the full-history bundle,
+``data_archive/git/smart-wheel-engine-all-refs-2026-09-23.bundle``, kept in the
+data root and in Drive's ``swe-data/``.
 
 Usage (from the repository root, or anywhere with ``--manifest``)::
 
@@ -14,13 +20,18 @@ Usage (from the repository root, or anywhere with ``--manifest``)::
     python scripts/data_manifest.py census --root D:\\smart-wheel-data   # what is present, by dataset group
     python scripts/data_manifest.py build  --root D:\\smart-wheel-data --out data/DATA_MANIFEST.json
     python scripts/data_manifest.py check  --root .  --group deep          # only one dataset group
-    python scripts/data_manifest.py materialize --root D:\\smart-wheel-data  # copy git-held files into the root
+    python scripts/data_manifest.py materialize --root D:\\smart-wheel-data --repo D:\\swe-history.git  # copy git-held files into the root
 
 ``materialize`` fills a root from the git objects the manifest names
 (``git_sources``: branch → commit). It only ever *creates* files that are
 missing from the root — an existing file is never overwritten, a mismatching one
 is reported — and it verifies every byte it writes against the manifest sha256.
-Run it BEFORE any data branch is deleted (``git fetch origin <branch>`` first).
+The data branches' commits now come from the full-history bundle: restore it
+into a repository of its own (``git init --bare``, then
+``git fetch <bundle> "+refs/*:refs/*"``) and pass that repository as
+``--repo``. ``docs/DATA_POLICY.md``'s first fill gives the commands. A fetch
+from the bundle into a checkout that already holds those commits adds none of
+their missing files.
 
 ``data_archive/`` holds bytes kept for the record, not read by the engine: every
 distinct data file found at the tip of a branch other than ``main`` that no
@@ -321,9 +332,15 @@ def cmd_materialize(args: argparse.Namespace) -> int:
         spec = f"{commit}:{f.get('git_path') or f['path']}"
         if not _git_has_object(repo, spec):
             branch = src.split(":", 1)[1] if src and ":" in src else src
-            unavailable.append(
-                f"{f['path']}: object {commit[:9]} absent — git fetch origin {branch}"
+            how = (
+                "git fetch origin main (a shallow clone also needs --unshallow), or pass a"
+                " repository restored from the full-history bundle as --repo"
+                " (docs/DATA_POLICY.md, first fill)"
+                if branch == "main"
+                else "restore the full-history bundle into a repository of its own and pass it"
+                " as --repo (docs/DATA_POLICY.md, first fill)"
             )
+            unavailable.append(f"{f['path']}: object {commit[:9]} absent — {how}")
             continue
         if args.dry_run:
             print(f"  WOULD WRITE {f['path']} ({f['size']} bytes from {src})")

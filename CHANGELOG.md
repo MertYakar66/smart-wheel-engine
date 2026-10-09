@@ -14,6 +14,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-09 — data_manifest: materialize names the bundle restore, not deleted branches
+
+**Fixed** — `scripts/data_manifest.py materialize` no longer tells anyone to `git fetch origin
+<branch>` for the four data branches D31 step 6 deleted (campaign #544).
+- A missing object from a branch other than `main` now names the full-history bundle, restored
+  into a repository of its own and passed as `--repo` (`docs/DATA_POLICY.md`, first fill); one
+  from `main` names `git fetch origin main` or the restored bundle. Its logic and exit codes are
+  unchanged; the module docstring, its usage line and two stale code notes now say the same.
+- `tests/test_data_manifest.py`: the renamed message test (fails on the old script), a test for
+  the `main` hint, and `test_materialize_from_a_restored_bundle`, the documented procedure end to
+  end (`wrote 3`, then `3 ok, 0 missing, 0 mismatched`). Fast lane: 3245 passed, 273 skipped.
+
 ## 2026-10-09 — D31 step 6: the four data branches deleted; main untouched (desktop; #559, `6b75aee`)
 
 **Docs** — GitHub no longer carries the four data branches (D33 point 7; `main`'s history keeps

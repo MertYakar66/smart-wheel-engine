@@ -14,6 +14,42 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-09 — D33 card 2d: the duplicate folder, and swe-data's checks (desktop)
+
+**Docs** — the duplicate is cleared and the second copy is proven: `swe-data/` on Drive now
+matches the desktop root both ways by checksum, equals it by count and bytes with no filter, and
+both restore tests pass — so the evidence D31 step 6 and D33 point 7 require now exists (campaign
+#544; the deletion of the four data branches is still a later card's, with the Operator's yes).
+- **The duplicate, repaired once and read before and after.** Under `swe-data/`'s `ticker=FDX`,
+  rclone's own `dedupe` merged the two folders named `expiration=20201113`: it kept the folder
+  holding `data.parquet` (147,522 B) and moved the empty one to Drive's trash, recoverable for 30
+  days. `ticker=FDX` then held 514 objects, each name once — one fewer than the 515 read before,
+  and the same ids less the trashed folder. The gate G1 carried the Operator's `yes` with the dry
+  run's line in front of them; `--max-delete 0` refused any file deletion, and the dry run was run
+  again seconds before the repair. Nothing else on Drive was written, moved or deleted.
+- **The copy is proven, three ways.** `147811 the same; 0 only in the root; 0 only in swe-data/;
+  0 differ; 0 could not be checked` by MD5, both ways; `147811 files, 18,644,236,641 B` by
+  `rclone size` with no filter, equal to the baseline's count and bytes; and both restore tests
+  from Drive — the manifest's 144 files into an empty folder at `144 ok, 0 missing, 0 mismatched`,
+  and the bundle at `1,698,024,795 B, sha256 ee15dd9c…`, fetched into an empty repository with
+  `fsck exit 0`, no config tying it elsewhere, and all four data-branch tips present.
+- **What it cost: two runs, six check attempts, and a name-resolution fault.** The first run lost
+  38,780 folder listings to failed name lookups over 986.4 min, then spent two attempts on
+  `rclone about exited 3221225794` (`0xC0000142`) and left `check/RUN-STOP-1.txt`. In the second
+  run a clean 220.1-min check was thrown away when its count hit 900 name-lookup failures in
+  eighty seconds. The cause is that rclone v1.74.4 never retries a failed name lookup, while it
+  retries a failed connection about 100 times: the error chain ends at Go's `*net.DNSError`, which
+  is neither a timeout nor temporary. The Operator set the desktop's DNS by hand, and Google's two
+  API names were later pinned in the desktop's hosts file. The attempt that ran clean end to end
+  had already begun about 36 minutes before that pin, so the clean result cannot be credited to it;
+  what the evidence shows is that the hand-set DNS alone was not sufficient, and that no lookup
+  failed again after the pin.
+- **The root is untouched.** The end check read `gone 0, size changed 0, bytes changed 0 of 147811
+  hashed, added 0` against card 2c's baseline and `== endstate: no finding`; the manifest check
+  read 144/0/0 by full hash. `SHA256SUMS` is still card 2c's, sha256
+  `e22d8579bed1ce7a81a90ccb1096d0397a29de8471f8b56f466f05f13f882989`. Nothing was deleted
+  anywhere, on the desktop or on Drive, beyond the one empty folder the Operator authorised.
+
 ## 2026-10-07 — D33 card 2c: swe-data on Drive (desktop; #554, `c32b6ed`)
 
 **Docs** — the second copy is on Drive, and one duplicate folder stopped the proof: `swe-data/`

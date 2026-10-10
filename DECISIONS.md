@@ -1696,7 +1696,7 @@ file's row removed); and the full audit evidence in the batch worklogs.
 
 ## D29. Restart rulings of 2026-09-16 — one protocol, no news code, short-dated menu, no Bloomberg
 
-**PARTLY SUPERSEDED by D32 (2026-09-23):** ruling 2's "two equally authorised Strategist implementations" (Codex is now the read-only second opinion), and v3's `CLAUDE.md`-as-pointer (it is now the checklist). Everything else in D29 stands.
+**PARTLY SUPERSEDED by D32 (2026-09-23):** ruling 2's "two equally authorised Strategist implementations" (Codex is now the read-only second opinion), and v3's `CLAUDE.md`-as-pointer (it is now the checklist). **Amended by D32 and D35:** rulings 3 and 13 say the Operator merges; D32 lets the pen merge when necessary, with CI green, for work the Operator authorized, and D35 lets it merge while the Operator is away, within `OPERATING_MODEL.md` §3.1's exception. Everything else in D29 stands.
 
 **Status:** ADOPTED (Operator rulings given in the restart session of 2026-09-16, recorded by the Strategist at the Operator's direction). Analysis behind them: `docs/RESTART_BRIEF_2026-09-11.md`. Plan of record: `docs/RESTART_PLAN_2026-09-16.md`.
 
@@ -2143,44 +2143,68 @@ changes"):
 
 ## D35. The pen may merge while the Operator is away, within limits (2026-10-10)
 
-**Decision.** Confirmed by the Operator on 2026-10-10, "yes to both", to two questions
-from the pen. The first allowed the desktop session to run card 2d's addendum kit. The
-second is this decision: "May I merge overnight? Only work you authorized by name, only
-with CI green, and never the decision-layer trio, CI settings or data."
+**Decision.** Confirmed by the Operator on 2026-10-10, in three steps:
+- "yes to both", to two questions from the pen. The first allowed the desktop session to
+  run card 2d's addendum kit. The second was "May I merge overnight? Only work you
+  authorized by name, only with CI green, and never the decision-layer trio, CI settings
+  or data.";
+- "Write D35 and the rule-book changes as you drafted them". The draft added three points
+  to the question: the close after such a merge counts as part of the same work; data
+  includes the data ledger; an Executor never merges while the Operator is away;
+- PENDING-OPERATOR-YES, to the text below. A fresh-context check of the draft (PR #563)
+  found places where it could be read more widely than the Operator meant, and this text
+  closes them.
 
-1. **While the Operator is away, the pen may merge a pull request into `main` only when
-   all of these hold:**
-   - the Operator authorized that piece of work by name before going away. The close
-     that follows its merge (`OPERATING_MODEL.md` §3.2) is part of the same work;
+1. **When the Operator is away.** From the moment they sign off until they next write.
+   When the pen is unsure, the Operator is away.
+2. **While the Operator is away, the pen may merge a pull request into `main` only when
+   all of these hold** (`OPERATING_MODEL.md` §3.1 carries the full text):
+   - the Operator authorized that piece of work by name before going away, as recorded
+     under Authorized in `PROJECT_STATE.md` §0 B. A plan the Operator was only shown does
+     not count. The close that follows the merge is part of the same work, and touches
+     only the close's own files;
    - CI is green on the pull request's head;
-   - the diff touches none of: the decision-layer trio, CI or environment
-     configuration, and data, which includes the data ledger `data/DATA_MANIFEST.json`;
-   - the diff does nothing else on `OPERATING_MODEL.md` §3.1's hard-blocked list: it
-     deletes no file, and writes no `DECISIONS.md` entry or §7 invariant.
-2. **Everything else on the hard-blocked list still waits for the Operator.** An
-   Executor never merges while the Operator is away.
-3. **The record.** The pen posts each such merge on the campaign issue, and its morning
+   - a context that did not write the work has checked it (`OPERATING_MODEL.md` §2.4),
+     with nothing blocking.
+     A close needs no such check;
+   - the diff touches none of: the decision-layer trio, the launch-blocker tests and the
+     modules `OPERATING_MODEL.md` §9.8 ties to the backtest regression; CI or environment configuration
+     (named file by file in §3.1); data and the data ledger `data/DATA_MANIFEST.json`;
+     the rule-books;
+   - it deletes no file, rewrites no history, and touches nothing involving real capital
+     or a brokerage credential.
+3. **Everything else on the hard-blocked list still waits for the Operator.** An Executor
+   never merges while the Operator is away.
+4. **The record.** The pen posts each such merge on the campaign issue, and its morning
    summary names it.
 
 **Why.**
-- On the night of 2026-10-09 the Operator signed off at 19:04Z. The pen then merged
-  #561 (the data_manifest hint fix) at 19:30Z and #562 (its close) at 19:42Z. Both were
-  in the night plan the Operator had been shown, and CI was green. But §3.1 listed
-  merging to `main` as hard-blocked while the Operator is away, and the pen had not
-  raised the conflict (#544 comment 6089154809). This ruling makes the rule fit what the
-  nights need.
+- On the night of 2026-10-09 the Operator signed off at 19:04Z. The pen then merged #561
+  at 19:30Z and #562, its close, at 19:42Z. The Operator had authorized the work
+  ("authorize the data_manifest hint fix", 2026-10-09), and CI was green. But §3.1
+  listed merging to `main` as hard-blocked while the Operator is away. That the night
+  plan the Operator was shown included the merge did not change that, and the pen had not
+  raised the conflict (#544 comment 6089154809).
 - The Operator's aim for the nights, 2026-10-09: "Use this night time effective".
   Without overnight merges, finished and authorized work waits 8 to 10 hours for the
   morning, and so does the close after it.
-- The limits keep attended the changes that shape decisions or cannot be taken back
-  quietly: the trio (§7, decision integrity), CI and environment configuration, data
-  (D31, D33), deletions, and new decisions or invariants.
+- The limits keep attended whatever shapes decisions or cannot be taken back quietly:
+  - the decision layer and its guards (`OPERATING_MODEL.md` §7 decision integrity, §9.2
+    and §9.8);
+  - the checks that decide whether CI is green, since a pull request could otherwise
+    loosen the check that judges it;
+  - data (D31, D33);
+  - the rule-books, which the Operator approves word for word;
+  - deletions, history and the brokerage.
 
 **Rejected alternatives.**
 - **Keep the strict rule** (no merge while the Operator is away). The Operator chose
-  otherwise; it leaves authorized, green work idle every night.
-- **Let Executors merge overnight too.** Not asked for. An Executor still needs the
-  Operator's yes for each pull request (`CLAUDE.md` §6).
+  otherwise. It leaves authorized, green work idle every night.
+- **Let Executors merge overnight too.** Not asked for. An Executor merges only with the
+  Operator's yes for that pull request, and never while the Operator is away.
+- **The first draft's wording** (PR #563 before the check). It left "CI or environment
+  configuration", "data", "authorized by name" and "away" undefined. It also let an
+  overnight merge edit the rule-books or the checks CI runs.
 
 **Pinned by.**
 - `OPERATING_MODEL.md` §3.1 (the exception), with pointers in §2 Leg 2 and §5;

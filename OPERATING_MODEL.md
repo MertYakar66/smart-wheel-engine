@@ -154,11 +154,16 @@ The Operator is offline for 8 to 10 hours most nights. Work may continue in that
 - **Blocked, then move on.** An Executor that cannot proceed posts `BLOCKED n` with exactly what is needed and continues with other commands. It never fabricates, never guesses past a gate, and never reaches outside its `<owns>`.
 - **Two polls without an answer to a question, then documented best judgment** — only for decisions outside the hard-blocked list; the decision is written into the report.
 - **The hard-blocked list while the Operator is away:** merging to `main`, except the pen's merge in the next bullet; any history rewrite; any edit to the decision-layer trio; writing a `DECISIONS.md` entry or a §7 invariant; deleting files; changing CI or environment configuration; anything touching real capital or a brokerage credential. These wait for the Operator, full stop.
-- **The one exception: the pen's merge** (`DECISIONS.md` D35, 2026-10-10). While the Operator is away, the pen may merge a pull request into `main` only when all of these hold:
-  - the Operator authorized that piece of work by name before going away. The close that follows its merge (§3.2) is part of the same work;
-  - CI is green on the pull request's head;
-  - the diff touches none of: the decision-layer trio, CI or environment configuration, and data, which includes the data ledger `data/DATA_MANIFEST.json`;
-  - the diff does nothing else on this list: it deletes no file, and writes no `DECISIONS.md` entry or §7 invariant.
+- **The one exception: the pen's merge** (`DECISIONS.md` D35, 2026-10-10). The Operator is away from the moment they sign off until they next write; when the pen is unsure, the Operator is away. While the Operator is away, the pen may merge a pull request into `main` only when all of these hold:
+  - **The Operator authorized that piece of work by name before going away:** their "authorize …" for it, or their yes to it by name, recorded under Authorized in `PROJECT_STATE.md` §0 B. A plan the Operator was only shown does not count. The close that follows the merge (§3.2) is part of the same work, and it touches only the files §3.2 names, the worklog fragments' status and `docs/worklog/INDEX.md`.
+  - **CI is green** on the pull request's head.
+  - **A context that did not write the work has checked it** (§2.4), and the check is posted on the pull request or the campaign issue with nothing blocking. A close needs no such check.
+  - **The diff touches none of these:**
+    - the decision-layer trio; the launch-blocker tests (§9.2, `TESTING.md`); `engine/forward_distribution.py`, `engine/dealer_positioning.py` and `engine/tail_risk.py`, which §9.8 ties to the backtest regression;
+    - CI or environment configuration: anything under `.github/`, `.claude/`, `.codex/` or `.agents/`; the scripts `.github/workflows/` runs as checks, such as `scripts/check_*.py`; `conftest.py`, `pyproject.toml`, `requirements*.txt`, `dashboard/package*.json` and `.pre-commit-config.yaml`;
+    - data: the data itself, wherever it lives, and the data ledger `data/DATA_MANIFEST.json`. Code that reads or writes data is not data;
+    - the rule-books: `CLAUDE.md`, `AGENTS.md`, this document and `DECISIONS.md`.
+  - **The diff does nothing else on this list:** it deletes no file, rewrites no history, and touches nothing involving real capital or a brokerage credential.
 
   The pen posts each such merge on the campaign issue, and its morning summary names it. An Executor never merges while the Operator is away.
 - **Stand-down.** When the Operator returns or the campaign closes, every session deletes its timers and loops and posts that it did so. No loop outlives its campaign.

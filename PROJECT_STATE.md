@@ -1,9 +1,9 @@
 # Project State
 
 **Last updated:** 2026-10-10 (D35: while the Operator is away, the pen may merge only work
-the Operator authorized by name, with CI green, touching neither the decision-layer trio,
-CI or environment configuration nor data, deleting no file and adding no decision or
-invariant; `OPERATING_MODEL.md` §3.1 and `CLAUDE.md` §6 carry it. The night of 2026-10-09:
+the Operator authorized by name, with CI green and a check by another context, touching
+none of the decision layer and its guards, CI or environment configuration, data or the
+rule-books, and deleting nothing; `OPERATING_MODEL.md` §3.1 and `CLAUDE.md` §6 carry it. The night of 2026-10-09:
 card 3's design posted for Codex's review; card 2d's addendum stopped at step 2 on the
 desktop's permission check, and the Operator said yes to running its kit.
 Earlier, 2026-10-09: close after #561, `main` at `a0e59a0`. The data_manifest hint
@@ -619,16 +619,18 @@ desktop's checkout still has the round 3 branch locally.
      Operator. Until a routine is agreed, nothing refreshes `swe-data/`, which holds the
      root as it stood at card 2c's baseline (2026-10-04, unchanged through card 2d's end
      check on 2026-10-09).
-  7. **Card 2d's addendum**, read only, on the desktop: the evidence the evaluation lists
-     above, and the Executor's correction of its fragment. The card is #544 comment
-     6088910896 and its kit comment 6088830152. The pen started it through the bridge on
-     2026-10-09 at 20:44 UTC. It stopped at step 2 (BLOCKED, comment 6089087132): the
-     desktop session's permission check refused to run a kit fetched from a comment.
-     Step 0 and the kit's sha256 check passed; nothing was committed or pushed. The
-     Operator said yes to running the kit on 2026-10-10; the allow is typed in that
-     session, which then stops at gates G1 and G2.
+  7. **Card 2d's addendum**, a change run on the desktop: read-only evidence, then the
+     Executor's correction of its fragment. The card is #544 comment 6088910896 and its
+     kit comment 6088830152. The pen started it through the bridge on 2026-10-09 at
+     20:44 UTC. It stopped at step 2 (BLOCKED, comment 6089087132). The desktop
+     session's permission check refused `python -P swe-c2da.py` as `[Auto-Mode Bypass]`,
+     and step 1's verify block and `python scripts/session_open.py` as `[Code from
+     External]`. By the Executor's report, step 0 and the kit's sha256 check passed and
+     nothing was committed; no branch was pushed (GitHub). The Operator said yes to
+     running the kit on 2026-10-10; the allow is typed in that session, and it must
+     cover the repository's scripts as well as the kit.
 - **Next action.**
-  1. Card 2d's addendum (Remains 7), read only, on the desktop. Its evidence sits in the
+  1. Card 2d's addendum (Remains 7), on the desktop. Its evidence sits in the
      desktop's `%TEMP%` and event log, which are not kept forever. Its pull request waits
      for the Operator's yes to the fragment corrections beyond the evaluation's.
   2. Card 3 (Remains 3): its design is posted for Codex's review; the card is written after

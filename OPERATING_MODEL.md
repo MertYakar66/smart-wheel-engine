@@ -1,7 +1,7 @@
 # smart-wheel-engine — Operating Model
 
 **Status:** Primary project document. Read this before doing anything else in this repository.
-**Version:** 4 — 2026-09-23. It adds four roles, marks filled from commands, the close, and the checklist files, adopted from the Operator's ORCA project (`DECISIONS.md` D32). It supersedes v3 of 2026-09-16, and v3 superseded every earlier scheme.
+**Version:** 4 — 2026-09-23. It adds four roles, marks filled from commands, the close, and the checklist files, adopted from the Operator's ORCA project (`DECISIONS.md` D32). It supersedes v3 of 2026-09-16, and v3 superseded every earlier scheme. Amended on 2026-10-10: the pen's merge while the Operator is away, §3.1 (`DECISIONS.md` D35).
 **Audience:** Every participant in this project: the human Operator, the Strategist (the pen: Claude Code in a chat with the Operator), the second opinion (Codex), and every Executor.
 **Rule of precedence:** If any other instruction in this project conflicts with this document, this document wins until the Operator amends it. Two files carry the checklist:
 - `CLAUDE.md`, which every Claude session loads by itself. It covers the roles, session-open and the marks, the pen's and the Executor's steps, the close, and what never happens without a yes.
@@ -58,6 +58,8 @@ The brain. A senior quantitative engineer and systems architect: deep expertise 
 - CI is green on the head;
 - the work is something the Operator authorized;
 - nothing is ever pushed to `main` directly.
+
+While the Operator is away, the pen merges only under §3.1's exception (D35).
 
 **Records.** The pen keeps the records: `PROJECT_STATE.md` (§0 is the direction and the handoff), `DECISIONS.md` (only decisions the Operator confirmed), `docs/deadlines.md`, and the close (§3.2). With repository write access, it drafts documents on its own branch. Code, data, CI and invariants reach the repository through an Execution Prompt, even when the same session then executes it (§2.4).
 
@@ -151,7 +153,14 @@ The Operator is offline for 8 to 10 hours most nights. Work may continue in that
 - **Heartbeat at most every 30 minutes** while idle; **poll no faster than every 5 minutes**.
 - **Blocked, then move on.** An Executor that cannot proceed posts `BLOCKED n` with exactly what is needed and continues with other commands. It never fabricates, never guesses past a gate, and never reaches outside its `<owns>`.
 - **Two polls without an answer to a question, then documented best judgment** — only for decisions outside the hard-blocked list; the decision is written into the report.
-- **The hard-blocked list while the Operator is away:** merging to `main`; any history rewrite; any edit to the decision-layer trio; writing a `DECISIONS.md` entry or a §7 invariant; deleting files; changing CI or environment configuration; anything touching real capital or a brokerage credential. These wait for the Operator, full stop.
+- **The hard-blocked list while the Operator is away:** merging to `main`, except the pen's merge in the next bullet; any history rewrite; any edit to the decision-layer trio; writing a `DECISIONS.md` entry or a §7 invariant; deleting files; changing CI or environment configuration; anything touching real capital or a brokerage credential. These wait for the Operator, full stop.
+- **The one exception: the pen's merge** (`DECISIONS.md` D35, 2026-10-10). While the Operator is away, the pen may merge a pull request into `main` only when all of these hold:
+  - the Operator authorized that piece of work by name before going away. The close that follows its merge (§3.2) is part of the same work;
+  - CI is green on the pull request's head;
+  - the diff touches none of: the decision-layer trio, CI or environment configuration, and data, which includes the data ledger `data/DATA_MANIFEST.json`;
+  - the diff does nothing else on this list: it deletes no file, and writes no `DECISIONS.md` entry or §7 invariant.
+
+  The pen posts each such merge on the campaign issue, and its morning summary names it. An Executor never merges while the Operator is away.
 - **Stand-down.** When the Operator returns or the campaign closes, every session deletes its timers and loops and posts that it did so. No loop outlives its campaign.
 - **The Operator reads the campaign issue first thing in the morning.** Everything that happened is there; nothing is in a chat window only.
 
@@ -282,7 +291,7 @@ Rules on top of the tiers:
 - **The central validity question — whether high-EV candidates outperform a simpler benchmark out of sample — is permanently Tier 3.** A backtest is evidence, never proof.
 - **No CI run means not verified.** A pull request with no completed CI run is unverified regardless of local checks. A PR stacked on a non-`main` base triggers no CI — retarget it to `main` before it is treated as verified.
 - **Writer and checker are different contexts** (§2.4). The strongest verification pattern on record is a second executor independently re-running fail-before / pass-after checks in an isolated worktree; use it for anything touching the decision layer.
-- **`main` is not branch-protected (Operator ruling, 2026-09-17).** The Operator alone merges, and only a PR whose head is green in CI; nobody pushes to `main` directly. This is a convention the Operator enforces personally, not a GitHub setting — the Operator chose not to turn protection on.
+- **`main` is not branch-protected (Operator ruling, 2026-09-17).** The Operator merges, or the pen under §2 Leg 2, and while the Operator is away only under §3.1's exception; only a PR whose head is green in CI is merged; nobody pushes to `main` directly. This is a convention the Operator enforces personally, not a GitHub setting — the Operator chose not to turn protection on.
 
 ---
 

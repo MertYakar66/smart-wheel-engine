@@ -2141,6 +2141,52 @@ changes"):
   each pinned by SHA-256);
 - `docs/DATA_INVENTORY.md` §A and §C.3; `PROJECT_STATE.md` §0 B.
 
+## D35. The pen may merge while the Operator is away, within limits (2026-10-10)
+
+**Decision.** Confirmed by the Operator on 2026-10-10, "yes to both", to two questions
+from the pen. The first allowed the desktop session to run card 2d's addendum kit. The
+second is this decision: "May I merge overnight? Only work you authorized by name, only
+with CI green, and never the decision-layer trio, CI settings or data."
+
+1. **While the Operator is away, the pen may merge a pull request into `main` only when
+   all of these hold:**
+   - the Operator authorized that piece of work by name before going away. The close
+     that follows its merge (`OPERATING_MODEL.md` §3.2) is part of the same work;
+   - CI is green on the pull request's head;
+   - the diff touches none of: the decision-layer trio, CI or environment
+     configuration, and data, which includes the data ledger `data/DATA_MANIFEST.json`;
+   - the diff does nothing else on `OPERATING_MODEL.md` §3.1's hard-blocked list: it
+     deletes no file, and writes no `DECISIONS.md` entry or §7 invariant.
+2. **Everything else on the hard-blocked list still waits for the Operator.** An
+   Executor never merges while the Operator is away.
+3. **The record.** The pen posts each such merge on the campaign issue, and its morning
+   summary names it.
+
+**Why.**
+- On the night of 2026-10-09 the Operator signed off at 19:04Z. The pen then merged
+  #561 (the data_manifest hint fix) at 19:30Z and #562 (its close) at 19:42Z. Both were
+  in the night plan the Operator had been shown, and CI was green. But §3.1 listed
+  merging to `main` as hard-blocked while the Operator is away, and the pen had not
+  raised the conflict (#544 comment 6089154809). This ruling makes the rule fit what the
+  nights need.
+- The Operator's aim for the nights, 2026-10-09: "Use this night time effective".
+  Without overnight merges, finished and authorized work waits 8 to 10 hours for the
+  morning, and so does the close after it.
+- The limits keep attended the changes that shape decisions or cannot be taken back
+  quietly: the trio (§7, decision integrity), CI and environment configuration, data
+  (D31, D33), deletions, and new decisions or invariants.
+
+**Rejected alternatives.**
+- **Keep the strict rule** (no merge while the Operator is away). The Operator chose
+  otherwise; it leaves authorized, green work idle every night.
+- **Let Executors merge overnight too.** Not asked for. An Executor still needs the
+  Operator's yes for each pull request (`CLAUDE.md` §6).
+
+**Pinned by.**
+- `OPERATING_MODEL.md` §3.1 (the exception), with pointers in §2 Leg 2 and §5;
+- `CLAUDE.md` §6 and the `AGENTS.md` Appendix, which
+  `scripts/check_working_structure.py` keeps word for word, in CI.
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

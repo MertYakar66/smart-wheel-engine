@@ -1,6 +1,12 @@
 # Project State
 
-**Last updated:** 2026-10-09 (close after #561, `main` at `a0e59a0`. The data_manifest hint
+**Last updated:** 2026-10-10 (D35: while the Operator is away, the pen may merge only work
+the Operator authorized by name, with CI green, touching neither the decision-layer trio,
+CI or environment configuration nor data, deleting no file and adding no decision or
+invariant; `OPERATING_MODEL.md` §3.1 and `CLAUDE.md` §6 carry it. The night of 2026-10-09:
+card 3's design posted for Codex's review; card 2d's addendum stopped at step 2 on the
+desktop's permission check, and the Operator said yes to running its kit.
+Earlier, 2026-10-09: close after #561, `main` at `a0e59a0`. The data_manifest hint
 fix: `materialize` names the bundle restore for a deleted branch and the fetch for `main`,
 and a test restores a bundle end to end (#561).
 Earlier the same day: close after #559, `main` at `6b75aee`. D31 step 6 is
@@ -592,7 +598,8 @@ desktop's checkout still has the round 3 branch locally.
      tips' whole trees stay in the bundle; the desktop's keep-refs hold the commits and
      every blob the manifest needs.
   3. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
-     the card first. Proven duplicates in the old Drive areas go to the trash,
+     the card first. Its design is posted for that review (#544 comment 6088197520,
+     2026-10-09). Proven duplicates in the old Drive areas go to the trash,
      from a named list. The card also deletes the stray `ibkr$p` (a
      byte-identical copy of `portfolio_history.json`), on the desktop and on
      Drive. Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
@@ -612,13 +619,20 @@ desktop's checkout still has the round 3 branch locally.
      Operator. Until a routine is agreed, nothing refreshes `swe-data/`, which holds the
      root as it stood at card 2c's baseline (2026-10-04, unchanged through card 2d's end
      check on 2026-10-09).
-  7. **Card 2d's addendum**, read only, from the next desktop session: the evidence the
-     evaluation lists above, and the Executor's correction of its fragment.
+  7. **Card 2d's addendum**, read only, on the desktop: the evidence the evaluation lists
+     above, and the Executor's correction of its fragment. The card is #544 comment
+     6088910896 and its kit comment 6088830152. The pen started it through the bridge on
+     2026-10-09 at 20:44 UTC. It stopped at step 2 (BLOCKED, comment 6089087132): the
+     desktop session's permission check refused to run a kit fetched from a comment.
+     Step 0 and the kit's sha256 check passed; nothing was committed or pushed. The
+     Operator said yes to running the kit on 2026-10-10; the allow is typed in that
+     session, which then stops at gates G1 and G2.
 - **Next action.**
   1. Card 2d's addendum (Remains 7), read only, on the desktop. Its evidence sits in the
      desktop's `%TEMP%` and event log, which are not kept forever. Its pull request waits
      for the Operator's yes to the fragment corrections beyond the evaluation's.
-  2. Card 3 (Remains 3): its design goes to Codex for review before any card is written.
+  2. Card 3 (Remains 3): its design is posted for Codex's review; the card is written after
+     it.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.
@@ -666,8 +680,17 @@ desktop's checkout still has the round 3 branch locally.
     prompt"). The fill was dropped later the same day ("drop it").
   - The data_manifest hint fix ("authorize the data_manifest hint fix", 2026-10-09): done
     in #561.
-  - Card 2d's addendum ("authorize card 2d's addendum", 2026-10-09).
+  - Card 2d's addendum ("authorize card 2d's addendum", 2026-10-09). Running its kit in
+    the desktop session ("yes to both", 2026-10-10).
+  - The pen's merge while the Operator is away, within limits ("yes to both", 2026-10-10;
+    the rule-book text on "Write D35 and the rule-book changes as you drafted them"):
+    D35.
 - **Proposed, not authorized.**
+  - **The next-phase plan** (sent to the Operator on 2026-10-09): a week of wrap-up, then
+    fresh data, filtering, and readiness for real trading. Five questions wait for the
+    Operator: the data budget, the IBKR subscriptions and daily login, the capital and
+    limits, which names, and the timing and evidence bar for the first trade. Reopening
+    the data track (parked on 2026-09-17) needs a new decision.
   - **D33 point 8, the refresh routine** (a draft). After a data change in the root, run
     an `rclone copy`, never a `sync`, of the root to `swe-data/`, with the tool's
     exclusions. Then check both ways by checksum, and compare `rclone size` with the

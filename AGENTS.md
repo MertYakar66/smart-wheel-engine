@@ -315,8 +315,9 @@ session's drift count excludes them.
 ## 6. Never without the Operator's explicit yes, for that specific action
 
 - Merge a pull request into `main`. The pen may merge without a fresh yes when
-  necessary: CI green, for work the Operator authorized. The Executor needs a
-  yes for that pull request.
+  necessary: CI green, for work the Operator authorized. While the Operator is
+  away, it merges only under `OPERATING_MODEL.md` §3.1's exception (D35). The
+  Executor needs a yes for that pull request.
 - Push to `main` directly: never. `main` changes only by merging a pull request.
 - Force-push or rewrite history.
 - Delete a file or a branch.

@@ -267,3 +267,64 @@ be recorded in git. This card added nothing to the root and changed nothing in i
 7. **Still open from before this card:** the Operator deletes the credential file forever from
    Drive's trash and rotates the IBKR Flex token, and decides whether the desktop's `stash@{0}`
    (the stray paste) is dropped.
+
+## Addendum (2026-10-11): the evidence
+
+Card 2d's addendum (#544 comment 6088910896) put on GitHub what this card's Run Summary
+lacked. Its step files are pasted whole on its pull request, from branch
+`claude/d33-card2d-addendum`.
+
+- **The time-limit line.** The addendum session's own line, from its Bash tool's description: one
+  timeout, in milliseconds, default 120000 and maximum 600000, that is ten minutes, and for a
+  command run in the background no time limit at all — only that the command keeps running across
+  turns and re-invokes the session when it exits. Card 2d's line was asked for in chat alone (step
+  0, and amendment 1 item 1), and no comment on #544 or #556 states it; the addendum searched no
+  file for it and opened no transcript, so card 2d's line is not recoverable from the record.
+- **The tripwire.** Exactly one tripwire line survives, `== the run has ended; the tripwire stands
+  down`, in the background output file created 2026-10-08T10:01:51Z and last written
+  2026-10-09T00:56:48Z (69 B). Ten background output files fall in the span and that file is the
+  only one of them holding a tripwire line, so the files show one arming, which is the one this
+  card reports. Each arming was one background command, hence one file, and an arming that printed
+  nothing left a file these lines cannot tell from any other command's, so the count is a floor and
+  not a proof that there was only one.
+- **`swe-card2d-run7b.sh` and its log.** The script is 2,501 B, sha256
+  `88cf7410159dab61ebfa09ee5e8ddef6d5e9e6a1600b746541a88a6457ea73e9` — this card's figure to the
+  character; its first line is the card's definitions line, and its step 2 and step 7 lines are the
+  card's blocks byte for byte, the file letter aside. The log is 652,840 B, sha256 `85423840…`, and
+  its bytes 343 to 652,840 are `swe-card2d-step7b.txt` (652,497 B, sha256 `144b2645…`) byte for
+  byte. Its only other content is the seven lines before that: three tool paths, the interpreter it
+  resolved, `about exit 0`, `== the Drive sign-in works` and `== END step 2`; nothing follows the
+  step 7 file.
+- **The blocks run from files.** Of the six blocks the pen asked about, four are byte for byte,
+  with the definitions line before them: block 9, step 6, as `card2d-step6.sh` (sha256
+  `60a780df…`); block 10, step 7, as `card2d-step7.sh` (`22d3b855…`), and again as
+  `swe-card2d-run7b.sh`'s step 7 line, the file letter aside; block 12, step 8, as
+  `card2d-step8.sh` (`2ad508da…`); and block 18, the Resuming block, as `card2d-resume.sh`
+  (`ef10d809…`). Two differ, and only by what was added to run them: block 11, step 7's rule, as
+  `card2d-step7-rule.sh` (`5c3c9a86…`, similarity 0.895), by the definitions line and a closing
+  stanza that prints the restart time two hours after the latest step 7 file; and block 14, step
+  10, as `card2d-step10.sh` (`ba46b556…`, similarity 0.757), by the definitions line and the card's
+  three trailing comments dropped. A seventh file, `card2d-reference.txt` (`9f7c088d…`, similarity
+  0.857 against block 10), is not a script file, so the comparison reports only that it differs and
+  its text is not shown.
+- **The event logs.** The System log is enabled, 45,676 records, oldest event 2026-07-20T02:11:28Z,
+  and `Microsoft-Windows-WLAN-AutoConfig/Operational` is enabled, 1,390 records, oldest
+  2026-08-22T17:57:39Z, so both reach back well past both windows. For 2026-10-07T15:30:00Z to
+  2026-10-08T07:45:00Z — the window that does cover the first outage's 15:42:17Z onset — the System
+  log holds 399 events, 367 of them informational `mtkwecx` id 7501, and five above information: a
+  DistributedCOM 10016 warning, a Time-Service id 134 warning at 19:39:12Z that NtpClient could not
+  set a manual peer **because of a DNS resolution error**, a Time-Service id 36 warning at
+  06:48:06Z that the clock had gone 56,506 seconds without synchronising, and two WindowsUpdateClient
+  id 20 installation errors; for `a5`'s burst, 15:08:00Z to 15:14:00Z, it holds two events in all,
+  both informational `mtkwecx` id 7501, at 15:09:10Z and 15:13:39Z. WLAN-AutoConfig holds **0
+  events** in either window: no association, roam or disconnect was logged while the lookups were
+  failing, so the Wi-Fi hypothesis draws no support from the log it would have to appear in, while a
+  second and independent name-resolution failure in the same window does corroborate the DNS one.
+- **The corrections.** The evaluation's (a) to (g) went in as nine replacements, `9 corrections
+  applied … (the evaluation's corrections; 0 already present)` with `fix exit 0`, and A1 to A9 as
+  eight more after the Operator's yes to G1, `8 corrections applied … (the evaluation's corrections
+  and A1 to A9; 9 already present)`, also `fix exit 0`. Each replacement was checked as pending or
+  already done before anything was written.
+- **Since this card** (the pen's record, `PROJECT_STATE.md` §0 B): the four data branches were
+  deleted (D31 step 6, #559) and the hosts pin was removed (2026-10-09), so handoff items 1 and 2
+  are done.

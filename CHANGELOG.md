@@ -14,6 +14,30 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-11 — D33 card 2d addendum: the evidence, and the fragment corrected (desktop)
+
+**Docs** — campaign #544, the addendum the pen's evaluation of #556 asked for.
+- `docs/worklog/d33-card2d-desktop-card-2d-the-duplicate-folder-and-card-2c.md`: seventeen
+  corrections, nine from the evaluation (a) to (g) and eight from A1 to A9 on the Operator's yes
+  to G1, each narrowing a statement to what the record shows; and a new last section,
+  `## Addendum (2026-10-11): the evidence`.
+- **The evidence card 2d's Run Summary lacked**, gathered read-only and pasted whole on the pull
+  request: the session's own background time-limit line, and that card 2d's was asked for in chat
+  alone; one surviving tripwire line in 1 of 10 background output files of the span;
+  `swe-card2d-run7b.sh` at sha256 `88cf7410…`, this card's figure to the character, with its step 2
+  and step 7 lines the card's blocks byte for byte, and `swe-card2d-run7b.log` (652,840 B) holding
+  `swe-card2d-step7b.txt` byte for byte from byte 343; and four of the six blocks run from files
+  byte for byte, the other two differing only by the definitions line and, for step 10, three
+  dropped comments.
+- **The event logs**, with their queries and UTC bounds: 399 System events for
+  2026-10-07T15:30:00Z to 2026-10-08T07:45:00Z, the window that does cover the first outage's
+  15:42:17Z onset, among them a Time-Service id 134 warning of a DNS resolution error; two System
+  events for `a5`'s burst; and **0 events** in `Microsoft-Windows-WLAN-AutoConfig/Operational` in
+  either window, though that log reaches back to 2026-08-22. No link drop is recorded where the
+  Wi-Fi hypothesis would need one; a second, independent name-resolution failure is.
+- Nothing was deleted, moved or written outside this run's own `%TEMP%` files; Drive and the data
+  root were not touched.
+
 ## 2026-10-11 — D35: the pen may merge while the Operator is away, within limits (cloud; #563, `bea255d`)
 
 **Docs** — the Operator's rulings of 2026-10-10 and 2026-10-11 (campaign #544).

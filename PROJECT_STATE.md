@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-10-10 (D35: while the Operator is away, the pen may merge only work
+**Last updated:** 2026-10-11 (close after #563, `main` at `bea255d`: D35 merged on the
+Operator's "yes, merge D35 as narrowed".
+Earlier, 2026-10-10: D35: while the Operator is away, the pen may merge only work
 the Operator authorized by name, with CI green and a check by another context, touching
 none of the decision layer and its guards, CI or environment configuration, data or the
 rule-books, and deleting nothing; `OPERATING_MODEL.md` §3.1 and `CLAUDE.md` §6 carry it. The night of 2026-10-09:
@@ -121,7 +123,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `a0e59a0` (2026-10-09). Others on `origin`:
+**Branches:** `main` is at `bea255d` (2026-10-11). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -132,7 +134,8 @@ Their commits are in the full-history bundle, and `refs/pull/507/head` still hol
 Merging a pull request deletes its head branch on GitHub (a repository setting). So
 `claude/data-home-desktop-round3` went when #538 merged, on 2026-09-26, and
 `claude/d33-card2d` when #556 merged, `claude/d31-step6` when #559 merged and
-`claude/data-manifest-bundle-hint` when #561 merged, all on 2026-10-09. All their commits are in `main`, and each PR page can restore its branch. The
+`claude/data-manifest-bundle-hint` when #561 merged, all on 2026-10-09. The pen's branch went
+when #563 merged, on 2026-10-11, and is pushed again for each close. All their commits are in `main`, and each PR page can restore its branch. The
 desktop's checkout still has the round 3 branch locally.
 
 ### 0 A. Business direction
@@ -515,6 +518,15 @@ desktop's checkout still has the round 3 branch locally.
     from `scripts/` and `tests/`, the touched tests pass (18 passed, 7 skipped), and the
     renamed test fails on `main`'s old script (1 failed, 14 passed). Codex's automatic
     review found nothing. The Run Summary is PR #561 comment 6087805535.
+  - D35, the pen's merge while the Operator is away, merged in #563 (`bea255d`) by the pen
+    on 2026-10-11, with CI green (9 of 9 on `23005fc`), after the Operator's "yes, merge
+    D35 as narrowed". Three fresh-context checkers read the first draft (`43ca65b`) and
+    found it could be read more widely than the Operator meant. The narrowed text defines
+    "away" and "authorized by name", limits the close to its own files, requires a check
+    by another context, keeps the decision layer and its guards, CI and environment
+    configuration, data and the rule-books out of an overnight merge, and spells out the
+    rest of the hard-blocked list. `CLAUDE.md` §6 and the `AGENTS.md` Appendix say an
+    Executor never merges while the Operator is away; D29 is marked as amended.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).

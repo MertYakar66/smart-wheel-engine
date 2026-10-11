@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-11 (close after #563, `main` at `bea255d`: D35 merged on the
+**Last updated:** 2026-10-11 (close after #565, `main` at `cfcaf5c`: card 2d's addendum
+merged. Its evidence is on #565, its fragment carries the seventeen corrections, and the pen
+narrowed the addendum section's wording from four fresh-context checks.
+Earlier the same day: close after #563, `main` at `bea255d`: D35 merged on the
 Operator's "yes, merge D35 as narrowed".
 Earlier, 2026-10-10: D35: while the Operator is away, the pen may merge only work
 the Operator authorized by name, with CI green and a check by another context, touching
@@ -123,7 +126,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `bea255d` (2026-10-11). Others on `origin`:
+**Branches:** `main` is at `cfcaf5c` (2026-10-11). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -135,7 +138,8 @@ Merging a pull request deletes its head branch on GitHub (a repository setting).
 `claude/data-home-desktop-round3` went when #538 merged, on 2026-09-26, and
 `claude/d33-card2d` when #556 merged, `claude/d31-step6` when #559 merged and
 `claude/data-manifest-bundle-hint` when #561 merged, all on 2026-10-09. The pen's branch went
-when #563 merged, on 2026-10-11, and is pushed again for each close. All their commits are in `main`, and each PR page can restore its branch. The
+when #563 merged, on 2026-10-11, and is pushed again for each close; `claude/d33-card2d-addendum`
+went when #565 merged, the same day. All their commits are in `main`, and each PR page can restore its branch. The
 desktop's checkout still has the round 3 branch locally.
 
 ### 0 A. Business direction
@@ -527,6 +531,32 @@ desktop's checkout still has the round 3 branch locally.
     configuration, data and the rule-books out of an overnight merge, and spells out the
     rest of the hard-blocked list. `CLAUDE.md` §6 and the `AGENTS.md` Appendix say an
     Executor never merges while the Operator is away; D29 is marked as amended.
+  - Card 2d's addendum, merged in #565 (`cfcaf5c`) by the pen on 2026-10-11, with CI green
+    (9 of 9 on `15b7346`). It ran in a desktop terminal from #544 comment 6088910896 after a
+    first attempt was blocked by the permission check (6089087132); the Operator allowed the
+    kit, then answered G1 yes and G2 yes. Its twelve step files and Run Summary
+    (6109274592) are on #565; the REPORT is #544 comment 6109278327. What it found:
+    - card 2d's time-limit line is not recoverable; the tripwire left one line, in 1 of 10
+      background output files, a floor and not a proof;
+    - `swe-card2d-run7b.sh` is card 2d's sha256 to the character, and its log holds the
+      step 7 file byte for byte after its first 343 bytes;
+    - four of the six blocks run from files are the card's byte for byte; two add a
+      shortened definitions line (and a closing stanza, or four comments fewer);
+    - WLAN-AutoConfig logged nothing in either window, and the System log holds a
+      Time-Service DNS-resolution warning at 19:39:12Z in the first; the cause of the failed
+      lookups stays open.
+    The pen's evaluation, by four fresh-context checkers: running the kit's fix script on
+    `main`'s fragment reproduces the PR's corrections byte for byte; no published item
+    needs removal (the user folder name, Drive ids and paths were already public; three
+    local session ids are low risk); the figures hold, except wording the pen corrected in
+    the fragment and `CHANGELOG.md` at the close (four comments not three, the shortened
+    definitions line, the eighth file, the Wi-Fi conclusion narrowed, PR #565 named). The
+    Run Summary's own slips stay on #565: 51 `swe-card2d-*` entries where step 2 lists 48,
+    and "the same tool install path" for two tools' paths. Gaps left as they are:
+    step 3 ran through the PowerShell tool after the permission check refused it through
+    Bash, within the Operator's allowance and declared, but the exact command is not
+    posted; the PR body's `<request-as-sharpened>` block is reworded from the card's; and
+    heading 6's after-push check of the kept refs and the stash is stated, not pasted.
 - **Card 1's three findings, and the Operator's rulings (2026-09-26).** The census
   found three things the records did not know:
   1. **Theta is on Drive in full** (counted by card 1b, above; D34).
@@ -631,22 +661,11 @@ desktop's checkout still has the round 3 branch locally.
      Operator. Until a routine is agreed, nothing refreshes `swe-data/`, which holds the
      root as it stood at card 2c's baseline (2026-10-04, unchanged through card 2d's end
      check on 2026-10-09).
-  7. **Card 2d's addendum**, a change run on the desktop: read-only evidence, then the
-     Executor's correction of its fragment. The card is #544 comment 6088910896 and its
-     kit comment 6088830152. The pen started it through the bridge on 2026-10-09 at
-     20:44 UTC. It stopped at step 2 (BLOCKED, comment 6089087132). The desktop
-     session's permission check refused `python -P swe-c2da.py` as `[Auto-Mode Bypass]`,
-     and step 1's verify block and `python scripts/session_open.py` as `[Code from
-     External]`. By the Executor's report, step 0 and the kit's sha256 check passed and
-     nothing was committed; no branch was pushed (GitHub). The Operator said yes to
-     running the kit on 2026-10-10; the allow is typed in that session, and it must
-     cover the repository's scripts as well as the kit.
+  7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 2d's addendum (Remains 7), on the desktop. Its evidence sits in the
-     desktop's `%TEMP%` and event log, which are not kept forever. Its pull request waits
-     for the Operator's yes to the fragment corrections beyond the evaluation's.
-  2. Card 3 (Remains 3): its design is posted for Codex's review; the card is written after
-     it.
+  1. Card 3 (Remains 3): its design is posted for Codex's review; the card is written after
+     it, and runs only while the Operator is present.
+  2. The next-phase plan (Proposed): five questions wait for the Operator.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.
@@ -700,6 +719,14 @@ desktop's checkout still has the round 3 branch locally.
     "Write D35 and the rule-book changes as you drafted them", the same day; the narrowed
     text on "yes, merge D35 as narrowed", 2026-10-11): D35.
 - **Proposed, not authorized.**
+  - **From #565's checks, for the next kits and cards:**
+    - the kit's privacy scan has no pattern for Drive folder ids; add one, or record that
+      Drive ids are accepted as public;
+    - a card should say what an Executor does when the permission check refuses one of its
+      commands mid-run: BLOCKED, or the same file through another tool under the
+      Operator's allowance, with the exact command pasted;
+    - the credential scan in step 5 covers step files 0 to 4 only; widen it to every step
+      file.
   - **The next-phase plan** (sent to the Operator on 2026-10-09): a week of wrap-up, then
     fresh data, filtering, and readiness for real trading. Five questions wait for the
     Operator: the data budget, the IBKR subscriptions and daily login, the capital and

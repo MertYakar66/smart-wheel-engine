@@ -685,8 +685,8 @@ desktop's checkout still has the round 3 branch locally.
   - Card 2d's addendum ("authorize card 2d's addendum", 2026-10-09). Running its kit in
     the desktop session ("yes to both", 2026-10-10).
   - The pen's merge while the Operator is away, within limits ("yes to both", 2026-10-10;
-    the rule-book text on "Write D35 and the rule-book changes as you drafted them"):
-    D35.
+    "Write D35 and the rule-book changes as you drafted them", the same day; the narrowed
+    text on "yes, merge D35 as narrowed", 2026-10-11): D35.
 - **Proposed, not authorized.**
   - **The next-phase plan** (sent to the Operator on 2026-10-09): a week of wrap-up, then
     fresh data, filtering, and readiness for real trading. Five questions wait for the

@@ -2143,7 +2143,7 @@ changes"):
 
 ## D35. The pen may merge while the Operator is away, within limits (2026-10-10)
 
-**Decision.** Confirmed by the Operator on 2026-10-10, in three steps:
+**Decision.** Confirmed by the Operator in three steps, on 2026-10-10 and 2026-10-11:
 - "yes to both", to two questions from the pen. The first allowed the desktop session to
   run card 2d's addendum kit. The second was "May I merge overnight? Only work you
   authorized by name, only with CI green, and never the decision-layer trio, CI settings
@@ -2151,9 +2151,9 @@ changes"):
 - "Write D35 and the rule-book changes as you drafted them". The draft added three points
   to the question: the close after such a merge counts as part of the same work; data
   includes the data ledger; an Executor never merges while the Operator is away;
-- PENDING-OPERATOR-YES, to the text below. A fresh-context check of the draft (PR #563)
-  found places where it could be read more widely than the Operator meant, and this text
-  closes them.
+- "yes, merge D35 as narrowed" (2026-10-11), to the text below. A fresh-context check of
+  the draft (PR #563) found places where it could be read more widely than the Operator
+  meant, and this text closes them.
 
 1. **When the Operator is away.** From the moment they sign off until they next write.
    When the pen is unsure, the Operator is away.

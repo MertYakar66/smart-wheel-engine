@@ -15,8 +15,9 @@ the duplicate cleared; swe-data on Drive, checked both ways; restore tests passe
 
 ## Goal
 
-Finish D33's second copy. Card 2c (#554) uploaded the whole desktop root into one Drive folder,
-`swe-data/`, and then stopped at its own check: Drive held two folders of one name under
+Finish D33's second copy. Card 2c (#554) uploaded the 147,811 files of its baseline into one
+Drive folder, `swe-data/` (the desktop root but its own `_logs/` and the one credential-shaped
+file, both of which the tool leaves out), and then stopped at its own check: Drive held two folders of one name under
 `data_archive/drive-legacy/SmartWheelData/data_processed/theta/option_history/ticker=FDX/`, both
 named `expiration=20201113`, so rclone ignored one, could not reach the single `data.parquet`
 behind it, and counted it missing. Clearing a duplicate needs a deletion on Drive, which card 2c
@@ -38,8 +39,9 @@ In order, each step writing its own file in `%TEMP%`:
   not done; restore not done` and the manifest `checked 144 manifest files: 144 ok, 0 missing,
   0 mismatched`. So nothing had written to the root since card 2c, and the Dashboard's `update`
   had not run.
-- **The duplicate, read only.** Four reads of Drive by id found `ticker=FDX` holding 515 objects
-  with exactly one name twice; the folder made first empty, trashed objects included; the folder
+- **The duplicate, read only.** Four reads of Drive, one by path under `swe-data/`'s id and three
+  by folder id, found `ticker=FDX` holding 515 objects with exactly one name twice; the folder made
+  first empty, trashed objects included; the folder
   made 95 seconds later holding `data.parquet`, 147,522 B — exactly as the pen had recorded it on
   2026-10-07. `ticker=FDX`'s object ids were pinned by a sha256 so step 6 could prove Drive had
   not moved under it.
@@ -47,7 +49,7 @@ In order, each step writing its own file in `%TEMP%`:
   `NOTICE: expiration=20201113: Skipped merge duplicate directories as --dry-run is set (size 0)`,
   exit 0.
 - **G1, the gate.** The Operator was shown that line and asked whether to repair and run the
-  checks. They answered `yes`, recorded word for word in `swe-card2d-g1.txt`.
+  checks. They answered `yes`, recorded in `swe-card2d-g1.txt`, which reads `yes` on two lines.
 - **The repair**, then **the run**: the driver's `run` mode, which skipped the plan and the upload
   as DONE and worked the check and the restore tests. It took two runs and five check attempts, `a2` to
   `a6` (`a1` is card 2c's); see "What didn't".
@@ -90,9 +92,10 @@ The run ended `== END run` with `run exit 0` and all four steps DONE.
 
 Three failures, none of them the data's, and all worth the next agent's time:
 
-1. **A name-lookup collapse cost one whole run.** Thirty-eight minutes into the first check
-   attempt the desktop stopped resolving Google's hostnames, and kept failing for about fifteen
-   hours. That attempt ran **986.4 min** and ended `exit 1`, having lost **38,780 folder
+1. **A name-lookup failure cost one attempt of 986.4 minutes, `a2`.** Thirty-eight minutes into
+   the first check attempt the desktop began failing, intermittently, to resolve Google's
+   hostnames, and failures were still being seen the next morning. That attempt ran **986.4 min**
+   and ended `exit 1`, having lost **38,780 folder
    listings**; rclone reports every file under a folder it cannot list as one-sided, so its
    combined report held 41,773 "only in the root" lines that were not real differences. The driver
    caught this correctly: it tests for unlisted folders *before* it looks at differences, and
@@ -109,7 +112,7 @@ Three failures, none of them the data's, and all worth the next agent's time:
    inference, not proven, is that the driver's console went away with that session. That used the
    run's third attempt and wrote `check/RUN-STOP-1.txt`, so one further three-attempt failure of
    the check would have been final.
-3. **A single eighty-second outage then failed a second count.** In the second run, the first
+3. **A single eighty-second outage then failed the count, in `a5`.** In the second run, the first
    attempt's check passed cleanly (`exit 0 (220.1 min)`) but its count ran 219.6 min and ended
    `Failed to size with 900 errors`, all of them name-lookup failures packed into 15:10:06Z to
    15:11:27Z. Because the driver restarts a failed step from its beginning, that threw away a
@@ -145,8 +148,10 @@ this run cannot prove it was the cause.
 
 One other thing cost time and is worth knowing: the card's longer blocks would not survive the
 shell tool's command-line transport — step 6's block, a long Python heredoc, came back as
-`unexpected EOF while looking for matching '`, having run nothing. Writing the identical block to a file and running
-`bash` on it, after `bash -n`, worked every time.
+`unexpected EOF while looking for matching '`, having run nothing. The Executor wrote the block to a file and ran
+`bash` on it, after `bash -n`; steps 7, 8 and 10, the Resuming state block and step 7's rule took the
+same route. Which files those were, and how each compares with the card's block, is in the
+addendum below.
 
 ## How we fixed it
 
@@ -160,8 +165,8 @@ rclone dedupe --dedupe-mode skip --drive-root-folder-id <ticker=FDX's Drive id> 
 
 `--max-delete 0` refuses any file deletion outright, and `--drive-use-trash=true` sends whatever
 is removed to Drive's trash, where it stays recoverable for 30 days. The dry run was the same
-command with `--dry-run` added, and step 6 ran it again seconds before the repair so that nothing
-changed while the gate waited.
+command with `--dry-run` added, and step 6 ran it again seconds before the repair to show that
+nothing had changed while the gate waited.
 
 The check and the count, as printed in step 7's file (`$ROOT` and `$WORK` are the shell's own
 names for the data root and the run folder):
@@ -177,7 +182,7 @@ rclone size gdrive: --drive-root-folder-id <swe-data/'s Drive id> --disable List
 
 | Log | Outcome |
 | --- | ------- |
-| `check/a2/06-check.txt` | `exit 1 (986.4 min)` — the name-lookup collapse |
+| `check/a2/06-check.txt` | `exit 1 (986.4 min)` — the name-lookup failures |
 | `check/a5/06-check.txt` | `exit 0 (220.1 min)` |
 | `check/a5/07-size.txt` | `exit 1 (219.6 min)` — 900 name-lookup failures |
 | `check/a6/06-check.txt` | `exit 0 (220.2 min)` |

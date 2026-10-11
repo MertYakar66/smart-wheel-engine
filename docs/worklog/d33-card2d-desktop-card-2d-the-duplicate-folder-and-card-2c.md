@@ -104,7 +104,8 @@ Three failures, none of them the data's, and all worth the next agent's time:
    2026-10-07 18:30Z to 2026-10-08 08:00Z, and reported no DHCP, DNS-client, Tcpip or
    Ethernet-driver entry. That window misses the outage's onset: rclone stamps its log in local
    time (UTC+3), so the first failure, stamped `2026/10/07 18:42:17`, was at 15:42:17 UTC. The
-   addendum below gives the queries for 15:30Z to 07:45Z, with their output.
+   addendum below summarises the queries for 15:30Z to 07:45Z; the queries and their output are
+   on PR #565 (comment 6109160781).
 2. **Two attempts were spent on a program that could not finish starting.** The next two attempts
    each ended `rclone about exited 3221225794` — `0xC0000142`, a process that started and then
    failed while loading its libraries — five minutes apart, about ten minutes in total. These were
@@ -121,8 +122,8 @@ Three failures, none of them the data's, and all worth the next agent's time:
    to 15:14:00Z, nor from 14:50Z to 15:30Z. The only two entries from 15:08 to 15:14 were
    informational, provider `mtkwecx` (a MediaTek wireless component), id 7501 "Country Info", at
    15:09:10Z and 15:13:39Z, one on each side of the burst. What failed was name resolution: every
-   error reads `no such host`. Why is not established; the addendum below gives the queries and
-   their output.
+   error reads `no such host`. Why is not established; the addendum below summarises the queries,
+   and PR #565 (comment 6109160781) holds them with their output.
 
 The lesson: **in rclone v1.74.4 a failed name lookup is never retried,
 while a failed connection is retried about 100 times.** The pen traced the error chain to Go's
@@ -271,8 +272,9 @@ be recorded in git. This card added nothing to the root and changed nothing in i
 ## Addendum (2026-10-11): the evidence
 
 Card 2d's addendum (#544 comment 6088910896) put on GitHub what this card's Run Summary
-lacked. Its step files are pasted whole on its pull request, from branch
-`claude/d33-card2d-addendum`.
+lacked. Its step files are pasted whole on its pull request, #565, from branch
+`claude/d33-card2d-addendum`. The pen corrected this section's wording at the close after #565,
+from four fresh-context checks of the step files (marked *pen* below).
 
 - **The time-limit line.** The addendum session's own line, from its Bash tool's description: one
   timeout, in milliseconds, default 120000 and maximum 600000, that is ten minutes, and for a
@@ -283,15 +285,16 @@ lacked. Its step files are pasted whole on its pull request, from branch
 - **The tripwire.** Exactly one tripwire line survives, `== the run has ended; the tripwire stands
   down`, in the background output file created 2026-10-08T10:01:51Z and last written
   2026-10-09T00:56:48Z (69 B). Ten background output files fall in the span and that file is the
-  only one of them holding a tripwire line, so the files show one arming, which is the one this
-  card reports. Each arming was one background command, hence one file, and an arming that printed
+  only one of them holding a tripwire line, so the files show one arming. *Pen:* that is
+  consistent with the one this card reports (10:03Z, driver pid 19560), but no step file ties the
+  file to that pid, and only its one line is shown, not all 69 B. Each arming was one background command, hence one file, and an arming that printed
   nothing left a file these lines cannot tell from any other command's, so the count is a floor and
   not a proof that there was only one.
 - **`swe-card2d-run7b.sh` and its log.** The script is 2,501 B, sha256
   `88cf7410159dab61ebfa09ee5e8ddef6d5e9e6a1600b746541a88a6457ea73e9` — this card's figure to the
   character; its first line is the card's definitions line, and its step 2 and step 7 lines are the
   card's blocks byte for byte, the file letter aside. The log is 652,840 B, sha256 `85423840…`, and
-  its bytes 343 to 652,840 are `swe-card2d-step7b.txt` (652,497 B, sha256 `144b2645…`) byte for
+  after its first 343 bytes it is `swe-card2d-step7b.txt` (652,497 B, sha256 `144b2645…`) byte for
   byte. Its only other content is the seven lines before that: three tool paths, the interpreter it
   resolved, `about exit 0`, `== the Drive sign-in works` and `== END step 2`; nothing follows the
   step 7 file.
@@ -301,16 +304,19 @@ lacked. Its step files are pasted whole on its pull request, from branch
   `swe-card2d-run7b.sh`'s step 7 line, the file letter aside; block 12, step 8, as
   `card2d-step8.sh` (`2ad508da…`); and block 18, the Resuming block, as `card2d-resume.sh`
   (`ef10d809…`). Two differ, and only by what was added to run them: block 11, step 7's rule, as
-  `card2d-step7-rule.sh` (`5c3c9a86…`, similarity 0.895), by the definitions line and a closing
+  `card2d-step7-rule.sh` (`5c3c9a86…`, similarity 0.895), by a shortened definitions line and a closing
   stanza that prints the restart time two hours after the latest step 7 file; and block 14, step
-  10, as `card2d-step10.sh` (`ba46b556…`, similarity 0.757), by the definitions line and the card's
-  three trailing comments dropped. A seventh file, `card2d-reference.txt` (`9f7c088d…`, similarity
+  10, as `card2d-step10.sh` (`ba46b556…`, similarity 0.757), by a shortened definitions line and
+  four of the card's trailing comments dropped. *Pen:* the shortened line is the card's without
+  its six Drive-id and path assignments (`SWE`, `FDX`, `DA`, `DB`, `DF`, `FDXP`); the kit scored
+  both files closer to their blocks without it. An eighth file, `card2d-reference.txt` (`9f7c088d…`, similarity
   0.857 against block 10), is not a script file, so the comparison reports only that it differs and
   its text is not shown.
 - **The event logs.** The System log is enabled, 45,676 records, oldest event 2026-07-20T02:11:28Z,
   and `Microsoft-Windows-WLAN-AutoConfig/Operational` is enabled, 1,390 records, oldest
   2026-08-22T17:57:39Z, so both reach back well past both windows. For 2026-10-07T15:30:00Z to
-  2026-10-08T07:45:00Z — the window that does cover the first outage's 15:42:17Z onset — the System
+  2026-10-08T07:45:00Z — the window that does cover the first outage's 15:42:17Z onset (stamped
+  `2026/10/07 18:42:17` in local time in #556's step 7 output) — the System
   log holds 399 events, 367 of them informational `mtkwecx` id 7501, and five above information: a
   DistributedCOM 10016 warning, a Time-Service id 134 warning at 19:39:12Z that NtpClient could not
   set a manual peer **because of a DNS resolution error**, a Time-Service id 36 warning at
@@ -318,8 +324,11 @@ lacked. Its step files are pasted whole on its pull request, from branch
   id 20 installation errors; for `a5`'s burst, 15:08:00Z to 15:14:00Z, it holds two events in all,
   both informational `mtkwecx` id 7501, at 15:09:10Z and 15:13:39Z. WLAN-AutoConfig holds **0
   events** in either window: no association, roam or disconnect was logged while the lookups were
-  failing, so the Wi-Fi hypothesis draws no support from the log it would have to appear in, while a
-  second and independent name-resolution failure in the same window does corroborate the DNS one.
+  failing. *Pen:* that rules out only a logged change of the Wi-Fi connection's state, not a Wi-Fi
+  fault that changes none; the Wi-Fi driver's own 369 System-log events (`mtkwecx` id 7501) were
+  counted, not read, because the kit prints a fixed label for them. The cause stays open. A second
+  name-resolution failure, from a client other than rclone, falls in the same window. Each query
+  and its output are in step 3's file on #565 (comment 6109160781).
 - **The corrections.** The evaluation's (a) to (g) went in as nine replacements, `9 corrections
   applied … (the evaluation's corrections; 0 already present)` with `fix exit 0`, and A1 to A9 as
   eight more after the Operator's yes to G1, `8 corrections applied … (the evaluation's corrections

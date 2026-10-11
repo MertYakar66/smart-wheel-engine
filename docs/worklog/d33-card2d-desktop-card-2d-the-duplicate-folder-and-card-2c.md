@@ -49,8 +49,8 @@ In order, each step writing its own file in `%TEMP%`:
 - **G1, the gate.** The Operator was shown that line and asked whether to repair and run the
   checks. They answered `yes`, recorded word for word in `swe-card2d-g1.txt`.
 - **The repair**, then **the run**: the driver's `run` mode, which skipped the plan and the upload
-  as DONE and worked the check and the restore tests. It took two runs and six check attempts; see
-  "What didn't".
+  as DONE and worked the check and the restore tests. It took two runs and five check attempts, `a2` to
+  `a6` (`a1` is card 2c's); see "What didn't".
 
 ## What worked
 
@@ -97,11 +97,11 @@ Three failures, none of them the data's, and all worth the next agent's time:
    combined report held 41,773 "only in the root" lines that were not real differences. The driver
    caught this correctly: it tests for unlisted folders *before* it looks at differences, and
    marks that stop retryable (`UNLISTED` in the driver, citing rclone's `fs/march/march.go`).
-   The System event log holds **no DHCP, DNS-client, Tcpip or Ethernet-driver entry** anywhere in
-   that window; the only entries in it are two informational ones from a MediaTek wireless
-   component, and the wireless adapter was down while Ethernet carried the traffic. So nothing
-   recorded a link drop, a lease change or a resolver-service fault: the failure was in name
-   resolution alone.
+   The Executor read the System event log for this outage (its queries were not recorded) across
+   2026-10-07 18:30Z to 2026-10-08 08:00Z, and reported no DHCP, DNS-client, Tcpip or
+   Ethernet-driver entry. That window misses the outage's onset: rclone stamps its log in local
+   time (UTC+3), so the first failure, stamped `2026/10/07 18:42:17`, was at 15:42:17 UTC. The
+   addendum below gives the queries for 15:30Z to 07:45Z, with their output.
 2. **Two attempts were spent on a program that could not finish starting.** The next two attempts
    each ended `rclone about exited 3221225794` — `0xC0000142`, a process that started and then
    failed while loading its libraries — five minutes apart, about ten minutes in total. These were
@@ -113,9 +113,15 @@ Three failures, none of them the data's, and all worth the next agent's time:
    attempt's check passed cleanly (`exit 0 (220.1 min)`) but its count ran 219.6 min and ended
    `Failed to size with 900 errors`, all of them name-lookup failures packed into 15:10:06Z to
    15:11:27Z. Because the driver restarts a failed step from its beginning, that threw away a
-   good four-hour check as well.
+   good four-hour check as well. For this burst the Executor read the System event log (its
+   queries were not recorded): no DHCP, DNS-client, Tcpip or Ethernet-driver entry from 15:08:00Z
+   to 15:14:00Z, nor from 14:50Z to 15:30Z. The only two entries from 15:08 to 15:14 were
+   informational, provider `mtkwecx` (a MediaTek wireless component), id 7501 "Country Info", at
+   15:09:10Z and 15:13:39Z, one on each side of the burst. What failed was name resolution: every
+   error reads `no such host`. Why is not established; the addendum below gives the queries and
+   their output.
 
-The lesson, and the fix that worked: **in rclone v1.74.4 a failed name lookup is never retried,
+The lesson: **in rclone v1.74.4 a failed name lookup is never retried,
 while a failed connection is retried about 100 times.** The pen traced the error chain to Go's
 `*net.DNSError`, which is neither a timeout nor temporary, so rclone's Windows retry list never
 matches it.
@@ -149,7 +155,7 @@ Drive id as the root, so it can see nothing outside it — with `--fast-list` so
 folder by id rather than by a path that reaches only one of two folders of one name:
 
 ```
-rclone dedupe --dedupe-mode skip --drive-root-folder-id <the folder's Drive id> gdrive: --max-depth 2 --fast-list --max-delete 0 --drive-use-trash=true -v
+rclone dedupe --dedupe-mode skip --drive-root-folder-id <ticker=FDX's Drive id> gdrive: --max-depth 2 --fast-list --max-delete 0 --drive-use-trash=true -v
 ```
 
 `--max-delete 0` refuses any file deletion outright, and `--drive-use-trash=true` sends whatever
@@ -161,8 +167,8 @@ The check and the count, as printed in step 7's file (`$ROOT` and `$WORK` are th
 names for the data root and the run folder):
 
 ```
-rclone check $ROOT gdrive: --drive-root-folder-id <the folder's Drive id> --checksum --exclude-from $WORK\plan\a1\filters.txt --ignore-case --disable ListR --combined $WORK\check\a6\combined.txt --low-level-retries 100 -v --stats 10m --stats-one-line --stats-log-level NOTICE
-rclone size gdrive: --drive-root-folder-id <the folder's Drive id> --disable ListR --low-level-retries 100 --json
+rclone check $ROOT gdrive: --drive-root-folder-id <swe-data/'s Drive id> --checksum --exclude-from $WORK\plan\a1\filters.txt --ignore-case --disable ListR --combined $WORK\check\a6\combined.txt --low-level-retries 100 -v --stats 10m --stats-one-line --stats-log-level NOTICE
+rclone size gdrive: --drive-root-folder-id <swe-data/'s Drive id> --disable ListR --low-level-retries 100 --json
 ```
 
 ## Evidence
@@ -183,8 +189,9 @@ rclone size gdrive: --drive-root-folder-id <the folder's Drive id> --disable Lis
 `a4` are this card's first run, which ended
 `STOPPED: check: 3 attempts this run; the last: rclone about exited 3221225794 … (a rerun may clear
 this)` and left `check/RUN-STOP-1.txt`; `a5` and `a6` are the second run, and `a6` is the one that
-is DONE. The restore step took one attempt, `a1`, and passed on it. The three `RETRY:` lines are
-quoted in "What didn't".
+is DONE. The restore step took one attempt, `a1`, and passed on it. The three `RETRY:` lines are in
+step 7's output on PR #556: `a2`'s and `a3`'s in part 1 (comment 6072529006), and `a5`'s in part 13
+(comment 6072532780). `a4` has none: it ended the run with the `STOPPED:` line above.
 
 **The end state**, after the run: `then 147812 files; now 147812; gone 0, size changed 0, bytes
 changed 0 of 147811 hashed (credential-shaped names by size only), added 0`; the steps
@@ -211,7 +218,9 @@ driver run log is `driver-run-20261008T100110Z-f986.txt`, and the first run's is
 
 The restore tests' copies are left in place outside the root, under this card's scratch folder in
 `%TEMP%`: the end check reads `$SCR holds 175 files, 5,140,134,098 B: the restore tests' copies,
-outside the root (left in place): a1`. Nothing was deleted anywhere.
+outside the root (left in place): a1`. Nothing was deleted anywhere but the one empty
+`expiration=20201113` folder under `ticker=FDX`, which G1 authorised and which went to Drive's
+trash, recoverable for 30 days.
 
 **`SHA256SUMS`.** Card 2c's list is still the root's, unchanged, its own sha256
 `e22d8579bed1ce7a81a90ccb1096d0397a29de8471f8b56f466f05f13f882989` — the fingerprint D33 asks to

@@ -14,6 +14,20 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-11 — D35: the pen may merge while the Operator is away, within limits (cloud; #563, `bea255d`)
+
+**Docs** — the Operator's rulings of 2026-10-10 and 2026-10-11 (campaign #544).
+- `OPERATING_MODEL.md` §3.1: one exception to the hard-blocked list. While the Operator is
+  away, the pen may merge work the Operator authorized by name, with CI green and a check by
+  another context. The diff must touch none of the decision layer and its guards, CI or
+  environment configuration, data or the rule-books, and must delete nothing. §2 Leg 2 and §5
+  point to it; §5 no longer says "The Operator alone merges".
+- `CLAUDE.md` §6 and the `AGENTS.md` Appendix: the pen's overnight merge follows §3.1, and an
+  Executor never merges while the Operator is away.
+- `DECISIONS.md`: D35, and D29 marked as amended by D32 and D35.
+- `PROJECT_STATE.md`: card 3's design posted for review; card 2d's addendum blocked at step 2
+  by the desktop's permission check; the next-phase plan under Proposed.
+
 ## 2026-10-09 — data_manifest: materialize names the bundle restore, not deleted branches (cloud; #561, `a0e59a0`)
 
 **Fixed** — `scripts/data_manifest.py materialize` no longer tells anyone to `git fetch origin

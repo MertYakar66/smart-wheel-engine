@@ -646,9 +646,12 @@ desktop's checkout still has the round 3 branch locally.
      byte-identical copy of `portfolio_history.json`), on the desktop and on
      Drive. Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
      UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
-     covers match live root files rather than archive copies, and 13 are duplicates
-     of those; card 3 re-hashes those root files when it deletes. None of it covers
-     the day-bot's `data_raw`.
+     covers were already home: 114,605 as card 2a's copies under
+     `data_archive/drive-legacy/` (archive copies), and 59,789 as files already in the
+     root (card 2b's `redundant` 59,084 and `duplicate -> redundant` 705); 13 more are
+     duplicates of those. Corrected on 2026-10-11: this line said they all matched live
+     root files, so that card 3 need re-hash only those; card 3 re-checks every twin,
+     archive copies included. None of it covers the day-bot's `data_raw`.
   4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
      B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
      them remains proposed.

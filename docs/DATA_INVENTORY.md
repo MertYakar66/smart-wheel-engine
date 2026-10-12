@@ -202,7 +202,8 @@ fresh census of the six areas, `data_raw` left out: 327,825 objects, each area e
 `data_archive/drive-legacy/` now holds card 1's whole `copy` class less `data_raw`:
 118,414 files, 10,681,985,499 B. Its verify of the whole plan shows that each of the
 178,216 Drive files in the six areas has a byte-identical copy at home: 3,809 copied,
-174,394 matching live root files, 13 duplicates of those, 0 unresolved. That holds for
+174,394 already home (114,605 as card 2a's copies under `data_archive/drive-legacy/`, and
+59,789 as files already in the root), 13 duplicates of those, 0 unresolved. That holds for
 Drive as it stood on 2026-10-02 at 13:32:41 UTC; card 3 checks again before it deletes.
 
 Card 2c, 2026-10-04 to 07 (#554; `swe-data/_logs/d33-card2c/` on the desktop), made the

@@ -1,7 +1,7 @@
 # Project State
 
-**Last updated:** 2026-10-12 (card 3: Codex reviewed version 1 of the design, and version 2
-is posted for its second review; the 174,394 already-home files are corrected to 115,310
+**Last updated:** 2026-10-12 (card 3: Codex reviewed versions 1 and 2 of the design, and
+version 3 is posted for its third review. Earlier the same day: version 2 posted; the 174,394 already-home files are corrected to 115,310
 archive matches and 59,084 root matches.
 Earlier, 2026-10-11: close after #565, `main` at `cfcaf5c`: card 2d's addendum
 merged. Its evidence is on #565, its fragment carries the seventeen corrections, and the pen
@@ -647,9 +647,19 @@ desktop's checkout still has the round 3 branch locally.
      - **Version 1** (#544 comment 6088197520, 2026-10-09): Codex answered "agree with
        changes" (pasted by the Operator, 2026-10-12). The pen checked each point on the
        evidence; all held, one in part.
-     - **Version 2** (#544 comment 6119828700, 2026-10-12) is posted for Codex's second
-       review. Each approved file moves by its id into a holding folder; only that
-       folder goes to the trash, once, after an audit.
+     - **Version 2** (#544 comment 6119828700, 2026-10-12): each approved file moves by
+       its id into a holding folder; only that folder goes to the trash, once, after an
+       audit. Codex answered "agree with changes" (pasted by the Operator, 2026-10-12):
+       seven findings and two rehearsal corrections, all accepted after the pen checked
+       the source claims.
+     - **Version 3** (#544 comment 6120359714, 2026-10-12) is posted for Codex's third
+       review. It adds:
+       - a whole-tree proof before any restore;
+       - attended windows the Operator launches, with a stop key and a presence check
+         every 30 minutes;
+       - a strict config check;
+       - a campaign journal of intents and outcomes;
+       - the credential file's deletion proven by id, against a control.
      - **Off card 3:** the stray `ibkr$p`. It becomes its own later step, which keeps
        the checksum records consistent.
      - **Seven questions** for the Operator are in version 2's section 9. They include
@@ -676,8 +686,9 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): version 2 of its design waits for Codex's review and the
-     Operator's answers; then the change run that writes its code, then card 3a.
+  1. Card 3 (Remains 3): version 3 of its design waits for Codex's review and the
+     Operator's answers; then D36 for the Operator's word-for-word yes, the change run
+     that writes its code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh

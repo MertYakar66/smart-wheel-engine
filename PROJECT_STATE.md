@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-11 (close after #565, `main` at `cfcaf5c`: card 2d's addendum
+**Last updated:** 2026-10-12 (card 3: Codex reviewed version 1 of the design, and version 2
+is posted for its second review; the 174,394 already-home files are corrected to 115,310
+archive matches and 59,084 root matches.
+Earlier, 2026-10-11: close after #565, `main` at `cfcaf5c`: card 2d's addendum
 merged. Its evidence is on #565, its fragment carries the seventeen corrections, and the pen
 narrowed the addendum section's wording from four fresh-context checks.
 Earlier the same day: close after #563, `main` at `bea255d`: D35 merged on the
@@ -639,12 +642,19 @@ desktop's checkout still has the round 3 branch locally.
      approved it by its own prompt, then dropped it on 2026-10-09 ("drop it"). The four
      tips' whole trees stay in the bundle; the desktop's keep-refs hold the commits and
      every blob the manifest needs.
-  3. **Desktop card 3, clean up.** It needs the Operator's yes, and Codex reviews
-     the card first. Its design is posted for that review (#544 comment 6088197520,
-     2026-10-09). Proven duplicates in the old Drive areas go to the trash,
-     from a named list. The card also deletes the stray `ibkr$p` (a
-     byte-identical copy of `portfolio_history.json`), on the desktop and on
-     Drive. Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
+  3. **Desktop card 3, clean up.** It needs the Operator's yes on a named list,
+     and Codex reviews the design first.
+     - **Version 1** (#544 comment 6088197520, 2026-10-09): Codex answered "agree with
+       changes" (pasted by the Operator, 2026-10-12). The pen checked each point on the
+       evidence; all held, one in part.
+     - **Version 2** (#544 comment 6119828700, 2026-10-12) is posted for Codex's second
+       review. Each approved file moves by its id into a holding folder; only that
+       folder goes to the trash, once, after an audit.
+     - **Off card 3:** the stray `ibkr$p`. It becomes its own later step, which keeps
+       the checksum records consistent.
+     - **Seven questions** for the Operator are in version 2's section 9. They include
+       a D36 text for its departure from D33's "never moves".
+     Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
      UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
      covers were already home: 115,310 match archive copies under
      `data_archive/drive-legacy/` (card 2a's 114,605 copies, and 705 duplicates of
@@ -666,8 +676,8 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): its design is posted for Codex's review; the card is written after
-     it, and runs only while the Operator is present.
+  1. Card 3 (Remains 3): version 2 of its design waits for Codex's review and the
+     Operator's answers; then the change run that writes its code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh

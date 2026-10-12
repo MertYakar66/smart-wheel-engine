@@ -1,6 +1,7 @@
 # Project State
 
-**Last updated:** 2026-10-12 (close after #569, `main` at `4ee1aaa`. Card 3: Codex
+**Last updated:** 2026-10-12 (close after #570, `main` at `e9a2d2a`; the Operator moved the
+project's three top-level Drive folders into `OptionsEngine_Project`. Earlier: close after #569, `main` at `4ee1aaa`. Card 3: Codex
 reviewed versions 1 to 4 of the design, and version 5 is posted, in two comments, for its
 fifth review. Earlier the same day: close after #568; version 4 posted.
 Earlier the same day: versions 2 and 3 posted; the 174,394 already-home files are corrected
@@ -131,7 +132,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `4ee1aaa` (2026-10-12). Others on `origin`:
+**Branches:** `main` is at `e9a2d2a` (2026-10-12). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -703,15 +704,20 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): version 5 of its design waits for Codex's review and the
+  1. Card 3 (Remains 3): version 5 of its design, with addendum A, waits for Codex's review and the
      Operator's answers; then D36 for the Operator's word-for-word yes, the change run
      that writes its code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
-  3. The Operator asked on 2026-10-12 that every folder of this project on Drive sit
-     under `OptionsEngine_Project` (The_Works › Projects), where `SmartWheelData/`
-     already is. Nothing has moved. The pen put its questions to the Operator first:
-     the tool finds `swe-data/` by name at the top of My Drive
-     (`scripts/drive_consolidate.py:725`), and card 3 creates its folders there.
+  3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
+     to smart wheel engine will not be on the very first page of my drive"), the Operator
+     moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/` into
+     `OptionsEngine_Project` (The_Works › Projects), beside `SmartWheelData/`. The pen read
+     all three by id: same ids, parent `OptionsEngine_Project`, no name twice there, and
+     nothing of this project left at the top of My Drive. The day-bot's `_local_archive/`
+     stays. Card 3's design gains addendum A (#544 comment 6125252917): its own folders go in
+     `OptionsEngine_Project`, and the tool finds `swe-data/` by id. Until card 3's code run does that, no tool run
+     reads Drive (`docs/deadlines.md`). D33 point 3 still says "at the top of My Drive"; D36
+     will carry the new place for the Operator's yes.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.

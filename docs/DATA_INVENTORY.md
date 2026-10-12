@@ -174,6 +174,14 @@ totals are below the table. Folders unrelated to this project are not recorded._
 | 3 | `smart-wheel-engine/`, top of My Drive (`1dA_fq1MorvsqUWeVxqR0aAaJ9XMwEjUY`, 2026-04-23) | a partial upload of the repository's `.git` folder | consolidate, like areas 1 and 2: its files come home under `data_archive/drive-legacy/`, and the old copies go only once proven byte-identical to files in `swe-data/`. A git object is not byte-identical to the bundle that holds it, so the bundle does not count as a copy |
 | 4 | `_local_archive/`, inside Projects › Day_Trading_Bot (`1BBSXZIZBF8xwqIvkybN9WK8GOSVDiwo0`, 2026-07-21) | `vendor_swe_data` (`1EewDv70haKPVzjmhTDvo27lLsMjlqyzY`), `vendor_swe_data_raw` (`1_u85pi25w-H5HynRH3-WvGv1tMd8MW71`), `vendor_swe_data_processed` (`1WXeonbDMTT_VsGDizQD32Rw0V14xLxHE`): copies of this project's data, with folder dates of 2026-06-02. `data_raw` (`1uHSbrEaZoyW_Tgn1BimSz02KOJ18e616`) is the day-bot's own data: card 1 found that it matches nothing in the root, and the Operator ruled on 2026-09-26 to leave it out | read only: copy home anything unique, and delete nothing, because the folder belongs to the day-bot project. `data_raw` is left out: nothing in it is copied home (2026-09-26) |
 
+**2026-10-12:** the Operator moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/`
+into `OptionsEngine_Project` (The_Works › Projects), beside `SmartWheelData/`, so nothing of this
+project stays at the top of My Drive. Each kept its id: the pen read all three by id through its
+Drive connector, read-only, and a search of the top of My Drive by name found none of them. The
+day-bot's `_local_archive/` stays where it is. `scripts/drive_consolidate.py` still looks
+`swe-data/` up by name at the top of My Drive (line 725), so no tool run reads Drive until card
+3's code run makes it use the id (`docs/deadlines.md`).
+
 Card 1's census and plan, 2026-09-25 (`swe-data/_logs/d33-card1/` on the desktop). Every
 area's totals equal `rclone size`, and `swe-data exists: False`:
 
@@ -209,7 +217,7 @@ Drive as it stood on 2026-10-02 at 13:32:41 UTC; card 3 checks again before it d
 
 Card 2c, 2026-10-04 to 07 (#554; `swe-data/_logs/d33-card2c/` on the desktop), made the
 new folder: `swe-data/` at the top of My Drive (`13h0HIy_kLjsN431YJFRewJ8FAZGjxe3b`,
-created 2026-10-04, shared with nobody). It holds the desktop root laid out the same way,
+created 2026-10-04, shared with nobody; in `OptionsEngine_Project` since 2026-10-12, same id). It holds the desktop root laid out the same way,
 less `_logs/` and the credential-shaped names: 147,811 files, 18,644,236,641 B, among them
 `SHA256SUMS` (147,810 entries; its own sha256
 `e22d8579bed1ce7a81a90ccb1096d0397a29de8471f8b56f466f05f13f882989`). The two-way check

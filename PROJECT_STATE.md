@@ -696,8 +696,12 @@ desktop's checkout still has the round 3 branch locally.
        failure that rclone's source shows ends the call before the request. The journal goes
        to Drive as closed segments, each seen there before its step starts. Both twins are
        re-established before any trash. The deadline row covers everything in
-       `OptionsEngine_Project` and the folders above it; the Operator agreed to that rule in
-       chat on 2026-10-14. Addendum A is folded in. Four fresh reviewers and a final
+       `OptionsEngine_Project` and the folders above it. Version 6 says the Operator agreed
+       to that rule in chat on 2026-10-14; that is wrong. The Operator agreed to a narrower
+       one ("yes go on"): do not trash, delete or move `The_Works`, `Projects` or
+       `OptionsEngine_Project`, and no "Delete forever", with work inside those folders
+       still free. Addendum B and D36's draft narrow the row to the folders card 3 needs;
+       only the Operator's yes to D36 adopts a rule. Addendum A is folded in. Four fresh reviewers and a final
        two-lens check confirmed 50 more points, all folded in.
      - **Codex's review of version 6** (pasted by the Operator, 2026-10-14): "agree with
        changes". It settled the journal loss, both twins, the folders above C and the

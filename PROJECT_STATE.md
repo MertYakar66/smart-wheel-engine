@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-10-14 (close after #571, `main` at `e734c87`. Card 3: Codex
+**Last updated:** 2026-10-14 (close after #572, `main` at `f85354f`. Card 3: Codex
+reviewed version 6 ("agree with changes"), settling all but two details of the proofs that
+a request was not sent. The pen confirmed both and drafted addendum B, then D36's draft.
+Both are posted on #544 for Codex's review, on the Operator's choice.
+Earlier the same day: close after #571, `main` at `e734c87`. Card 3: Codex
 reviewed version 5 and addendum A ("agree with changes", four findings, all accepted after
 the pen checked them), and version 6 is posted, in two comments, for its sixth review. Since
 2026-10-13 the pen runs on the Operator's desktop: the cloud pen's session was teleported
@@ -137,7 +141,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `e734c87` (2026-10-12). Others on `origin`:
+**Branches:** `main` is at `f85354f` (2026-10-14). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -692,9 +696,30 @@ desktop's checkout still has the round 3 branch locally.
        failure that rclone's source shows ends the call before the request. The journal goes
        to Drive as closed segments, each seen there before its step starts. Both twins are
        re-established before any trash. The deadline row covers everything in
-       `OptionsEngine_Project` and the folders above it; the Operator agreed to that rule in
-       chat on 2026-10-14. Addendum A is folded in. Four fresh reviewers and a final
+       `OptionsEngine_Project` and the folders above it. Version 6 says the Operator agreed
+       to that rule in chat on 2026-10-14; that is wrong. The Operator agreed to a narrower
+       one ("yes go on"): do not trash, delete or move `The_Works`, `Projects` or
+       `OptionsEngine_Project`, and no "Delete forever", with work inside those folders
+       still free. Addendum B and D36's draft narrow the row to the folders card 3 needs;
+       only the Operator's yes to D36 adopts a rule. Addendum A is folded in. Four fresh reviewers and a final
        two-lens check confirmed 50 more points, all folded in.
+     - **Codex's review of version 6** (pasted by the Operator, 2026-10-14): "agree with
+       changes". It settled the journal loss, both twins, the folders above C and the
+       rate-limited PATCH, and withdrew its view that a quota-error reply may count as
+       rejected. Two details remain, both in section 2's proofs that a request was not sent:
+       the `untrash` proof must count only a failure on the first page of C's listing, and a
+       failed token refresh sends one or two token requests per try (Go's OAuth library tries
+       two credential styles), so up to ten, not five. The pen's checkers confirmed both and
+       found a third: two log records rclone writes after a retryable failure, which the
+       mapped tails left out. **Addendum B**, with those three corrections, is drafted and
+       checked twice. The Operator chose at first not to post it ("Don't post; move on").
+       D36's draft then showed that D36 depends on addendum B, which also corrects version
+       6's claim about the Operator's agreement, and the Operator chose "Post both for
+       Codex" (2026-10-14). **Addendum B** is #544 comment 6168806648: three corrections to
+       the proofs, and a fourth that narrows the undo-window row to the folders card 3 needs.
+     - **D36's draft** is #544 comment 6168812067, for Codex's review and then the
+       Operator's word-for-word yes. Two fresh-context checks confirmed 32 points in earlier
+       drafts, all folded in. It is not in `DECISIONS.md`, and nothing in it is in force.
      - **Off card 3:** the stray `ibkr$p`. It becomes its own later step, which keeps
        the checksum records consistent.
      - **Seven questions** for the Operator are in version 6's section 9. They include
@@ -722,9 +747,9 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): version 6 of its design waits for Codex's review and the
-     Operator's answers; then D36 for the Operator's word-for-word yes, the change run
-     that writes its code, then card 3a.
+  1. Card 3 (Remains 3): addendum B and D36's draft wait for Codex's review; then D36's
+     final text for the Operator's word-for-word yes, the Operator's answers to version 6's
+     section 9, the change run that writes its code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
   3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator

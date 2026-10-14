@@ -2,8 +2,8 @@
 
 **Last updated:** 2026-10-14 (close after #572, `main` at `f85354f`. Card 3: Codex
 reviewed version 6 ("agree with changes"), settling all but two details of the proofs that
-a request was not sent. The pen confirmed both and drafted addendum B; the Operator chose
-not to post it yet. D36's draft is next.
+a request was not sent. The pen confirmed both and drafted addendum B, then D36's draft.
+Both are posted on #544 for Codex's review, on the Operator's choice.
 Earlier the same day: close after #571, `main` at `e734c87`. Card 3: Codex
 reviewed version 5 and addendum A ("agree with changes", four findings, all accepted after
 the pen checked them), and version 6 is posted, in two comments, for its sixth review. Since
@@ -712,8 +712,14 @@ desktop's checkout still has the round 3 branch locally.
        two credential styles), so up to ten, not five. The pen's checkers confirmed both and
        found a third: two log records rclone writes after a retryable failure, which the
        mapped tails left out. **Addendum B**, with those three corrections, is drafted and
-       checked twice. The Operator chose on 2026-10-14 not to post it yet ("Don't post; move
-       on"). The draft is kept on the desktop, outside git.
+       checked twice. The Operator chose at first not to post it ("Don't post; move on").
+       D36's draft then showed that D36 depends on addendum B, which also corrects version
+       6's claim about the Operator's agreement, and the Operator chose "Post both for
+       Codex" (2026-10-14). **Addendum B** is #544 comment 6168806648: three corrections to
+       the proofs, and a fourth that narrows the undo-window row to the folders card 3 needs.
+     - **D36's draft** is #544 comment 6168812067, for Codex's review and then the
+       Operator's word-for-word yes. Two fresh-context checks confirmed 32 points in earlier
+       drafts, all folded in. It is not in `DECISIONS.md`, and nothing in it is in force.
      - **Off card 3:** the stray `ibkr$p`. It becomes its own later step, which keeps
        the checksum records consistent.
      - **Seven questions** for the Operator are in version 6's section 9. They include
@@ -741,10 +747,9 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): version 6 is reviewed, and addendum B waits, unposted, for the
-     Operator. Next, D36's text is drafted for the Operator's word-for-word yes; then the
-     Operator's answers to version 6's section 9, the change run that writes its code, then
-     card 3a.
+  1. Card 3 (Remains 3): addendum B and D36's draft wait for Codex's review; then D36's
+     final text for the Operator's word-for-word yes, the Operator's answers to version 6's
+     section 9, the change run that writes its code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
   3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator

@@ -1,6 +1,11 @@
 # Project State
 
-**Last updated:** 2026-10-12 (close after #570, `main` at `e9a2d2a`; the Operator moved the
+**Last updated:** 2026-10-14 (close after #571, `main` at `e734c87`. Card 3: Codex
+reviewed version 5 and addendum A ("agree with changes", four findings, all accepted after
+the pen checked them), and version 6 is posted, in two comments, for its sixth review. Since
+2026-10-13 the pen runs on the Operator's desktop: the cloud pen's session was teleported
+there, and the desktop app's chat is now the only pen.
+Earlier, 2026-10-12: close after #570, `main` at `e9a2d2a`; the Operator moved the
 project's three top-level Drive folders into `OptionsEngine_Project`. Earlier: close after #569, `main` at `4ee1aaa`. Card 3: Codex
 reviewed versions 1 to 4 of the design, and version 5 is posted, in two comments, for its
 fifth review. Earlier the same day: close after #568; version 4 posted.
@@ -132,7 +137,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `e9a2d2a` (2026-10-12). Others on `origin`:
+**Branches:** `main` is at `e734c87` (2026-10-12). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -672,16 +677,29 @@ desktop's checkout still has the round 3 branch locally.
        Codex answered "agree with changes" (pasted by the Operator, 2026-10-12). It settled
        the credential proof, the expiry and the comparisons; its three findings, all on
        recovery from an interrupted request, were accepted.
-     - **Version 5** (#544 comments 6122553634 and 6122584058, 2026-10-12) is posted for
-       Codex's fifth review. It drops the landing bound and every resend: each call's log
-       (`--dump headers`) shows whether a request was handed to Drive, one handed over and
-       not settled stays outstanding until its effect is seen, and nothing is sent to it.
-       Fresh-context checkers verified the rclone and Go facts it relies on and reviewed it
-       in four lenses; their confirmed findings are folded in.
+     - **Version 5** (#544 comments 6122553634 and 6122584058, 2026-10-12) dropped the
+       landing bound and every resend. Codex answered "agree with changes" on version 5 and
+       addendum A (pasted by the Operator, 2026-10-14): four findings, all accepted after nine
+       fresh-context checkers confirmed each against rclone's and Go's source, Google's pages
+       and the text. A missing log line does not prove a request was not sent; the journal's
+       copy on Drive could miss a request sent after it; the recovery record accepted copies
+       the final audit does not count; and nothing protected the folders above C in the undo
+       window. Codex's answer to question 4, that a quota-error reply may count as rejected,
+       was not taken: no Google page supports it.
+     - **Version 6** (#544 comments 6165771818 and 6165775816, 2026-10-14), drafted and
+       posted on the Operator's "yes go on", is posted for Codex's sixth review. A request
+       counts as not sent only on positive proof: a `launch` record the call never got, or a
+       failure that rclone's source shows ends the call before the request. The journal goes
+       to Drive as closed segments, each seen there before its step starts. Both twins are
+       re-established before any trash. The deadline row covers everything in
+       `OptionsEngine_Project` and the folders above it; the Operator agreed to that rule in
+       chat on 2026-10-14. Addendum A is folded in. Four fresh reviewers and a final
+       two-lens check confirmed 50 more points, all folded in.
      - **Off card 3:** the stray `ibkr$p`. It becomes its own later step, which keeps
        the checksum records consistent.
-     - **Seven questions** for the Operator are in version 5's section 9. They include
-       a D36 text for its departure from D33's "never moves".
+     - **Seven questions** for the Operator are in version 6's section 9. They include
+       a D36 text for its departure from D33's "never moves". Question 1 is now whether to
+       stay in Testing or publish the sign-in app (below).
      Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
      UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
      covers were already home: 115,310 match archive copies under
@@ -704,7 +722,7 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): version 5 of its design, with addendum A, waits for Codex's review and the
+  1. Card 3 (Remains 3): version 6 of its design waits for Codex's review and the
      Operator's answers; then D36 for the Operator's word-for-word yes, the change run
      that writes its code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
@@ -722,10 +740,13 @@ desktop's checkout still has the round 3 branch locally.
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.
 
-  Asked of the Operator on 2026-10-07 and still open: is the Google Cloud app behind
-  rclone in "Testing" or "In production"? The Operator signed in again on 2026-10-09,
-  pasting `Success!` at 18:54 UTC. If the app is in "Testing", that sign-in ends about
-  2026-10-16 at 18:54 UTC. The first attempt failed: Windows refused rclone's sign-in
+  Answered on 2026-10-13: the Google Cloud app behind rclone (project `rclone-backup`) is
+  in "Testing". The pen read it in Google Cloud Console, read-only. The Operator signed in
+  again on 2026-10-09, pasting `Success!` at 18:54 UTC, so that sign-in ends about
+  2026-10-16 at 18:54 UTC. Nothing reads Drive before card 3's code run merges, so the
+  lapse costs nothing now. The console's "Publish app" needs a home-page link and a
+  privacy-policy link first. Whether to publish or stay in Testing is version 6's
+  question 1; the pen recommends staying in Testing for now. The first attempt failed: Windows refused rclone's sign-in
   port, 127.0.0.1:53682, which lay inside a range the Windows NAT driver (WinNAT) had
   reserved (53671–53770). `net stop winnat`, the sign-in, then `net start winnat` fixed it.
   Still open from before: the Operator deletes the credential file forever from Drive's

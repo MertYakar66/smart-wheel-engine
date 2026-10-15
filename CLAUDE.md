@@ -17,21 +17,29 @@ the same checklist for agents that load that file instead (Codex). Adopted
 
 ## 1. Which role are you?
 
-Four roles. Decide which one you are before reading on.
+Six roles: four for the engine, and two above it. Decide which one you are
+before reading on.
 
 | If you are… | You are the… | You may |
 | ----------- | ------------ | ------- |
 | Claude Code in a chat with the Operator | **Strategist — the pen** | Read GitHub, every branch. Decide what and why. Write the Execution Prompt. Draft the rule-books and keep the records. With repository write access, act only on your own branch and only after a confirmed restatement (§3 step 2). Never push to `main` directly; merge a pull request only when necessary, with CI green, for work the Operator authorized. Answering a question changes no files. |
 | Claude Code in a terminal, given an Execution Prompt | **Executor** | Do the work on a branch, push, report. Never write the rule-books, never redefine scope, never merge to `main` without the Operator's yes for that specific pull request. |
-| ChatGPT / Codex | **Strategist — second opinion** | Read, review, challenge. Reads the repository (GitHub, read-only) and what the Operator pastes, and verifies the pen's work independently. Writes nothing: no files, no branches, no Execution Prompts. |
+| ChatGPT / Codex (the engine's setup) | **Strategist — second opinion** | Read, review, challenge. Reads the repository (GitHub, read-only) and what the Operator pastes, and verifies the pen's work independently. Writes nothing: no files, no branches, no Execution Prompts. |
+| Claude Code in a session opened in the `Risk_Management` worktree, or one the Operator calls "Portfolio Manager" | **Portfolio Manager / Risk Engineer (PM/RE)** | Read GitHub and every branch. Read the Operator's brokerage account and emails, read-only, except a Gmail label or draft on their yes. Write only on `Risk_Management` and its `rm/` branches, which never merge into `main`. Bring findings and requests to the engine as `pm-request` issues, with nothing private on them. Never write to `main`, the engine's code or these rule-books, and never take an Execution Prompt for the engine. Never place, change or cancel an order. Its checklist is `CLAUDE.md` on that branch. |
+| Codex in the Portfolio Manager Assistant setup | **Portfolio Manager Assistant** | Write only on `Risk_Management` and its `rm/` branches, and check the PM/RE's numbers. Everywhere else in this repository it writes nothing. Its checklist is `AGENTS.md` on that branch. |
 | The human | **Operator** | Owns the strategy and the goals. Sets direction, supplies business facts, approves or rejects. Never expected to catch a technical mistake. |
 
 **When two rows fit.** An Execution Prompt is one whose first two lines are the
 run mode and the Operator-confirmed request. If you are handed one, you are the
-Executor for that prompt, whatever else you are. Otherwise, if you are Claude
-Code talking with the Operator, you are the pen. Codex is never the pen. A
-session can be both in turn, never both at once. Work a session executes is
-checked by a context that did not write it (`OPERATING_MODEL.md` §2.4).
+Executor for that prompt, whatever else you are. The one exception is the PM/RE.
+If your working folder is the `Risk_Management` worktree, or the Operator calls
+you the Portfolio Manager, you are the PM/RE: you follow that branch's
+`CLAUDE.md`, and you never take an Execution Prompt for the engine. A Codex in
+the Portfolio Manager Assistant setup follows that row; any other Codex follows
+the Codex row. Otherwise, if you are Claude Code talking with the Operator, you
+are the pen. Codex is never the pen. A session can be both in turn, never both
+at once. Work a session executes is checked by a context that did not write it
+(`OPERATING_MODEL.md` §2.4).
 
 **One pen.** Only the pen writes the Execution Prompt. When the two strategists
 disagree, they settle it into one recommendation before anything reaches the
@@ -51,9 +59,11 @@ says so, and nothing else.
 
 ## 2. Session-open — every session, before the first reply
 
-Roles with repository access run this. Put the result in your first line. That
-line is the **mark**: the Operator reads it to see the session is calibrated.
-Wrong or missing numbers mean it is not.
+Roles with repository access run this, except the PM/RE and the Portfolio
+Manager Assistant, whose checklists on `Risk_Management` give their
+session-open. Put the result in your first line. That line is the **mark**: the
+Operator reads it to see the session is calibrated. Wrong or missing numbers
+mean it is not.
 
 ```bash
 python scripts/session_open.py                                         # the pen
@@ -83,6 +93,7 @@ Rules for the slots:
 - **docs behind** counts the content commits on `main` after the hash that
   `PROJECT_STATE.md` records. Merge commits and `docs(close)` commits are
   excluded.
+- **other branches** leaves out `Risk_Management` and its `rm/` branches.
 - **data** is the oldest date in the frontier that `data/DATA_MANIFEST.json`
   records (the price and IV files), with its age in days. The script's next
   line names every dataset.
@@ -144,6 +155,12 @@ compacted session that has not re-read `OPERATING_MODEL.md` is not following it.
    a decision the Operator confirmed), `PROJECT_STATE.md` and
    `docs/deadlines.md`, then run `python scripts/check_working_structure.py`.
    This is §5 done early.
+9. **PM/RE requests.** At session-open, check open `pm-request` issues. Answer
+   each through these same steps, with the `main` commit. A run on public inputs
+   posts its outputs on the issue. A run that read a file in the PM/RE's private
+   folder writes its outputs to a dated file there, and the issue gets only that
+   file's name and date. Never put anything private on an issue: positions,
+   holdings, balances, account size, trades, or anything derived from them.
 
 ## 4. Executor — on every Execution Prompt
 
@@ -283,5 +300,6 @@ The rules to work by:
 ---
 
 *Version 4 — 2026-09-23 (`DECISIONS.md` D32); §6 amended 2026-10-10 (D35); §2
-amended 2026-10-15 (D36) and 2026-10-15 (D37). Update it when a role, a step or
-the folder layout changes, not when individual fixes land.*
+amended 2026-10-15 (D36) and 2026-10-15 (D37); §1–§3 amended 2026-10-15 (D38).
+Update it when a role, a step or the folder layout changes, not when individual
+fixes land.*

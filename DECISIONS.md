@@ -1879,6 +1879,8 @@ chosen. Step 6 now runs under D33's conditions:
 
 ## D32. Working structure v4 — four roles, marks from commands, the close, the checklist files (2026-09-23)
 
+**Amended by D38 (2026-10-15):** point 1's 'Codex … writes nothing' now holds for the engine's Codex; the Portfolio Manager Assistant writes on `Risk_Management` and its `rm/` branches.
+
 **Decision.** The project adopts the working structure the Operator runs on the
 ORCA project (`MertYakar66/Orca-Project`), fitted to this repository:
 
@@ -2341,6 +2343,33 @@ changes"):
 - `scripts/drive_consolidate.py`'s `trashlist` and `recount`, and their tests, from card 3's code run (PR #576);
 - the row in `docs/deadlines.md`;
 - `CLAUDE.md` §2 and the `AGENTS.md` Appendix, which `scripts/check_working_structure.py` keeps word for word, in CI (point 7).
+
+## D38. A Portfolio Manager / Risk Engineer above the engine, with its own branch and assistant (2026-10-15)
+
+**Decision.** Confirmed by the Operator on 2026-10-15: "yes to drafts_v3. looks good" (PM1 on the `Risk_Management` branch, whose Part 5 is this change), and for `main` "1. yes 2. yes 3. yes 4. they": yes to the `OPERATING_MODEL.md` §7 change, to this entry and to the `pm-request` label, with "they" for the Operator in place of Part 5's "he".
+1. **The role.** A Claude agent is the Operator's Portfolio Manager / Risk Engineer (PM/RE). It manages and watches the portfolio with the Operator, who places every order. Its scope is portfolio management, risk management and any other area, not just the wheel engine. It is the bridge between the engine and the portfolio. It is the single source of portfolio numbers for the agents its charter lists, except the Dashboard terminal, which keeps its own live viewer until the IBKR round. The engine's roles (its pen, Executors and Codex) keep charge of the engine's code and rule-books, under the Operator.
+2. **Its workspace.** The PM/RE works on `Risk_Management` and its `rm/` branches. `Risk_Management` is an orphan branch of this repository that never merges into `main` and is never the head of a pull request into `main`. The repository stays public, so nothing private is written to any GitHub surface. The Operator kept it public knowing that the IBKR account id stays in three public documents on `main`.
+3. **Its assistant.** A second, separate Codex setup, the Portfolio Manager Assistant, writes on `Risk_Management` and its `rm/` branches, and checks the PM/RE's numbers. This amends D32's "Codex writes nothing" for those branches only; the engine's Codex is unchanged.
+4. **Toward the engine.** The PM/RE writes none of the engine's code or rule-books. It brings findings and requests as `pm-request` issues, with nothing private on them, and the engine's pen answers them. It may downgrade or block an engine candidate against the Operator's limits, never upgrade one, and the Operator makes the final call. After the account read, the Operator and the PM/RE review the engine's parameters; once the engine is in use, they review its outputs.
+5. **The brokerage.** Read-only, as §7 says. The Operator granted "full authorization except placing a trade". This decision is narrower, because §7 holds: the PM/RE reads the account and writes nothing there. §7 is amended so that the PM/RE's private folder, outside git, is a permitted home for account data.
+
+**Why.** The Operator, 2026-10-15:
+- "put your name as Portfolio Manager / Risk Engineer as CLAUDE agent, you also will have an assistant which will be CHATGPT CODEX agent. Other Strategists are going to be responsible and focusing only on smart-wheel-engine project. Your task is a little broad, covering Portfolio Managing activities, risk management...any other area... not just wheel engine. Later on, when we actually start using the engine, you and I will discuss the Engine's outputs whether they are logical and feasible."
+- "Yes, access my IBKR. you have full authorization except placing a trade. YOU CAN NEVER PLACE AN ORDER. ORDERS ARE ONLY PLACED BY ME."
+- "As I said, without being certain, I do not expect you to make any coding changes in the repo as you are not the admin/authority personel for the repo. You are the bridge between the Engine (underground) and the Portfolio (above ground)." The prompt they approved then fixed the rule: the PM/RE "changes no engine code or rule-books".
+- "Engine's parameter situation is quite different than I wanted. We will have to make major changes to that one."
+- "Put it under a branch in our repo named Risk_Management."
+- "yes issues only."
+- "keep it public, forget the private"; "keep it separate, go with a"; "2 codex setups, your assistant's name is Portfolio Manager Assistant".
+- On downgrade-only authority: "sounds good."
+
+**Rejected alternatives.**
+- **A separate private repository.** The Operator chose a branch in this repository ("Put it under a branch in our repo named Risk_Management").
+- **Making this repository private.** The Operator chose to keep it public ("keep it public, forget the private"), against the recommendation put to them to go private with GitHub Pro or a CI spending limit. They gave no reason.
+- **A branch cut from `main`.** It would carry the engine's code and rules, and could be merged by accident.
+- **One Codex in both roles.** Two rule sets in one agent mix up who may write what.
+
+**Pinned by.** `CLAUDE.md`, `AGENTS.md` and the charter on the `Risk_Management` branch; `scripts/session_open.py` leaving the branch out of "other branches", with its test.
 
 ## How to add a decision
 

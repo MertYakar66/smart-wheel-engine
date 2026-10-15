@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-10-15 (close after #577, `main` at `82e1fd3`: D37 merged.
+**Last updated:** 2026-10-15 (D38 being written: the Portfolio Manager / Risk Engineer and its
+assistant above the engine, from PM1 Part 5 on `Risk_Management`, on the Operator's "1. yes 2. yes
+3. yes 4. they". Earlier the same day: close after #577, `main` at `82e1fd3`: D37 merged.
 Earlier the same day: D37 adopted on the Operator's "yes, adopt D37": card 3 trashes the
 old Drive folders by hand, after card 3a proves every file in them (the middle route,
 "yes, go with the middle route"); written into the rule-books by #577. Card 3's code run
@@ -911,6 +913,12 @@ desktop's checkout still has the round 3 branch locally.
     (sha256 `959bea07c9f6…`) was shown to the Operator before it ran.
   - D37 ("yes, adopt D37", 2026-10-15), to the text the pen sent: card 3 trashes the old
     folders by hand after card 3a's proof and a recount. Written by #577.
+  - The Portfolio Manager / Risk Engineer's change to `main` (2026-10-15): the Operator asked the pen to carry out
+    PM1 Part 5 (on the orphan branch `Risk_Management`, commit `6c087a0`) "as one change run through your normal
+    process", and answered "1. yes 2. yes 3. yes 4. they": yes to the `OPERATING_MODEL.md` §7 sentence on where
+    account data lives, yes to D38, yes to creating the `pm-request` label, and "they" for the Operator in place of
+    Part 5's "he". The pen writes the rule-book text; an Executor writes `scripts/session_open.py`'s branch rule
+    and the tests, in the same PR.
 - **Proposed, not authorized.**
   - **From #565's checks, for the next kits and cards:**
     - the kit's privacy scan has no pattern for Drive folder ids; add one, or record that

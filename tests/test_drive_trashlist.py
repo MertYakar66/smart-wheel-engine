@@ -43,7 +43,10 @@ from types import SimpleNamespace
 import pytest
 
 from tests import test_drive_consolidate as tdc
-from tests.test_drive_consolidate import world  # noqa: F401  (a fixture, for the verb test)
+from tests.test_drive_consolidate import (  # noqa: F401  (fixtures)
+    every_fake_rclone_call_is_allowed,  # autouse: the session's check of every rclone verb
+    world,  # for the verb test
+)
 
 dc = tdc.dc
 FakeDrive = tdc.FakeDrive
@@ -128,18 +131,20 @@ def _clean(w: World) -> None:
     w.home("data/v.csv", b"vendor bytes\n")
 
 
-def _census_of(w: dict, areas, name: str) -> int:
+def _census_of(w: dict, areas, name: str, one_parent: bool = True) -> int:
+    """The census command over these areas; card 3's own censuses ask one parent per query."""
     spec = w["tmp"] / f"{name}.areas.json"
     spec.write_text(json.dumps([dict(a) for a in areas]), encoding="utf-8")
     out = w["tmp"] / name
-    return dc.main(["census", "--remote", "fake:", "--areas", str(spec), "--out", str(out)])
+    args = ["census", "--remote", "fake:", "--areas", str(spec), "--out", str(out)]
+    return dc.main(args + (["--one-parent-per-query"] if one_parent else []))
 
 
 def _prepare(w: dict, bytecheck: bool = False) -> None:
     """Card 3a's documents: the six-area census, swe-data/'s, the inventory and the plan."""
     t = w["tmp"]
     assert _census_of(w, dc.CARD2B_AREAS, "c6.json") == 0
-    assert _census_of(w, [dc.SWE_DATA], "swe.json") == 0
+    assert _census_of(w, [dc.SWE_DATA], "swe.json", one_parent=False) == 0  # either may do
     assert dc.main(["inventory", "--root", str(w["root"]), "--out", str(t / "i.json")]) == 0
     args = ["plan", "--census", str(t / "c6.json"), "--inventory", str(t / "i.json")]
     assert dc.main([*args, "--out", str(t / "p.json")]) == 0
@@ -357,11 +362,20 @@ def test_swe_data_is_found_by_its_id_whatever_else_bears_its_name(small):
         "Projects not a folder",
         "OptionsEngine_Project another id",
         "The_Works with two parents",
+        "a second The_Works, another case",
     ],
 )
 def test_the_census_stops_on_any_other_chain(small, change, capsys):
+    # An area outside the chain, so that a trashed link (which Drive also shows on every
+    # folder below it) is found by the chain's own read, not first by the area's lookup.
     d = small["world"].d
-    if change == "The_Works missing":
+    d.folder("Elsewhere", tdc.MY_DRIVE_ROOT, "area-elsewhere")
+    elsewhere = {"name": "Elsewhere", "id": "area-elsewhere", "parent": "root"}
+    elsewhere.update({"folder": "Elsewhere", "mode": "read-only"})
+    small["areas"].write_text(json.dumps([elsewhere]), encoding="utf-8")
+    if change == "a second The_Works, another case":
+        d.folder("the_works", tdc.MY_DRIVE_ROOT, "lower-the-works")  # Drive's name = ignores case
+    elif change == "The_Works missing":
         d.obj("chain-the-works")["name"] = "The Works"
     elif change == "a second The_Works, trashed":
         d.folder("The_Works", tdc.MY_DRIVE_ROOT, "old-the-works")
@@ -1244,7 +1258,8 @@ def test_recount_refuses_an_area_with_a_blocker_and_checks_one_area_alone(live):
     # The Google file, the folder that holds it and the area folder: three blocker rows.
     assert rc == 1
     assert rec["differences"] == [
-        "area SmartWheelData: the proof has 3 blocker row(s): not clear to trash by hand"
+        "area SmartWheelData: the proof has 3 row(s) neither listed nor a folder: not clear "
+        "to trash by hand"
     ]
     _census_now(live, ["swe-local-only"], "slo.json")
     rc, rec = _recount(live, "swe-local-only", census="slo.json", **paths)
@@ -1400,3 +1415,525 @@ def test_no_rclone_verb_in_the_source_is_outside_the_allowlist():
         "settier",
     ):
         assert not re.search(rf"\"{word}\"", src), word
+
+
+# ---------------------------------------------------------------- fix round 1 (the pen's A to F)
+
+
+# A. The proof's censuses ask Drive about one folder per query.
+
+
+def test_a_short_or_answer_is_missed_by_batches_and_found_one_parent_at_a_time(small, monkeypatch):
+    w = small["world"]
+    w.dir(SLO, "empty")  # with data/, the walk's second round is an OR of two parents
+    gdoc = w.d.special("notes", w.dir(SLO, "data"), "application/vnd.google-apps.document")
+    w.d.save(small["tmp"] / "drive.json")
+    monkeypatch.setenv("FAKE_DROP_IN_OR", gdoc)  # Drive answers that OR, but without it
+    assert tdc._census(small, "batched.json") == 0  # the size check counts no Google file
+    doc = _load(small["tmp"] / "batched.json")
+    assert doc["one_parent_per_query"] is False
+    assert gdoc not in {o["id"] for o in doc["areas"][0]["objects"]}
+    small["calls"].write_text("", encoding="utf-8")
+    args = ["census", "--remote", "fake:", "--areas", str(small["areas"]), "--one-parent-per-query"]
+    assert dc.main([*args, "--out", str(small["tmp"] / "one.json")]) == 0
+    doc = _load(small["tmp"] / "one.json")
+    assert doc["one_parent_per_query"] is True
+    assert gdoc in {o["id"] for o in doc["areas"][0]["objects"]}
+    queries = [_query_of(c) for c in _calls(small["calls"]) if c[:2] == ["backend", "query"]]
+    assert queries and not any(" or " in q for q in queries)
+
+
+def test_every_other_census_keeps_its_batches(small):
+    w = small["world"]
+    w.dir(SLO, "empty")
+    w.d.save(small["tmp"] / "drive.json")
+    small["calls"].write_text("", encoding="utf-8")
+    doc = dc.census("fake:", [AREA["swe-local-only"]])  # what _drifted runs before copy
+    assert doc["one_parent_per_query"] is False
+    queries = [_query_of(c) for c in _calls(small["calls"]) if c[:2] == ["backend", "query"]]
+    assert any(" or " in q for q in queries)
+
+
+def test_trashlist_refuses_a_census_made_with_batches(proven, tmp_path, capsys):
+    plan, census, swe = copy.deepcopy(proven["docs"])
+    census["one_parent_per_query"] = False
+    w = {"tmp": tmp_path, "root": proven["root"]}
+    names = {
+        "plan": _write(tmp_path, "p.json", plan),
+        "census": _write(tmp_path, "c6.json", census),
+    }
+    names["swe"] = _write(tmp_path, "swe.json", swe)
+    out = proven["root"] / "_logs" / "refused-batched"
+    assert _trashlist(w, out_path=out, **names) == 2
+    assert "--one-parent-per-query" in capsys.readouterr().err and not out.exists()
+
+
+def test_the_swe_data_census_may_be_made_either_way(case):
+    assert case.swe["one_parent_per_query"] is False  # the proven world's own
+    case.swe["one_parent_per_query"] = True
+    rows, areas = dc.trashlist(case.plan, case.census, case.swe, case.root)
+    assert [a["clear_to_trash_by_hand"] for a in areas] == ["yes"] * 3
+
+
+def test_recount_needs_a_census_made_one_parent_at_a_time(live):
+    assert _census_of({"tmp": live.tmp}, [AREA[n] for n in CONS], "now.json", False) == 0
+    rc, rec = _recount(live)
+    assert rc == 1 and rec["differences"] == ["the census was not made with --one-parent-per-query"]
+
+
+# B. The verdict fails closed.
+
+
+def test_a_verdict_is_yes_only_when_every_row_is_listed_or_a_folder(case):
+    rows, _ = dc.trashlist(case.plan, case.census, case.swe, case.root)
+    area = _area_of(case.census, SLO)
+    mine = [r for r in rows if r["area"] == "swe-local-only"]
+    assert dc._area_summary(area, mine)["clear_to_trash_by_hand"] == "yes"
+    odd = copy.deepcopy(mine)
+    next(r for r in odd if r["class"] == "listed")["class"] = "undecided"  # neither, nor blocker
+    s = dc._area_summary(area, odd)
+    assert (s["clear_to_trash_by_hand"], s["blockers"]) == ("no", 1)
+    no_top = [r for r in mine if r["path"] != ""]  # every row clean, but the folder's own missing
+    assert dc._area_summary(area, no_top)["clear_to_trash_by_hand"] == "no"
+    assert dc._area_summary(area, [])["clear_to_trash_by_hand"] == "no"
+
+
+def test_recount_says_no_for_a_row_neither_listed_nor_a_folder(live):
+    proof = _load(live.list / dc.PROOF)
+    next(r for r in proof["rows"] if r["id"] == live.ids["a"])["class"] = "undecided"
+    text = dc.proof_text(proof["rows"])
+    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    (live.tmp / "odd.json").write_bytes(text.encode("utf-8"))
+    summary = _load(live.list / dc.PROOF_SUMMARY)
+    summary["sha256"] = sha
+    (live.tmp / "odd_summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    _census_now(live)
+    rc, rec = _recount(
+        live, sha=sha, proof=live.tmp / "odd.json", summary=live.tmp / "odd_summary.json"
+    )
+    assert rc == 1
+    assert rec["differences"] == [
+        "area swe-local-only: the proof has 1 row(s) neither listed nor a folder: not clear "
+        "to trash by hand"
+    ]
+
+
+# C. Freshness: a census from the 24 hours before the recount, and later than the proof.
+
+
+@pytest.mark.parametrize(
+    "case_, gen_after_proof, now_after_gen, unchanged",
+    [
+        ("the proof time itself", 0, 3600, "no"),
+        ("just after the proof", 1, 3600, "yes"),
+        ("24 hours old", 1, 24 * 3600, "yes"),
+        ("just over 24 hours old", 1, 24 * 3600 + 1, "no"),
+    ],
+)
+def test_recount_takes_a_census_from_the_day_before_it(
+    live, monkeypatch, capsys, case_, gen_after_proof, now_after_gen, unchanged
+):
+    _census_now(live)
+    made = dt.datetime.fromisoformat(_load(live.list / dc.PROOF_SUMMARY)["ran"])
+    gen = made + dt.timedelta(seconds=gen_after_proof)
+    now = gen + dt.timedelta(seconds=now_after_gen)
+    census = _load(live.tmp / "now.json")
+    census["generated"] = gen.isoformat()
+    (live.tmp / "now.json").write_text(json.dumps(census), encoding="utf-8")
+    monkeypatch.setattr(dc, "utc_now", lambda: now.isoformat())
+    rc, rec = _recount(live)
+    assert (rec["unchanged"], rc) == (unchanged, 0 if unchanged == "yes" else 1), rec
+    assert rec["census_generated"] == gen.isoformat()
+    assert rec["census_age_seconds"] == now_after_gen
+    out = capsys.readouterr().out
+    assert f"unchanged: {unchanged} (census made {gen.isoformat()}, " in out
+    if case_ == "the proof time itself":
+        assert rec["differences"][0].startswith("the census (") and "is not later" in out + str(rec)
+    if case_ == "just over 24 hours old":
+        assert rec["differences"] == [
+            f"the census ({gen.isoformat()}) is not from the 24 hours before this recount "
+            f"({now.isoformat()})"
+        ]
+
+
+# D. The allowlist, on every call the fake rclone receives.
+
+
+def test_trashlist_gives_rclone_nothing(live):
+    w = {"tmp": live.tmp, "root": live.root}
+    _prepare(w)
+    before = len(tdc.fake_calls())
+    assert _trashlist(w, "no-calls") == 0
+    assert tdc.fake_calls()[before:] == []
+
+
+def test_recount_gives_rclone_only_allowed_verbs(live):
+    _census_now(live)
+    before = len(tdc.fake_calls())
+    assert _recount(live)[0] == 0
+    calls = tdc.fake_calls()[before:]
+    assert {tdc.verb_of(c) for c in calls} == {"version", "backend query"}
+    for call in calls:
+        _check_call(call)
+
+
+def test_no_process_or_rclone_call_in_the_source_is_outside_the_allowlist():
+    import ast
+
+    src = (tdc._REPO / "scripts" / "drive_consolidate.py").read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    up = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+    def function_of(node):
+        while node in up:
+            node = up[node]
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                return node
+        return None
+
+    def led_by_rclone(lst) -> bool:
+        first = lst.elts[0] if isinstance(lst, ast.List) and lst.elts else None
+        return isinstance(first, ast.Starred) and getattr(first.value, "id", "") == "RCLONE"
+
+    def verb(lst) -> str:
+        words = []
+        for e in lst.elts[1:]:
+            if not (isinstance(e, ast.Constant) and isinstance(e.value, str)):
+                break
+            words.append(e.value)
+        return " ".join(words[:2]) if words[:1] == ["backend"] else "".join(words[:1])
+
+    problems = []
+    for node in ast.walk(tree):
+        where = getattr(node, "lineno", "?")
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name):
+            f = function_of(node)
+            if node.value.id == "subprocess" and (f is None or f.name != "run_cmd"):
+                problems.append(f"subprocess outside run_cmd at line {where}")
+            launch = node.attr in {"system", "popen", "startfile"}
+            if node.value.id == "os" and (launch or node.attr.startswith(("exec", "spawn"))):
+                problems.append(f"os.{node.attr} at line {where}")
+        if isinstance(node, ast.Name) and node.id == "RCLONE" and isinstance(node.ctx, ast.Load):
+            par = up[node]
+            if isinstance(par, ast.Starred) and led_by_rclone(up[par]):
+                if verb(up[par]) not in tdc.ALLOWED_VERBS:
+                    problems.append(f"rclone verb {verb(up[par])!r} at line {where}")
+            elif not (isinstance(par, ast.Call) and getattr(par.func, "attr", "") == "join"):
+                problems.append(f"RCLONE used another way at line {where}")
+        if isinstance(node, ast.Constant) and node.value == "rclone":
+            owner = up.get(up.get(node))
+            key = isinstance(up.get(node), ast.Subscript)  # a document's key: doc["rclone"]
+            if not key and not (
+                isinstance(owner, ast.AnnAssign) and getattr(owner.target, "id", "") == "RCLONE"
+            ):
+                problems.append(f"the string 'rclone' at line {where}")
+        if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "run_cmd":
+            arg = node.args[0] if node.args else None
+            if isinstance(arg, ast.List):
+                ok = led_by_rclone(arg)
+            elif isinstance(arg, ast.Name):
+                sets = [
+                    n.value
+                    for n in ast.walk(function_of(node) or tree)
+                    if isinstance(n, ast.Assign)
+                    and any(getattr(t, "id", "") == arg.id for t in n.targets)
+                ]
+                ok = bool(sets) and all(led_by_rclone(v) for v in sets)
+            else:
+                ok = False
+            if not ok:
+                problems.append(f"run_cmd not given an [*RCLONE, verb, ...] list at line {where}")
+    assert not problems, problems
+    assert sum(1 for n in ast.walk(tree) if getattr(n, "id", "") == "RCLONE") >= 6
+
+
+# E1. The folder rule's own registrations.
+
+
+def _folder_obj(oid: str, name: str, parent: str) -> dict:
+    return {
+        "id": oid,
+        "name": name,
+        "mime": dc.FOLDER,
+        "size": None,
+        "md5": None,
+        "sha256": None,
+        "parents": [parent],
+        "created": None,
+        "modified": "2026-07-03T00:00:00Z",
+        "target": None,
+        "target_mime": None,
+        "owned": True,
+        "trashed": False,
+    }
+
+
+def test_an_empty_folder_a_read_only_area_also_shows_is_a_blocker(case):
+    fid = case.folders[(SLO, "empty")]
+    _area_of(case.census, VENDOR)["objects"].append(_folder_obj(fid, "empty", VENDOR))
+    cls = _classes(case)
+    assert (
+        cls[fid]["reason"]
+        == "also seen in the read-only area day-bot-local-archive/vendor_swe_data"
+    )
+    assert _verdicts(case)["swe-local-only"] == "no"
+
+
+def test_an_empty_folder_in_two_consolidate_areas_is_a_blocker_in_both(case):
+    fid = case.folders[(SLO, "empty")]
+    _area_of(case.census, GIT)["objects"].append(_folder_obj(fid, "empty", GIT))
+    rows, areas = dc.trashlist(case.plan, case.census, case.swe, case.root)
+    mine = [r for r in rows if r["id"] == fid]
+    assert [(r["area"], r["class"]) for r in mine] == [
+        ("smart-wheel-engine-git", "blocker"),
+        ("swe-local-only", "blocker"),
+    ]
+    assert all(r["reason"] == "seen 2 times in the consolidate areas" for r in mine)
+    assert [a["clear_to_trash_by_hand"] for a in areas] == ["no", "yes", "no"]
+
+
+def test_a_read_only_areas_own_folder_inside_a_consolidate_area_is_a_blocker(case):
+    _area_of(case.census, VENDOR)["objects"] = []
+    _area_of(case.census, SLO)["objects"].append(_folder_obj(VENDOR, "vendor_swe_data", SLO))
+    cls = _classes(case)
+    assert cls[VENDOR]["area"] == "swe-local-only" and cls[VENDOR]["class"] == "blocker"
+    assert (
+        cls[VENDOR]["reason"]
+        == "also seen in the read-only area day-bot-local-archive/vendor_swe_data"
+    )
+    assert _verdicts(case)["swe-local-only"] == "no"
+
+
+def test_a_consolidate_area_folder_a_read_only_area_shows_is_a_blocker(case):
+    _area_of(case.census, VENDOR)["objects"].append(_folder_obj(SLO, "swe-local-only", VENDOR))
+    cls = _classes(case)
+    assert cls[SLO]["class"] == "blocker"
+    assert (
+        cls[SLO]["reason"]
+        == "also seen in the read-only area day-bot-local-archive/vendor_swe_data"
+    )
+    assert _verdicts(case)["swe-local-only"] == "no"
+
+
+# E2, E3 and F. Owners, sharing and Drive's own names, end to end.
+
+OTHERS = [
+    {
+        "id": "p-user",
+        "type": "user",
+        "role": "writer",
+        "emailAddress": "someone@example.invalid",
+        "displayName": "Some One",
+    },
+    {
+        "id": "p-group",
+        "type": "group",
+        "role": "reader",
+        "emailAddress": "team@example.invalid",
+        "displayName": "A Team",
+    },
+    {"id": "p-domain", "type": "domain", "role": "reader", "domain": "example.org"},
+    {"id": "anyoneWithLink", "type": "anyone", "role": "reader", "allowFileDiscovery": False},
+]
+
+
+@pytest.fixture(scope="module")
+def odd(tmp_path_factory):
+    """A world whose git area folder another account owns, and whose swe-local-only folder
+    is shared beyond its owner: with a user, a group, a domain and anyone with the link."""
+    tmp = tmp_path_factory.mktemp("odd")
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(dc, "utc_now", Clock(T0))
+        w = World(tmp, mp)
+        _clean(w)
+        w.d.obj(GIT)["owners"] = tdc.SOMEONE_ELSE
+        w.d.obj(SLO)["permissions"] = [*tdc.OWNER_ONLY_PERMS, *OTHERS]
+        env = w.env()
+        _prepare(env)
+        assert _trashlist(env) == 0
+        out = env["root"] / "_logs" / "list"
+        env["summary"] = _load(out / dc.PROOF_SUMMARY)
+        env["rows"] = _load(out / dc.PROOF)["rows"]
+        env["sharing_text"] = (out / "sharing.json").read_text(encoding="utf-8")
+        env["census"] = _load(env["tmp"] / "c6.json")
+    return env
+
+
+def test_an_area_folder_another_account_owns_is_a_blocker_from_the_census_on(odd):
+    assert _area_of(odd["census"], GIT)["root_owned"] is False
+    top = next(r for r in odd["rows"] if r["id"] == GIT)
+    assert (top["class"], top["reason"], top["owned"]) == (
+        "blocker",
+        "not owned by the account",
+        False,
+    )
+    verdicts = {a["name"]: a["clear_to_trash_by_hand"] for a in odd["summary"]["areas"]}
+    assert verdicts == {
+        "swe-local-only": "yes",  # shared, which is recorded beside the verdict, not in it
+        "SmartWheelData": "yes",
+        "smart-wheel-engine-git": "no",
+    }
+
+
+def test_sharing_beyond_the_owner_is_flagged_with_no_email_or_name(odd, capsys):
+    slo = next(a for a in odd["summary"]["areas"] if a["name"] == "swe-local-only")
+    want = {
+        "user writer [permission p-user]",
+        "group reader [permission p-group]",
+        "domain reader (example.org) [permission p-domain]",
+        "anyone reader [permission anyoneWithLink]",
+    }
+    assert set(slo["sharing_flags"]) == want and len(slo["sharing_flags"]) == 4
+    sharing = json.loads(odd["sharing_text"])
+    rec = next(a for a in sharing["areas"] if a["id"] == SLO)
+    assert set(rec["flags"]) == want
+    assert {p["id"] for p in rec["sharing"]} == {"perm-owner", *(p["id"] for p in OTHERS)}
+    assert "@" not in odd["sharing_text"] and "Some One" not in odd["sharing_text"]
+    assert "A Team" not in odd["sharing_text"] and "The Owner" not in odd["sharing_text"]
+    others = [a for a in odd["summary"]["areas"] if a["name"] != "swe-local-only"]
+    assert all(a["sharing_flags"] == [] for a in others)
+    lines = dc.trashlist_lines(odd["summary"], odd["root"] / "_logs" / "list")
+    assert any(x.startswith("  sharing: ") and "anyone reader" in x for x in lines)
+    assert "  sharing: the owner alone" in lines
+
+
+def test_sharing_json_names_each_area_folder_as_drive_does(odd):
+    sharing = json.loads(odd["sharing_text"])
+    names = {a["area"]: a["name"] for a in sharing["areas"]}
+    assert names["smart-wheel-engine-git"] == "smart-wheel-engine"  # Drive's, not the tool's
+    assert names["swe-local-only"] == "swe-local-only"
+    assert len(names) == 6
+
+
+@pytest.mark.parametrize("what", ["a file", "the area folder"])
+def test_an_object_drive_returns_without_owners_is_not_owned(small, what):
+    w = small["world"]
+    oid = w.ids["mine"] if what == "a file" else SLO
+    del w.d.obj(oid)["owners"]
+    w.d.save(small["tmp"] / "drive.json")
+    assert tdc._census(small) == 0
+    area = _load(small["tmp"] / "c.json")["areas"][0]
+    if what == "a file":
+        assert next(o for o in area["objects"] if o["id"] == oid)["owned"] is None
+    else:
+        assert area["root_owned"] is None
+
+
+def test_an_object_without_owners_never_reaches_listed(case):
+    for o in _listings(case.census, case.ids["a"]):
+        o["owned"] = None
+    _area_of(case.census, GIT)["root_owned"] = None
+    cls = _classes(case)
+    assert (cls[case.ids["a"]]["class"], cls[case.ids["a"]]["reason"]) == (
+        "blocker",
+        "owner not recorded",
+    )
+    assert cls[GIT]["reason"] == "owner not recorded"
+
+
+# E4. The desktop twin's guards.
+
+
+def _twin_to(c, rel: str) -> None:
+    for r in _plan_rows(c.plan, c.ids["a"]):
+        r["twin"] = rel
+
+
+@pytest.mark.parametrize(
+    "guard, rel, reason",
+    [
+        ("a plain path", "data/./a.csv", "not a plain path under the root"),
+        ("not under _logs", "_logs/a.csv", "under the root's _logs/"),
+        ("no credential shape", "data/token_a.csv", "a credential-shaped name, never read"),
+    ],
+)
+def test_a_desktop_twin_must_be_a_plain_readable_path(case, guard, rel, reason):
+    body = (case.root / "data" / "a.csv").read_bytes()
+    (case.root / "_logs").mkdir(exist_ok=True)
+    (case.root / "_logs" / "a.csv").write_bytes(body)
+    (case.root / "data" / "token_a.csv").write_bytes(body)
+    _twin_to(case, rel)
+    r = _classes(case)[case.ids["a"]]
+    assert (r["class"], r["reason"]) == ("blocker", f"root twin {rel}: {reason}")
+
+
+def test_a_desktop_twin_through_a_link_or_junction_is_never_read(case):
+    real = case.root / "real-data"
+    (case.root / "data").rename(real)
+    tdc._symlink_or_skip(case.root / "data", real, is_dir=True)
+    r = _classes(case)[case.ids["a"]]
+    assert r["class"] == "blocker"
+    assert r["reason"].startswith("root twin data/a.csv: a link or junction on its path")
+
+
+# E5. The two "listed twice" checks.
+
+
+def test_the_census_stops_if_swe_data_is_listed_twice(small, monkeypatch, capsys):
+    real = dc.drive_query
+
+    def twice(remote, query, tries=3, sharing=False):
+        found = real(remote, query, tries, sharing)
+        if query == f"'{dc.PROJECT_FOLDER_ID}' in parents":
+            found += [h for h in found if h["id"] == SWE]
+        return found
+
+    monkeypatch.setattr(dc, "drive_query", twice)
+    assert tdc._census(small) == 2
+    assert f"swe-data/ (id {SWE}) is listed 2 times" in capsys.readouterr().err
+
+
+def test_recount_says_no_for_a_swe_data_twin_listed_twice_differently(live, monkeypatch):
+    _census_now(live)
+    parent = live.folders[(SWE, "data")]
+    real = dc.drive_query
+
+    def twice(remote, query, tries=3, sharing=False):
+        found = real(remote, query, tries, sharing)
+        if not sharing and f"'{parent}' in parents" in query and "trashed" not in query:
+            twin = next(h for h in found if h["id"] == live.ids["swe:data/a.csv"])
+            found.append({**twin, "md5Checksum": "0" * 32})  # after the true one
+        return found
+
+    monkeypatch.setattr(dc, "drive_query", twice)
+    rc, rec = _recount(live)
+    assert rc == 1
+    sid = live.ids["swe:data/a.csv"]
+    assert rec["differences"] == [
+        f"swe-local-only/data/a.csv: its swe-data/ twin data/a.csv ({sid}) was listed twice, "
+        "differently"
+    ]
+
+
+# E6. A folder above a swe-data/ twin goes to the trash.
+
+
+def test_a_swe_data_twin_whose_folder_is_trashed_fails_both_checks(live):
+    live.d.obj(live.folders[(SWE, "data")])["trashed"] = True  # Drive trashes what it holds too
+    live.save()
+    _census_now(live)
+    rc, rec = _recount(live)
+    sid = live.ids["swe:data/a.csv"]
+    assert rc == 1
+    assert rec["differences"] == [
+        f"swe-local-only/data/a.csv: its swe-data/ twin data/a.csv ({sid}) is in Drive's trash"
+    ]
+    w = {"tmp": live.tmp, "root": live.root}
+    _prepare(w)
+    assert _trashlist(w, "after-the-trash") == 0
+    rows = _load(live.root / "_logs" / "after-the-trash" / dc.PROOF)["rows"]
+    r = next(r for r in rows if r["id"] == live.ids["a"])
+    assert (r["class"], r["reason"]) == (
+        "blocker",
+        "swe-data/ holds 0 objects at data/a.csv, not one file",
+    )
+
+
+# D, last: every call the fake rclone has received in this session is an allowed one.
+
+
+def test_every_call_the_fake_rclone_received_in_this_session_is_allowed():
+    calls = tdc.fake_calls()
+    assert {"version", "backend query", "size"} <= {tdc.verb_of(c) for c in calls}
+    bad = [c for c in calls if tdc.verb_of(c) not in tdc.ALLOWED_VERBS]
+    assert not bad, bad[:5]

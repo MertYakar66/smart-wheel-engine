@@ -15,6 +15,7 @@ object by object, what those areas hold that the root lacks, and copies it home:
     python scripts/drive_consolidate.py sweep     --source D:\\old --inventory root.json --dest data_archive/old --root C:\\swe-data
     python scripts/drive_consolidate.py sums      --root C:\\swe-data
     python scripts/drive_consolidate.py filters   > exclude.txt   # rclone --exclude-from, with --ignore-case
+    python scripts/drive_consolidate.py census    --remote gdrive: --one-parent-per-query --out census6.json   # card 3's proof
     python scripts/drive_consolidate.py trashlist --plan plan.json --census census.json --swe-census swe.json --root C:\\swe-data --out C:\\swe-data\\_logs\\card3a\\list
     python scripts/drive_consolidate.py recount   --proof trashlist.json --summary trashlist_summary.json --expect-sha256 <sha256> --census fresh.json --root C:\\swe-data --remote gdrive:
 
@@ -36,8 +37,13 @@ the chain My Drive › The_Works › Projects › OptionsEngine_Project, each li
 name and the last by its pinned id; ``swe-data/``, read by its recorded id in its
 recorded parent, never by its name (missing, trashed or not a folder stops it); and the
 sharing of each link, of ``swe-data/`` and of each area folder, read with
-``backend query -M``, which returns the permissions Drive lists. None of that runs in
-the re-census ``copy`` and ``bytecheck`` make.
+``backend query -M``, which returns the permissions Drive lists. Of each permission the
+record keeps who is reached and how (its id, type, role and domain, and a few flags),
+and on purpose no email address and no name. None of that runs in the re-census
+``copy`` and ``bytecheck`` make. ``--one-parent-per-query`` asks Drive about one folder
+per query, never an OR of several: Drive can answer such an OR with fewer objects than
+it holds, and only a wholly empty answer is asked again. Card 3's proof needs it:
+``trashlist`` and ``recount`` refuse a census of the areas made without it.
 
 ``plan`` gives every Drive object one class, written to the ledger
 (``plan.json`` and ``plan_ledger.csv``):
@@ -103,22 +109,26 @@ whose whole subtree holds only ``listed`` files and such folders. Everything els
 ``blocker``, with one reason; so is an object a read-only area also shows. What counts
 comes from the census, never from the plan's rows, and a hash learned from a download
 never counts. Its inputs are a plan over exactly card 2b's six areas, with no byte
-check pending, the census it was made from, and a census of ``swe-data/`` alone; its
+check pending, the census it was made from (made with ``--one-parent-per-query``), and a
+census of ``swe-data/`` alone; its
 outputs go into a new folder under the root's ``_logs/``: ``trashlist.json`` (the
 proof), ``trashlist.csv``, ``kept.csv`` (the blockers), ``sharing.json`` and
 ``trashlist_summary.json``. **The proof's sha256 is the sha256 of ``trashlist.json``'s
 exact bytes**: canonical JSON (keys sorted, no spaces, UTF-8, rows in area, path and id
 order, one newline at the end), with no time of its making in it. The Operator's yes
-names that sha256. An area is "clear to trash by hand" only with no ``blocker`` row.
+names that sha256. An area is "clear to trash by hand" only when every one of its rows,
+its own folder's row among them, is ``listed`` or ``folder``: anything else fails closed.
 
 ``recount``, on the day of the trash, reads only. Given the approved sha256 and a census
-made after the proof, it says "unchanged: yes" for the areas checked only when the
-proof and its summary are the approved ones, each area has no ``blocker`` row, the
+made after the proof, within the 24 hours before the recount and with
+``--one-parent-per-query``, it says "unchanged: yes" for the areas checked only when the
+proof and its summary are the approved ones (for the same root), every row of each area
+is ``listed`` or ``folder``, the
 census lists the same ids with the same kind, MIME type, parents, owner, name, size,
 hashes and modified time, every listed file's desktop twin hashed again still matches,
 and every ``swe-data/`` twin, read again in its folder, has the same id, bytes and
 place and is untrashed. It writes its verdict to a new file under the root's
-``_logs/``.
+``_logs/``, and prints it with the census's time and age.
 
 Nothing here deletes or moves a Drive object or a root file. The only files the
 tool removes or replaces are its own: temporary downloads outside the root, the
@@ -765,8 +775,16 @@ def census_totals(objects: list[dict], top: str) -> dict:
 # ---------------------------------------------------------------- census
 
 
-def census(remote: str, areas: list[dict]) -> dict:
+def census(remote: str, areas: list[dict], one_parent: bool = False) -> dict:
+    """Every object in each area, by raw queries of its folders' children.
+
+    ``one_parent`` asks Drive about one folder per query, never an OR of several: Drive can
+    answer such an OR with fewer objects than it holds (Google issue 149522397), and only a
+    wholly empty answer is asked again. Card 3's proof needs it (``--one-parent-per-query``);
+    every other caller, ``_drifted`` among them, keeps the batches of QUERY_BATCH.
+    """
     _check_areas(areas)
+    step = 1 if one_parent else QUERY_BATCH
     out = []
     for area in areas:
         where = (
@@ -787,7 +805,7 @@ def census(remote: str, areas: list[dict]) -> dict:
         root_parents = list(top.get("parents") or [])
         seen, objects, queue = {area["id"]}, [], [area["id"]]
         while queue:
-            batch, queue = queue[:QUERY_BATCH], queue[QUERY_BATCH:]
+            batch, queue = queue[:step], queue[step:]
             for obj in _children(remote, batch):
                 if obj["id"] in seen:
                     continue
@@ -859,6 +877,7 @@ def census(remote: str, areas: list[dict]) -> dict:
         "kind": "census",
         "generated": utc_now(),
         "remote": remote,
+        "one_parent_per_query": one_parent,
         "areas": out,
     }
 
@@ -2161,6 +2180,8 @@ def _check_trashlist_inputs(plan: dict, census_doc: dict, swe_doc: dict, root: P
         raise ToolError("the plan's areas are not exactly card 2b's six, by id and mode")
     if census_doc.get("generated") != plan.get("census_generated"):
         raise ToolError("this census is not the one the plan was made from")
+    if census_doc.get("one_parent_per_query") is not True:
+        raise ToolError("the census was not made with --one-parent-per-query; the proof needs it")
     if sorted((a.get("id"), a.get("mode")) for a in census_doc["areas"]) != six:
         raise ToolError("the census's areas are not exactly card 2b's six, by id and mode")
     if [{k: a.get(k) for k in SWE_DATA} for a in swe_doc["areas"]] != [SWE_DATA]:
@@ -2376,10 +2397,22 @@ def _classify_area(
     return sorted(out.values(), key=lambda r: (r["path"], r["id"]))
 
 
+CLEARED = ("listed", "folder")
+
+
+def _clear(area_id: str, rows: list[dict]) -> bool:
+    """Clear to trash by hand: every row listed or a folder, and the area folder's own row there.
+
+    It fails closed: a row of any other class, or none for the folder, makes it "no".
+    """
+    has_top = any(r["path"] == "" and r["id"] == area_id for r in rows)
+    return has_top and all(r["class"] in CLEARED for r in rows)
+
+
 def _area_summary(area: dict, rows: list[dict]) -> dict:
     cls = Counter(r["class"] for r in rows)
     kinds = Counter(_kind_count(r) for r in rows)
-    blockers = cls.get("blocker", 0)
+    blockers = sum(1 for r in rows if r["class"] not in CLEARED)
     return {
         "name": area["name"],
         "folder_id": area["id"],
@@ -2391,7 +2424,7 @@ def _area_summary(area: dict, rows: list[dict]) -> dict:
         "listed_bytes": sum(r["size"] or 0 for r in rows if r["class"] == "listed"),
         "sharing": area.get("sharing"),
         "sharing_flags": sharing_flags(area.get("sharing")),
-        "clear_to_trash_by_hand": "no" if blockers else "yes",
+        "clear_to_trash_by_hand": "yes" if _clear(area["id"], rows) else "no",
         "blockers": blockers,
     }
 
@@ -2444,7 +2477,10 @@ def sharing_record(doc: dict) -> dict:
         "census_generated": doc.get("generated"),
         "chain": [one(x, x.get("sharing")) for x in doc.get("chain") or []],
         "swe_data": one(doc["swe_data"], doc["swe_data"].get("sharing")),
-        "areas": [{**one(a, a.get("sharing")), "area": a["name"]} for a in doc["areas"]],
+        "areas": [
+            {**one(a, a.get("sharing")), "name": a.get("root_name"), "area": a["name"]}
+            for a in doc["areas"]
+        ],
     }
 
 
@@ -2489,7 +2525,7 @@ def write_trashlist(
         os.mkdir(native(out))
     except FileExistsError:
         raise ToolError(f"--out {out} exists already; a list is never replaced") from None
-    kept = [r for r in rows if r["class"] == "blocker"]
+    kept = [r for r in rows if r["class"] not in CLEARED]
     write_outputs(
         [
             (out / PROOF, text),
@@ -2527,6 +2563,17 @@ def trashlist_lines(summary: dict, out: Path) -> list[str]:
     lines.append(f"trashlist: proof {out / PROOF}")
     lines.append(f"trashlist: sha256 {summary['sha256']}")
     return lines
+
+
+MAX_CENSUS_AGE = 24 * 3600  # seconds: recount takes a census made within a day of it
+
+
+def _age(now, then) -> float | None:
+    """Seconds from ``then`` to ``now``, two ISO times; None when either cannot be read."""
+    try:
+        return (dt.datetime.fromisoformat(now) - dt.datetime.fromisoformat(then)).total_seconds()
+    except (TypeError, ValueError):
+        return None
 
 
 def _later(a, b) -> bool:
@@ -2619,14 +2666,16 @@ def recount(
     summary = load_json(summary_path)
     if not isinstance(summary, dict) or summary.get("kind") != "trashlist_summary":
         raise ToolError(f"{summary_path} is not a trashlist summary")
+    now = utc_now()
     record = {
         "kind": "recount",
         "schema": SCHEMA,
-        "ran": utc_now(),
+        "ran": now,
         "proof_sha256": sha,
         "expected_sha256": expect,
         "proof_made": summary.get("ran"),
         "census_generated": census_doc.get("generated"),
+        "census_age_seconds": _age(now, census_doc.get("generated")),
         "areas": names,
     }
     diffs: list[str] = []
@@ -2642,6 +2691,14 @@ def recount(
             f"the census ({census_doc.get('generated')}) is not later than the proof "
             f"({summary.get('ran')})"
         )
+    age = record["census_age_seconds"]
+    if age is None or age < 0 or age > MAX_CENSUS_AGE:
+        diffs.append(
+            f"the census ({census_doc.get('generated')}) is not from the 24 hours before this "
+            f"recount ({record['ran']})"
+        )
+    if census_doc.get("one_parent_per_query") is not True:
+        diffs.append("the census was not made with --one-parent-per-query")
     made_for = (summary.get("inputs") or {}).get("root")
     if not made_for or not same_path(made_for, str(root)):
         diffs.append(f"the proof was made for root {made_for}, not {root}")
@@ -2651,11 +2708,14 @@ def recount(
     rows = [r for r in proof["rows"] if r["area"] in label.values()]
     for n in names:
         mine = [r for r in rows if r["area"] == label[n]]
-        nb = sum(1 for r in mine if r["class"] == "blocker")
+        nb = sum(1 for r in mine if r["class"] not in CLEARED)
         if consolidate[n]["id"] not in named:
-            diffs.append(f"area {n}: the proof has no rows for it")
+            diffs.append(f"area {n}: the proof has no row for its folder")
         if nb:
-            diffs.append(f"area {n}: the proof has {nb} blocker row(s): not clear to trash by hand")
+            diffs.append(
+                f"area {n}: the proof has {nb} row(s) neither listed nor a folder: not clear "
+                "to trash by hand"
+            )
     if diffs:
         return {**record, "unchanged": "no", "differences": diffs}
     by_id = {a["id"]: a for a in census_doc["areas"]}
@@ -2934,6 +2994,11 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--areas", help="areas JSON (default: the §C.3 areas built in)")
     sp.add_argument("--out", required=True)
     sp.add_argument("--root", help="the data root, so --out never lands inside it")
+    sp.add_argument(
+        "--one-parent-per-query",
+        action="store_true",
+        help="ask Drive about one folder per query, never an OR of several (card 3's proof)",
+    )
     sp = sub.add_parser("inventory", help="size, MD5 and SHA-256 of every root file")
     sp.add_argument("--root")
     sp.add_argument("--out", required=True)
@@ -3019,7 +3084,7 @@ def _dispatch(args: argparse.Namespace) -> int:
         out = guard_out(Path(args.out), args.root)
         _not_an_input([out], [args.areas])
         version = require_rclone()
-        doc = census(args.remote, _areas(args.areas))
+        doc = census(args.remote, _areas(args.areas), args.one_parent_per_query)
         doc["rclone"] = version
         locate(args.remote, doc)
         write_outputs([(out, json_text(doc))])
@@ -3101,7 +3166,12 @@ def _dispatch(args: argparse.Namespace) -> int:
             args.remote,
         )
         _write_new(log, json_text(record))
-        print(f"recount: {', '.join(record['areas'])}: unchanged: {record['unchanged']}")
+        age = record["census_age_seconds"]
+        made = f"{age / 3600:.1f} h before this recount" if age is not None else "age unknown"
+        print(
+            f"recount: {', '.join(record['areas'])}: unchanged: {record['unchanged']} "
+            f"(census made {record['census_generated']}, {made})"
+        )
         for d in record["differences"][:200]:
             print(f"  DIFFERENT  {d}")
         if len(record["differences"]) > 200:

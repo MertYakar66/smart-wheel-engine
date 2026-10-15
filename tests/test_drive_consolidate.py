@@ -85,11 +85,54 @@ dc = importlib.util.module_from_spec(_SPEC)
 assert _SPEC.loader is not None
 _SPEC.loader.exec_module(dc)
 
+# Every invocation the fake rclone receives, in any test of this session, is appended here
+# (its path is written into each copy of the fake), and checked against the allowlist:
+# the only verbs the tool may give rclone (D33: nothing that writes to Drive).
+VERB_LOG = Path(tempfile.gettempdir()) / f"swe-fake-rclone-calls-{os.getpid()}.jsonl"
+ALLOWED_VERBS = frozenset({"version", "backend query", "size", "backend copyid"})
+
+
+def fake_calls() -> list[list[str]]:
+    """Every invocation the fake rclone has recorded in this session so far."""
+    if not VERB_LOG.exists():
+        return []
+    lines = VERB_LOG.read_text(encoding="utf-8").splitlines()
+    return [json.loads(x) for x in lines if x]
+
+
+def verb_of(call: list[str]) -> str:
+    if not call:
+        return ""
+    return " ".join(call[:2]) if call[0] == "backend" else call[0]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def every_fake_rclone_call_is_allowed():
+    """At the end of the session: every verb the fake received was an allowed one."""
+    start = len(fake_calls())
+    yield
+    bad = [c for c in fake_calls()[start:] if verb_of(c) not in ALLOWED_VERBS]
+    assert not bad, f"rclone given a verb outside the allowlist: {bad[:5]}"
+
+
 FAKE_RCLONE = r"""
 import hashlib, json, os, re, sys
+args = sys.argv[1:]
+with open(VERB_LOG, "a", encoding="utf-8") as fh:  # every invocation, for the session's check
+    fh.write(json.dumps(args) + "\n")
 state = json.load(open(os.environ["FAKE_DRIVE"], encoding="utf-8"))
 objs = state["objects"]
-args = sys.argv[1:]
+by_id = {o["id"]: o for o in objs}
+
+def trashed(o, seen=()):
+    # Drive reads an item as trashed when it, or a folder above it, is in the trash.
+    if o.get("trashed"):
+        return True
+    for p in o.get("parents", []):
+        up = by_id.get(p)
+        if up is not None and p not in seen and trashed(up, (*seen, p)):
+            return True
+    return False
 
 def edit_in_place(oid):
     new = bytes.fromhex(state["content"][oid]) + b"edited on Drive\n"
@@ -112,7 +155,9 @@ def wire(o, flags=()):
         o.pop("owners", None)
     if "-M" not in flags:  # permissions come only with -M (metadataFields)
         o.pop("permissions", None)
-    if not o.get("trashed"):
+    if trashed(o):
+        o["trashed"] = True  # also when only a folder above it is trashed
+    else:
         o.pop("trashed", None)  # omitempty
     return o
 
@@ -136,9 +181,13 @@ if args[:2] == ["backend", "query"]:
     if os.environ.get("FAKE_MULTI_EMPTY") and len(parents - {"root"}) > 1:
         print("null")  # Google issue 149522397
         sys.exit(0)
+    # Drive's name = '...' ignores case.
     out = [wire(o, flags) for o in objs if parents & set(o.get("parents", []))
-           and (name is None or o["name"] == name.group(1))
-           and not (live and o.get("trashed"))]
+           and (name is None or o["name"].casefold() == name.group(1).casefold())
+           and not (live and trashed(o))]
+    drop = set(filter(None, os.environ.get("FAKE_DROP_IN_OR", "").split(",")))
+    if drop and len(parents - {"root"}) > 1:  # a short, not empty, answer to an OR of parents
+        out = [o for o in out if o["id"] not in drop]
     if os.environ.get("FAKE_INCOMPLETE"):
         sys.stderr.write("ERROR : search result INCOMPLETE\n")
     print(json.dumps(out or None))
@@ -149,7 +198,7 @@ if args[:1] == ["size"]:
         sys.exit(3)
     if "--drive-auth-owner-only" in args:  # rclone's listing drops what the account does not own
         objs = [o for o in objs if o["mimeType"].endswith(".folder") or mine(o)]
-    objs = [o for o in objs if not o.get("trashed")]
+    objs = [o for o in objs if not trashed(o)]
     top = args[args.index("--drive-root-folder-id") + 1]
     folders, frontier = {top}, [top]
     while frontier:
@@ -365,7 +414,7 @@ def _env(tmp_path, monkeypatch, drive: FakeDrive, areas: list[dict], files: dict
     state = tmp_path / "drive.json"
     drive.save(state)
     script = tmp_path / "fake_rclone.py"
-    script.write_bytes(FAKE_RCLONE.encode())
+    script.write_bytes((f"VERB_LOG = {str(VERB_LOG)!r}\n" + FAKE_RCLONE).encode())
     log = tmp_path / "copyid.log"
     log.write_bytes(b"")
     monkeypatch.setenv("FAKE_DRIVE", str(state))

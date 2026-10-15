@@ -61,6 +61,15 @@ the PR) and card 3's design (version 6 with addenda A, B and C, #544) specify it
   completeness check (`rclone size`) counts only files with an MD5, so a listing that
   dropped a Google-format file, a shortcut, a file without an MD5 or an empty folder
   would go unseen, and under the middle route those go to the trash with their folder.
+- Fix round 1, after the pen's five-lens review (no blocking defect): the census of the areas
+  asks one folder per query (`--one-parent-per-query`), which closes that gap, and
+  `trashlist` and `recount` refuse one made otherwise; the verdict fails closed (every row
+  `listed` or `folder`, the folder's own row among them); `recount` takes a census from the
+  24 hours before it and shows its time; the fake records every rclone call of the session
+  for an allowlist check, and a source scan reads every process call; and tests pin the rules
+  the review found unpinned (the folder rule's registrations, owners at census level, the
+  sharing flags, the desktop twin's guards, the two "listed twice" checks, a trashed folder
+  above a `swe-data/` twin, and case-blind names in the chain).
 
 ## How we fixed it
 
@@ -70,20 +79,20 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 ## Evidence
 
 - `tests/test_drive_consolidate.py`: 263 passed, 3 skipped on `origin/main` (`ebc354a`), and
-  the same on the branch; `tests/test_drive_trashlist.py`: 136 passed.
-- Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants, and
-  one that removes both `--out` checks together. The PR's Run Summary has the table.
+  the same on the branch; `tests/test_drive_trashlist.py`: 136 passed at the first Run
+  Summary, 169 after fix round 1.
+- Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants and
+  one that removes both `--out` checks together, then 35 for fix round 1's rules, each run
+  against the test written for it. The PR's Run Summary and its "Fix round 1" comment have
+  the tables.
 - The PR's Run Summary holds every command and its output: the fast lane, ruff, the registry
   checks and CI.
 
 ## Unresolved / handoff
 
-- For the pen: whether the census needs a second, independent count of every object (not only
-  files with an MD5) before a folder is trashed whole. The allowed verbs (`backend query`,
-  `size`) give no such count today.
-
 - The pen closes `docs/deadlines.md`'s row "no tool run reads Drive until the tool finds
   `swe-data/` by id" after the merge, and the matching sentence under `docs/DATA_INVENTORY.md`
   §C.3's table (this run changed only rows 1 and 3, as its prompt said).
-- Card 3a (desktop, read-only on Drive): the six-area census, `swe-data/`'s census, the
+- Card 3a (desktop, read-only on Drive): the six-area census with `--one-parent-per-query`,
+  `swe-data/`'s census, the
   inventory, the plan, `bytecheck` if any check is pending, then `trashlist`.

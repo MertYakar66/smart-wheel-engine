@@ -40,6 +40,16 @@ Drive at all.
   proof, the desktop twins hashed again and the `swe-data/` twins read again. It reads only.
 - `recount` also holds to the proof's own root, and the census records each area folder's name
   as Drive lists it (both from the fresh-context review of #576).
+- Fix round 1 (the pen's five-lens review of #576):
+  - `census --one-parent-per-query` asks Drive about one folder per query, never an OR of
+    several; `trashlist` and `recount` refuse a census of the areas made without it, and every
+    other census, `_drifted`'s included, keeps its batches;
+  - a verdict is "yes" only when every row of the area, its folder's own among them, is `listed`
+    or `folder`; `recount` fails closed the same way;
+  - `recount` takes a census from the 24 hours before it, and prints and records its time;
+  - the fake rclone records every call of the session, which is checked against the allowlist,
+    and a source scan checks every `run_cmd(` and process call;
+  - `sharing.json` names each area folder as Drive does.
 - `tests/test_drive_trashlist.py`, new (136 tests); the fake rclone keeps owners, permissions
   and a trash.
 

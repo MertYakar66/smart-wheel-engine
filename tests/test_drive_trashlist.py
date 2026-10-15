@@ -45,6 +45,7 @@ import pytest
 from tests import test_drive_consolidate as tdc
 from tests.test_drive_consolidate import (  # noqa: F401  (fixtures)
     every_fake_rclone_call_is_allowed,  # autouse: the session's check of every rclone verb
+    no_rclone_outside_the_fake,  # autouse: dc.RCLONE is a sentinel until a test sets the fake
     world,  # for the verb test
 )
 
@@ -131,20 +132,21 @@ def _clean(w: World) -> None:
     w.home("data/v.csv", b"vendor bytes\n")
 
 
-def _census_of(w: dict, areas, name: str, one_parent: bool = True) -> int:
-    """The census command over these areas; card 3's own censuses ask one parent per query."""
+def _census_of(w: dict, areas, name: str, preset: str | None = None) -> int:
+    """The census command over these areas, or over one of the tool's presets (card 3's)."""
+    args = ["census", "--remote", "fake:", "--out", str(w["tmp"] / name)]
+    if preset:
+        return dc.main([*args, "--preset", preset])
     spec = w["tmp"] / f"{name}.areas.json"
     spec.write_text(json.dumps([dict(a) for a in areas]), encoding="utf-8")
-    out = w["tmp"] / name
-    args = ["census", "--remote", "fake:", "--areas", str(spec), "--out", str(out)]
-    return dc.main(args + (["--one-parent-per-query"] if one_parent else []))
+    return dc.main([*args, "--areas", str(spec)])
 
 
 def _prepare(w: dict, bytecheck: bool = False) -> None:
     """Card 3a's documents: the six-area census, swe-data/'s, the inventory and the plan."""
     t = w["tmp"]
-    assert _census_of(w, dc.CARD2B_AREAS, "c6.json") == 0
-    assert _census_of(w, [dc.SWE_DATA], "swe.json", one_parent=False) == 0  # either may do
+    assert _census_of(w, None, "c6.json", "card2b") == 0
+    assert _census_of(w, None, "swe.json", "swe-data") == 0
     assert dc.main(["inventory", "--root", str(w["root"]), "--out", str(t / "i.json")]) == 0
     args = ["plan", "--census", str(t / "c6.json"), "--inventory", str(t / "i.json")]
     assert dc.main([*args, "--out", str(t / "p.json")]) == 0
@@ -181,8 +183,7 @@ def proven(tmp_path_factory):
         _clean(w)
         env = w.env()
         _prepare(env)
-        three = [AREA[n] for n in CONS]
-        assert _census_of(env, three, "early.json") == 0  # a census older than the proof
+        assert _census_of(env, None, "early.json", "consolidate") == 0  # older than the proof
         assert _trashlist(env) == 0
         env["docs"] = _docs(env)
         env["rclone"] = list(dc.RCLONE)
@@ -274,10 +275,10 @@ def test_owned_comes_from_backend_query_alone(small):
             assert call[:2] == ["backend", "query"], call
         if call[:2] == ["backend", "query"]:
             assert dc.OWNER_ONLY in call, call
-    sizes = [c for c in calls if c[:1] == ["size"]]
-    assert sizes and all(dc.OWNER_ONLY not in c and "-M" not in c for c in sizes)
-    # The fake's size drops what the account does not own when given the flag, as rclone's
-    # listing does: the census's count check would then fail. Here it passed.
+    listings = [c for c in calls if c[:1] == ["lsjson"]]
+    assert listings and all(dc.OWNER_ONLY not in c and "-M" not in c for c in listings)
+    # The fake's lsjson drops what the account does not own when given the flag, as rclone's
+    # listing does: the census's cross-check would then fail. Here it passed.
     assert doc["areas"][0]["check"]["count"] == 2
 
 
@@ -1056,7 +1057,10 @@ def live(proven, tmp_path, monkeypatch):
 
 
 def _census_now(lv, names=CONS, out="now.json") -> None:
-    assert _census_of({"tmp": lv.tmp}, [AREA[n] for n in names], out) == 0
+    if tuple(names) == CONS:
+        assert _census_of({"tmp": lv.tmp}, None, out, "consolidate") == 0
+    else:
+        assert _census_of({"tmp": lv.tmp}, [AREA[n] for n in names], out) == 0
 
 
 def _recount(lv, *areas, sha=None, census="now.json", proof=None, summary=None):
@@ -1227,10 +1231,8 @@ def test_recount_refuses_another_sha256_or_a_summary_not_the_proofs(live):
 def test_recount_needs_a_census_made_after_the_proof(live):
     rc, rec = _recount(live, census="early.json")  # made before the proof, of the same areas
     assert rc == 1 and len(rec["differences"]) == 1
-    assert (
-        rec["differences"][0].startswith("the census (")
-        and "is not later than the proof" in rec["differences"][0]
-    )
+    assert rec["differences"][0].startswith("the census started at ")
+    assert "not after the proof was made" in rec["differences"][0]
 
 
 @pytest.mark.parametrize("given, checked", [(CONS, ["swe-local-only"]), (CONS[:1], [])])
@@ -1330,12 +1332,20 @@ def _check_call(call: list[str]) -> None:
         if dc.SHARING_FLAG in flags:  # the sharing read, and only that read
             assert re.fullmatch(r"'[^']+' in parents( and name = '.*')?", pos[1]), call
         return
-    if call[:1] == ["size"]:
-        assert dc.OWNER_ONLY not in call and dc.SHARING_FLAG not in call, call
-        assert call[1:6] == ["--disable", "ListR", "--json", "--drive-root-folder-id", call[5]]
-        assert call[6:8] == ["--drive-skip-gdocs", "--drive-skip-shortcuts"] and len(call) == 9, (
-            call
-        )
+    if call[:1] == ["lsjson"]:  # the census's cross-check, and only that
+        assert call == [
+            "lsjson",
+            "-R",
+            "--disable",
+            "ListR",
+            "--drive-root-folder-id",
+            call[5],
+            "--drive-skip-shortcuts",
+            "--drive-show-all-gdocs",
+            "--hash-type",
+            "MD5",
+            call[-1],
+        ], call
         return
     if call[:2] == ["backend", "copyid"]:
         pairs = call[3:]
@@ -1371,7 +1381,7 @@ def test_the_d33_commands_run_rclone_only_with_allowed_verbs(world, monkeypatch)
     tdc._plan(world)  # census, inventory, plan
     tdc._bytecheck(world)
     assert tdc._copy(world) == 0 and tdc._verify(world) == 0
-    assert _verbs(seen) == {"version", "backend query", "size", "backend copyid"}
+    assert _verbs(seen) == {"version", "backend query", "lsjson", "backend copyid"}
     for call in seen:
         _check_call(call)
 
@@ -1380,7 +1390,7 @@ def test_card_3s_commands_run_rclone_only_with_allowed_verbs(live, monkeypatch):
     seen = _spy(monkeypatch)
     _census_now(live)  # the census command: the walk, the chain, swe-data/ and sharing
     assert _recount(live)[0] == 0
-    assert _verbs(seen) == {"version", "backend query", "size"}  # trashlist calls none
+    assert _verbs(seen) == {"version", "backend query", "lsjson"}  # trashlist calls none
     for call in seen:
         _check_call(call)
     sharing = [c for c in seen if dc.SHARING_FLAG in c]
@@ -1395,7 +1405,7 @@ def test_no_rclone_verb_in_the_source_is_outside_the_allowlist():
     for args in calls:
         words = re.findall(r"\"([^\"]*)\"", args)
         verbs.add(" ".join(words[:2]) if words[0] == "backend" else words[0])
-    assert verbs == {"version", "backend query", "size", "backend copyid"}, verbs
+    assert verbs == {"version", "backend query", "lsjson", "backend copyid"}, verbs
     for word in (
         "deletefile",
         "delete",
@@ -1420,65 +1430,89 @@ def test_no_rclone_verb_in_the_source_is_outside_the_allowlist():
 # ---------------------------------------------------------------- fix round 1 (the pen's A to F)
 
 
-# A. The proof's censuses ask Drive about one folder per query.
+# G. Each census is cross-checked against rclone's own listing, one folder per query.
 
 
-def test_a_short_or_answer_is_missed_by_batches_and_found_one_parent_at_a_time(small, monkeypatch):
+@pytest.mark.parametrize("what", ["a Google-format file", "a folder"])
+def test_the_cross_check_stops_a_census_whose_batches_missed_an_object(
+    small, monkeypatch, capsys, what
+):
     w = small["world"]
     w.dir(SLO, "empty")  # with data/, the walk's second round is an OR of two parents
-    gdoc = w.d.special("notes", w.dir(SLO, "data"), "application/vnd.google-apps.document")
+    data = w.dir(SLO, "data")
+    if what == "a folder":
+        lost, kind = w.d.folder("sub", data), "folders"
+    else:
+        lost = w.d.special("notes", data, "application/vnd.google-apps.document")
+        kind = "Google-format files"
     w.d.save(small["tmp"] / "drive.json")
-    monkeypatch.setenv("FAKE_DROP_IN_OR", gdoc)  # Drive answers that OR, but without it
-    assert tdc._census(small, "batched.json") == 0  # the size check counts no Google file
-    doc = _load(small["tmp"] / "batched.json")
-    assert doc["one_parent_per_query"] is False
-    assert gdoc not in {o["id"] for o in doc["areas"][0]["objects"]}
-    small["calls"].write_text("", encoding="utf-8")
-    args = ["census", "--remote", "fake:", "--areas", str(small["areas"]), "--one-parent-per-query"]
-    assert dc.main([*args, "--out", str(small["tmp"] / "one.json")]) == 0
-    doc = _load(small["tmp"] / "one.json")
-    assert doc["one_parent_per_query"] is True
-    assert gdoc in {o["id"] for o in doc["areas"][0]["objects"]}
-    queries = [_query_of(c) for c in _calls(small["calls"]) if c[:2] == ["backend", "query"]]
-    assert queries and not any(" or " in q for q in queries)
+    monkeypatch.setenv("FAKE_DROP_IN_OR", lost)  # Drive answers that OR, but without it
+    assert tdc._census(small) == 2
+    err = capsys.readouterr().err
+    assert f"{kind} only rclone lists: {lost}" in err, err
+    assert not (small["tmp"] / "c.json").exists()
 
 
-def test_every_other_census_keeps_its_batches(small):
+@pytest.mark.parametrize(
+    "what", ["a clean area", "a Google Form", "a file without an MD5", "a shortcut"]
+)
+def test_the_cross_check_passes_a_whole_census(small, what):
+    w = small["world"]
+    data = w.dir(SLO, "data")
+    if what == "a Google Form":  # rclone lists it only with --drive-show-all-gdocs
+        w.d.special("survey", data, "application/vnd.google-apps.form")
+    elif what == "a file without an MD5":
+        w.d.file("odd.bin", data, b"no md5", md5="", sha=False)
+    elif what == "a shortcut":  # left out of both on purpose: trashing one deletes no bytes
+        w.d.special("link", data, dc.SHORTCUT, shortcutDetails={"targetId": SWE})
+    w.d.save(small["tmp"] / "drive.json")
+    assert tdc._census(small) == 0
+    doc = _load(small["tmp"] / "c.json")
+    assert doc["cross_checked"] == dc.CROSS_CHECK
+    cross = doc["areas"][0]["cross_check"]
+    assert cross["files with an MD5"] == 2 and cross["folders"] == 1
+    assert cross["Google-format files"] == (what == "a Google Form")
+    assert cross["files without an MD5"] == (what == "a file without an MD5")
+
+
+def test_the_census_walk_keeps_its_batches(small):
     w = small["world"]
     w.dir(SLO, "empty")
     w.d.save(small["tmp"] / "drive.json")
     small["calls"].write_text("", encoding="utf-8")
-    doc = dc.census("fake:", [AREA["swe-local-only"]])  # what _drifted runs before copy
-    assert doc["one_parent_per_query"] is False
+    dc.census("fake:", [AREA["swe-local-only"]])  # what _drifted runs before copy, too
     queries = [_query_of(c) for c in _calls(small["calls"]) if c[:2] == ["backend", "query"]]
     assert any(" or " in q for q in queries)
+    assert [c[0] for c in _calls(small["calls"]) if c[0] != "backend"] == ["lsjson"]
 
 
-def test_trashlist_refuses_a_census_made_with_batches(proven, tmp_path, capsys):
-    plan, census, swe = copy.deepcopy(proven["docs"])
-    census["one_parent_per_query"] = False
-    w = {"tmp": tmp_path, "root": proven["root"]}
-    names = {
-        "plan": _write(tmp_path, "p.json", plan),
-        "census": _write(tmp_path, "c6.json", census),
-    }
-    names["swe"] = _write(tmp_path, "swe.json", swe)
-    out = proven["root"] / "_logs" / "refused-batched"
-    assert _trashlist(w, out_path=out, **names) == 2
-    assert "--one-parent-per-query" in capsys.readouterr().err and not out.exists()
+def test_trashlist_refuses_a_census_without_its_cross_check(proven, tmp_path, capsys):
+    for drop in ("the census's record", "an area's record"):
+        plan, census, swe = copy.deepcopy(proven["docs"])
+        if drop == "the census's record":
+            census.pop("cross_checked")
+        else:
+            census["areas"][2].pop("cross_check")
+        w = {"tmp": tmp_path, "root": proven["root"]}
+        names = {
+            "plan": _write(tmp_path, "p.json", plan),
+            "census": _write(tmp_path, "c6.json", census),
+        }
+        names["swe"] = _write(tmp_path, "swe.json", swe)
+        out = proven["root"] / "_logs" / "refused-unchecked"
+        assert _trashlist(w, out_path=out, **names) == 2, drop
+        assert "no cross-check against rclone's listing" in capsys.readouterr().err
+        assert not out.exists()
 
 
-def test_the_swe_data_census_may_be_made_either_way(case):
-    assert case.swe["one_parent_per_query"] is False  # the proven world's own
-    case.swe["one_parent_per_query"] = True
-    rows, areas = dc.trashlist(case.plan, case.census, case.swe, case.root)
-    assert [a["clear_to_trash_by_hand"] for a in areas] == ["yes"] * 3
-
-
-def test_recount_needs_a_census_made_one_parent_at_a_time(live):
-    assert _census_of({"tmp": live.tmp}, [AREA[n] for n in CONS], "now.json", False) == 0
+def test_recount_needs_a_cross_checked_census(live):
+    _census_now(live)
+    census = _load(live.tmp / "now.json")
+    census.pop("cross_checked")
+    (live.tmp / "now.json").write_text(json.dumps(census), encoding="utf-8")
     rc, rec = _recount(live)
-    assert rc == 1 and rec["differences"] == ["the census was not made with --one-parent-per-query"]
+    assert rc == 1
+    assert rec["differences"] == ["the census records no cross-check against rclone's listing"]
 
 
 # B. The verdict fails closed.
@@ -1522,37 +1556,62 @@ def test_recount_says_no_for_a_row_neither_listed_nor_a_folder(live):
 
 
 @pytest.mark.parametrize(
-    "case_, gen_after_proof, now_after_gen, unchanged",
+    "case_, start_after_proof, end_after_start, now_after_start, unchanged, why",
     [
-        ("the proof time itself", 0, 3600, "no"),
-        ("just after the proof", 1, 3600, "yes"),
-        ("24 hours old", 1, 24 * 3600, "yes"),
-        ("just over 24 hours old", 1, 24 * 3600 + 1, "no"),
+        ("started at the proof time itself", 0, 60, 3600, "no", "not after the proof"),
+        ("started before the proof was made", -60, 120, 3600, "no", "not after the proof"),
+        ("started just after the proof", 1, 60, 3600, "yes", None),
+        ("started 24 hours before", 1, 60, 24 * 3600, "yes", None),
+        ("started just over 24 hours before", 1, 3600, 24 * 3600 + 1, "no", "not within"),
+        ("dated after the recount", 1, 60, -10, "no", "not within"),
     ],
 )
-def test_recount_takes_a_census_from_the_day_before_it(
-    live, monkeypatch, capsys, case_, gen_after_proof, now_after_gen, unchanged
+def test_recount_counts_freshness_from_the_census_start(
+    live,
+    monkeypatch,
+    capsys,
+    case_,
+    start_after_proof,
+    end_after_start,
+    now_after_start,
+    unchanged,
+    why,
 ):
     _census_now(live)
     made = dt.datetime.fromisoformat(_load(live.list / dc.PROOF_SUMMARY)["ran"])
-    gen = made + dt.timedelta(seconds=gen_after_proof)
-    now = gen + dt.timedelta(seconds=now_after_gen)
+    started = made + dt.timedelta(seconds=start_after_proof)
+    finished = started + dt.timedelta(seconds=end_after_start)
+    now = started + dt.timedelta(seconds=now_after_start)
     census = _load(live.tmp / "now.json")
-    census["generated"] = gen.isoformat()
+    census["started"], census["generated"] = started.isoformat(), finished.isoformat()
     (live.tmp / "now.json").write_text(json.dumps(census), encoding="utf-8")
     monkeypatch.setattr(dc, "utc_now", lambda: now.isoformat())
     rc, rec = _recount(live)
     assert (rec["unchanged"], rc) == (unchanged, 0 if unchanged == "yes" else 1), rec
-    assert rec["census_generated"] == gen.isoformat()
-    assert rec["census_age_seconds"] == now_after_gen
+    assert (rec["census_started"], rec["census_generated"]) == (
+        started.isoformat(),
+        finished.isoformat(),
+    )
+    assert rec["census_age_seconds"] == now_after_start
     out = capsys.readouterr().out
-    assert f"unchanged: {unchanged} (census made {gen.isoformat()}, " in out
-    if case_ == "the proof time itself":
-        assert rec["differences"][0].startswith("the census (") and "is not later" in out + str(rec)
-    if case_ == "just over 24 hours old":
+    assert f"unchanged: {unchanged} (census started {started.isoformat()}, " in out
+    assert f"; finished {finished.isoformat()})" in out
+    if why == "not after the proof":
         assert rec["differences"] == [
-            f"the census ({gen.isoformat()}) is not from the 24 hours before this recount "
-            f"({now.isoformat()})"
+            f"the census started at {started.isoformat()}, not after the proof was made "
+            f"({made.isoformat()})"
+        ]
+    if case_ == "started just over 24 hours before":  # though it finished within them
+        assert rec["differences"] == [
+            f"the census started at {started.isoformat()}, not within the 24 hours before this "
+            f"recount ({now.isoformat()})"
+        ]
+    if case_ == "dated after the recount":
+        assert rec["differences"] == [
+            f"the census started at {started.isoformat()}, not within the 24 hours before this "
+            f"recount ({now.isoformat()})",
+            f"the census finished at {finished.isoformat()}, not between its start and this "
+            "recount",
         ]
 
 
@@ -1618,7 +1677,7 @@ def test_no_process_or_rclone_call_in_the_source_is_outside_the_allowlist():
             if isinstance(par, ast.Starred) and led_by_rclone(up[par]):
                 if verb(up[par]) not in tdc.ALLOWED_VERBS:
                     problems.append(f"rclone verb {verb(up[par])!r} at line {where}")
-            elif not (isinstance(par, ast.Call) and getattr(par.func, "attr", "") == "join"):
+            else:  # joined into a string, added to, indexed, passed on: refused
                 problems.append(f"RCLONE used another way at line {where}")
         if isinstance(node, ast.Constant) and node.value == "rclone":
             owner = up.get(up.get(node))
@@ -1627,6 +1686,8 @@ def test_no_process_or_rclone_call_in_the_source_is_outside_the_allowlist():
                 isinstance(owner, ast.AnnAssign) and getattr(owner.target, "id", "") == "RCLONE"
             ):
                 problems.append(f"the string 'rclone' at line {where}")
+        if isinstance(node, ast.keyword) and node.arg == "shell":
+            problems.append(f"shell= at line {getattr(up.get(node), 'lineno', '?')}")
         if isinstance(node, ast.Call) and getattr(node.func, "id", "") == "run_cmd":
             arg = node.args[0] if node.args else None
             if isinstance(arg, ast.List):
@@ -1929,11 +1990,119 @@ def test_a_swe_data_twin_whose_folder_is_trashed_fails_both_checks(live):
     )
 
 
+# I. Presets: card 3a cannot make the wrong census by hand.
+
+
+@pytest.mark.parametrize("preset", sorted(dc.PRESETS))
+def test_each_preset_gives_exactly_its_areas(small, preset):
+    assert _census_of(small, None, f"{preset}.json", preset) == 0
+    doc = _load(small["tmp"] / f"{preset}.json")
+    got = [(a["name"], a["id"], a["parent"], a["folder"], a["mode"]) for a in doc["areas"]]
+    want = {
+        "card2b": [a for a in dc.DEFAULT_AREAS if a["name"] != "day-bot-local-archive/data_raw"],
+        "consolidate": [a for a in dc.DEFAULT_AREAS if a["mode"] == "consolidate"],
+        "swe-data": [dc.SWE_DATA],
+    }[preset]
+    assert got == [(a["name"], a["id"], a["parent"], a["folder"], a["mode"]) for a in want]
+    assert doc["preset"] == preset
+
+
+def test_a_preset_is_refused_with_areas(small, capsys):
+    args = ["census", "--remote", "fake:", "--areas", str(small["areas"]), "--preset", "card2b"]
+    assert dc.main([*args, "--out", str(small["tmp"] / "both.json")]) == 2
+    assert "give --preset or --areas, not both" in capsys.readouterr().err
+    assert not (small["tmp"] / "both.json").exists()
+
+
+def test_trashlist_and_recount_take_the_presets(proven, live):
+    plan, census, swe = proven["docs"]
+    assert (census["preset"], swe["preset"]) == ("card2b", "swe-data")
+    assert proven["summary"]["areas"]  # trashlist took them: the proven world's own list
+    _census_now(live)  # the consolidate preset
+    assert _load(live.tmp / "now.json")["preset"] == "consolidate"
+    rc, rec = _recount(live)
+    assert (rc, rec["unchanged"]) == (0, "yes")
+
+
+# J. What was left unpinned.
+
+
+def test_recount_needs_the_proofs_row_for_each_area_folder(live):
+    proof = _load(live.list / dc.PROOF)
+    proof["rows"] = [r for r in proof["rows"] if r["id"] != SLO]
+    text = dc.proof_text(proof["rows"])
+    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    (live.tmp / "no_top.json").write_bytes(text.encode("utf-8"))
+    summary = _load(live.list / dc.PROOF_SUMMARY)
+    summary["sha256"] = sha
+    (live.tmp / "no_top_summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    _census_now(live)
+    paths = {"proof": live.tmp / "no_top.json", "summary": live.tmp / "no_top_summary.json"}
+    rc, rec = _recount(live, sha=sha, **paths)
+    assert rc == 1
+    assert rec["differences"] == ["area swe-local-only: the proof has no row for its folder"]
+
+
+def test_kept_csv_holds_every_blocker_row_and_only_those(rich):
+    import csv
+
+    with open(rich["root"] / "_logs" / "list" / "kept.csv", encoding="utf-8", newline="") as fh:
+        kept = list(csv.DictReader(fh))
+    blockers = [r for r in rich["rows"] if r["class"] not in dc.CLEARED]
+    assert blockers and all(r["class"] == "blocker" for r in blockers)
+    assert sorted((r["area"], r["id"]) for r in kept) == sorted(
+        (r["area"], r["id"]) for r in blockers
+    )
+    assert {r["class"] for r in kept} == {"blocker"} and all(r["reason"] for r in kept)
+
+
+def test_a_test_that_reaches_rclone_outside_the_fake_fails(
+    no_rclone_outside_the_fake,  # noqa: F811  (the imported fixture)
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.delenv("SWE_DATA_ROOT", raising=False)
+    sentinel = no_rclone_outside_the_fake
+    assert dc.RCLONE is sentinel  # every test starts with it; only the fake replaces it
+    assert dc.main(["census", "--remote", "fake:", "--out", str(tmp_path / "c.json")]) == 2
+    assert sentinel.used  # so this fixture's teardown would fail any other test here
+    sentinel.used = False  # this test's own, deliberate use
+
+
+@pytest.mark.parametrize(
+    "old, new, rule",
+    [
+        (  # inside run_cmd itself, where subprocess may be used: only shell= is wrong
+            "cmd, input=stdin, capture_output=True",
+            "cmd, input=stdin, shell=True, capture_output=True",
+            "shell=",
+        ),
+        (  # RCLONE joined into a string, in a function that runs nothing
+            "def trashlist(plan: dict",
+            "def _planted():\n    return ' '.join(RCLONE)\n\n\ndef trashlist(plan: dict",
+            "RCLONE used another way",
+        ),
+    ],
+)
+def test_the_source_scan_refuses_a_shell_or_a_joined_rclone(old, new, rule, tmp_path, monkeypatch):
+    src = (tdc._REPO / "scripts" / "drive_consolidate.py").read_text(encoding="utf-8")
+    assert src.count(old) == 1
+    copy_ = tmp_path / "scripts" / "drive_consolidate.py"
+    copy_.parent.mkdir()
+    copy_.write_text(src.replace(old, new), encoding="utf-8")
+    monkeypatch.setattr(tdc, "_REPO", tmp_path)
+    with pytest.raises(AssertionError) as caught:
+        test_no_process_or_rclone_call_in_the_source_is_outside_the_allowlist()
+    first = str(caught.value).splitlines()[0]  # the list of problems, as the scan reports it
+    assert first.startswith("['" + rule) and first.count(" at line ") == 1, first
+
+
 # D, last: every call the fake rclone has received in this session is an allowed one.
 
 
-def test_every_call_the_fake_rclone_received_in_this_session_is_allowed():
+def test_every_call_the_fake_rclone_received_in_this_session_is_allowed(small):
+    assert tdc._census(small) == 0  # so that it has calls to check, run alone too
     calls = tdc.fake_calls()
-    assert {"version", "backend query", "size"} <= {tdc.verb_of(c) for c in calls}
+    assert {"version", "backend query", "lsjson"} <= {tdc.verb_of(c) for c in calls}
     bad = [c for c in calls if tdc.verb_of(c) not in tdc.ALLOWED_VERBS]
     assert not bad, bad[:5]

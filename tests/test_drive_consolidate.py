@@ -3,7 +3,8 @@
 Pins:
 - the census lists every object by parent id, verifies each area root, never
   follows a shortcut, recovers when Drive answers a query over several parents
-  with nothing, and stops when its totals differ from ``rclone size``;
+  with nothing, and stops when its totals or ids differ from rclone's own listing
+  (``lsjson``, one folder per query);
 - the plan classifies each case:
   - redundant only when size, MD5 and SHA-256 all equal a root file (an empty file
     only when an empty file sits at its destination);
@@ -91,7 +92,7 @@ _SPEC.loader.exec_module(dc)
 # calls against the allowlist: the only verbs the tool may give rclone (D33: nothing that
 # writes to Drive).
 VERB_DIR = Path(tempfile.gettempdir()) / f"swe-fake-rclone-calls-{os.getpid()}"
-ALLOWED_VERBS = frozenset({"version", "backend query", "size", "backend copyid"})
+ALLOWED_VERBS = frozenset({"version", "backend query", "lsjson", "backend copyid"})
 _CHECKS_OPEN = [0]  # session fixtures still open: the last one to close removes VERB_DIR
 
 
@@ -106,6 +107,27 @@ def verb_of(call: list[str]) -> str:
     if not call:
         return ""
     return " ".join(call[:2]) if call[0] == "backend" else call[0]
+
+
+class _NoRealRclone(list):
+    """What dc.RCLONE is outside the fake: any use of it fails the test that made it."""
+
+    def __init__(self):
+        super().__init__(["rclone"])
+        self.used = False
+
+    def __iter__(self):
+        self.used = True
+        raise AssertionError("dc.RCLONE used outside the fake rclone")
+
+
+@pytest.fixture(autouse=True)
+def no_rclone_outside_the_fake(monkeypatch):
+    """Every test starts with dc.RCLONE a sentinel: only the fake, set by the test, may run."""
+    sentinel = _NoRealRclone()
+    monkeypatch.setattr(dc, "RCLONE", sentinel)
+    yield sentinel
+    assert not sentinel.used, "a test reached rclone outside the fake"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -200,14 +222,18 @@ if args[:2] == ["backend", "query"]:
         sys.stderr.write("ERROR : search result INCOMPLETE\n")
     print(json.dumps(out or None))
     sys.exit(0)
-if args[:1] == ["size"]:
-    if "--disable" not in args or args[args.index("--disable") + 1] != "ListR":
-        sys.stderr.write("fake: the check must list one folder at a time (--disable ListR)\n")
+if args[:1] == ["lsjson"]:
+    # rclone lsjson -R as rclone v1.74.4 lists Drive: folder by folder, by path.
+    if "--disable" not in args or args[args.index("--disable") + 1] != "ListR" or "-R" not in args:
+        sys.stderr.write("fake: the check must list one folder at a time (--disable ListR, -R)\n")
         sys.exit(3)
     if "--drive-auth-owner-only" in args:  # rclone's listing drops what the account does not own
         objs = [o for o in objs if o["mimeType"].endswith(".folder") or mine(o)]
     objs = [o for o in objs if not trashed(o)]
     top = args[args.index("--drive-root-folder-id") + 1]
+    hashes = "--hash" in args or "--hash-type" in args
+    all_gdocs = "--drive-show-all-gdocs" in args
+    exportable = {"document", "spreadsheet", "presentation", "drawing"}
     folders, frontier = {top}, [top]
     while frontier:
         f = frontier.pop()
@@ -216,8 +242,7 @@ if args[:1] == ["size"]:
                     and o["id"] not in folders):
                 folders.add(o["id"])
                 frontier.append(o["id"])
-    count = size = 0
-    by_path = os.environ.get("FAKE_SIZE_BY_PATH")  # rclone's walk: a folder once per parent
+    by_path = os.environ.get("FAKE_SIZE_BY_PATH")  # rclone's walk: a folder once per path
     paths = {top: 1}
 
     def npaths(f, depth=0):
@@ -227,15 +252,33 @@ if args[:1] == ["size"]:
             paths[f] = sum(npaths(p, depth + 1) for p in ups) if depth < 50 else 1
         return paths[f]
 
+    out = []
     for o in objs:
-        if o["mimeType"].startswith("application/vnd.google-apps.") or not o.get("md5Checksum"):
-            continue  # rclone skips a non-Google file without an MD5, as it skips Google files
+        if o["id"] == top:
+            continue
+        mt = o["mimeType"]
+        if mt == "application/vnd.google-apps.shortcut" and "--drive-skip-shortcuts" in args:
+            continue  # left out, never followed
+        md5 = o.get("md5Checksum")
+        google = mt.startswith("application/vnd.google-apps.") and mt != "application/vnd.google-apps.shortcut"
+        if mt != "application/vnd.google-apps.folder" and not md5:
+            # rclone shows a file without an MD5 only as a document: all of them with
+            # --drive-show-all-gdocs, else only the Google types it can export
+            if not all_gdocs and not (google and mt.rsplit(".", 1)[-1] in exportable):
+                continue
         ups = [p for p in o.get("parents", []) if p in folders]
         k = sum(npaths(p) for p in ups) if by_path else len(ups)
-        count += k
-        size += k * int(o.get("size", "0"))
-    count += int(os.environ.get("FAKE_SIZE_OFFSET", "0"))
-    print(json.dumps({"count": count, "bytes": size, "sizeless": 0}))
+        e = {"Path": o["name"], "Name": o["name"], "MimeType": mt, "ID": o["id"],
+             "IsDir": mt == "application/vnd.google-apps.folder",
+             "Size": int(o.get("size", "0")) if md5 else -1}
+        if hashes and md5:
+            e["Hashes"] = {"md5": md5}
+        out.extend(dict(e) for _ in range(k))
+    extra = int(os.environ.get("FAKE_SIZE_OFFSET", "0"))
+    first = next((e for e in out if e.get("Hashes")), None)
+    if extra and first:  # the same file listed again, under another path
+        out.extend(dict(first) for _ in range(extra))
+    print(json.dumps(out))
     sys.exit(0)
 if args[:2] == ["backend", "copyid"]:
     pairs = args[3:]
@@ -1011,10 +1054,10 @@ def test_the_census_stops_on_an_object_that_changed_while_it_ran(tmp_path, monke
         b = {"name": "B", "id": "areaB", "parent": "root", "folder": "B", "mode": "consolidate"}
         oid = d.file("prices.csv", "areaA", old)
     w = _env(tmp_path, monkeypatch, d, [a, b], {"data/prices.csv": old})
-    real_size = dc.rclone_size
+    real_listing = dc.rclone_listing
 
-    def size_then_change(remote, folder_id):
-        out = real_size(remote, folder_id)
+    def list_then_change(remote, folder_id):
+        out = real_listing(remote, folder_id)
         if folder_id == "areaA":  # A is listed and checked; then the file changes on Drive
             o = next(o for o in d.objects if o["id"] == oid)
             o["size"] = str(len(new))
@@ -1026,7 +1069,7 @@ def test_the_census_stops_on_an_object_that_changed_while_it_ran(tmp_path, monke
             d.save(tmp_path / "drive.json")
         return out
 
-    monkeypatch.setattr(dc, "rclone_size", size_then_change)
+    monkeypatch.setattr(dc, "rclone_listing", list_then_change)
     assert _census(w) == 2
     assert not (w["tmp"] / "c.json").exists()
 

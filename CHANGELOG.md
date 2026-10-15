@@ -41,17 +41,30 @@ Drive at all.
 - `recount` also holds to the proof's own root, and the census records each area folder's name
   as Drive lists it (both from the fresh-context review of #576).
 - Fix round 1 (the pen's five-lens review of #576):
-  - `census --one-parent-per-query` asks Drive about one folder per query, never an OR of
-    several; `trashlist` and `recount` refuse a census of the areas made without it, and every
-    other census, `_drifted`'s included, keeps its batches;
   - a verdict is "yes" only when every row of the area, its folder's own among them, is `listed`
     or `folder`; `recount` fails closed the same way;
   - `recount` takes a census from the 24 hours before it, and prints and records its time;
+  - (its one-folder-per-query census, withdrawn in fix round 2, below);
   - the fake rclone records every call of the session, which is checked against the allowlist,
     and a source scan checks every `run_cmd(` and process call;
   - `sharing.json` names each area folder as Drive does.
-- `tests/test_drive_trashlist.py`, new (136 tests); the fake rclone keeps owners, permissions
-  and a trash.
+- Fix round 2 (the pen's three-lens re-check):
+  - each area of a census is checked against rclone's own listing, `lsjson -R --disable
+    ListR`, one folder per query: the count and bytes of its files with an MD5, and the ids of
+    its files, Google-format files and folders; any difference stops the census and names the
+    ids. It replaces the `rclone size` check, and the one-folder-per-query walk, which would
+    have cost about 150,000 rclone calls a pass. `trashlist` refuses a census without the
+    record, and `recount` says no for one. rclone's verbs are now `version`, `backend query`,
+    `lsjson` and `backend copyid`;
+  - the census records `started`; `recount` counts the 24 hours, and the later-than-the-proof
+    rule, from it, and prints the start and the end;
+  - `census --preset card2b|consolidate|swe-data` names card 3's area sets, refused with
+    `--areas`;
+  - tests pin recount's "no row for its folder", `kept.csv`, the session's verb check run
+    alone, a sentinel for `dc.RCLONE` outside the fake, and the scan of `shell=` and a joined
+    `RCLONE`.
+- `tests/test_drive_trashlist.py`, new (185 tests); the fake rclone keeps owners, permissions
+  and a trash, and lists as `rclone lsjson` does.
 
 ## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop; #580, `e042f5b`)
 

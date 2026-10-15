@@ -62,8 +62,8 @@ the PR) and card 3's design (version 6 with addenda A, B and C, #544) specify it
   dropped a Google-format file, a shortcut, a file without an MD5 or an empty folder
   would go unseen, and under the middle route those go to the trash with their folder.
 - Fix round 1, after the pen's five-lens review (no blocking defect): the census of the areas
-  asks one folder per query (`--one-parent-per-query`), which closes that gap, and
-  `trashlist` and `recount` refuse one made otherwise; the verdict fails closed (every row
+  asked one folder per query, to close that gap (withdrawn in fix round 2); the verdict fails
+  closed (every row
   `listed` or `folder`, the folder's own row among them); `recount` takes a census from the
   24 hours before it and shows its time; the fake records every rclone call of the session
   for an allowlist check, and a source scan reads every process call; and tests pin the rules
@@ -80,11 +80,11 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 
 - `tests/test_drive_consolidate.py`: 263 passed, 3 skipped on `origin/main` (`ebc354a`), and
   the same on the branch; `tests/test_drive_trashlist.py`: 136 passed at the first Run
-  Summary, 169 after fix round 1.
+  Summary, 169 after fix round 1, 185 after fix round 2.
 - Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants and
-  one that removes both `--out` checks together, then 35 for fix round 1's rules, each run
-  against the test written for it. The PR's Run Summary and its "Fix round 1" comment have
-  the tables.
+  one that removes both `--out` checks together, then fix round 1's and fix round 2's rules,
+  each run against the test written for it. The PR's Run Summary and its "Fix round 1" and
+  "Fix round 2" comments have the tables.
 - The PR's Run Summary holds every command and its output: the fast lane, ruff, the registry
   checks and CI.
 
@@ -93,6 +93,13 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 - The pen closes `docs/deadlines.md`'s row "no tool run reads Drive until the tool finds
   `swe-data/` by id" after the merge, and the matching sentence under `docs/DATA_INVENTORY.md`
   §C.3's table (this run changed only rows 1 and 3, as its prompt said).
-- Card 3a (desktop, read-only on Drive): the six-area census with `--one-parent-per-query`,
-  `swe-data/`'s census, the
-  inventory, the plan, `bytecheck` if any check is pending, then `trashlist`.
+- Fix round 2, after the pen's three-lens re-check (no false "yes"): a walk one folder per
+  query would cost about 150,000 rclone calls a pass, so the census keeps its batches and
+  each area is cross-checked instead against `rclone lsjson -R --disable ListR` (one folder
+  per query in rclone's own walk): counts, bytes and the ids of files, Google-format files
+  and folders. It needs `--drive-show-all-gdocs`, or rclone leaves out a Google file it
+  cannot export (a Form). Freshness counts from the census's `started`; `census --preset`
+  names card 3's area sets.
+- Card 3a (desktop, read-only on Drive): `census --preset card2b`, `census --preset
+  swe-data`, the inventory, the plan, `bytecheck` if any check is pending, then `trashlist`;
+  on the day of the trash, `census --preset consolidate`, then `recount`.

@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-10-14 (close after #572, `main` at `f85354f`. Card 3: Codex
+**Last updated:** 2026-10-15 (close after #573, `main` at `04cd2e4`: #573 recorded what the
+Operator agreed to on 2026-10-14, and addendum B and D36's draft posted on #544.
+Earlier, 2026-10-14: close after #572, `main` at `f85354f`. Card 3: Codex
 reviewed version 6 ("agree with changes"), settling all but two details of the proofs that
 a request was not sent. The pen confirmed both and drafted addendum B, then D36's draft.
 Both are posted on #544 for Codex's review, on the Operator's choice.
@@ -141,7 +143,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `f85354f` (2026-10-14). Others on `origin`:
+**Branches:** `main` is at `04cd2e4` (2026-10-14). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,

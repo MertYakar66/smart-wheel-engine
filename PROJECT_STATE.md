@@ -1,8 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-15 (D38 being written: the Portfolio Manager / Risk Engineer and its
-assistant above the engine, from PM1 Part 5 on `Risk_Management`, on the Operator's "1. yes 2. yes
-3. yes 4. they". Earlier the same day: close after #577, `main` at `82e1fd3`: D37 merged.
+**Last updated:** 2026-10-15 (close after #580, `main` at `e042f5b`: D38 merged, the Portfolio
+Manager / Risk Engineer and its assistant above the engine, from PM1 Part 5 on `Risk_Management`, on
+the Operator's "1. yes 2. yes 3. yes 4. they". The `pm-request` label exists, and the mark leaves
+`Risk_Management` and its `rm/` branches out of "other branches". Earlier the same day: close after #577, `main` at `82e1fd3`: D37 merged.
 Earlier the same day: D37 adopted on the Operator's "yes, adopt D37": card 3 trashes the
 old Drive folders by hand, after card 3a proves every file in them (the middle route,
 "yes, go with the middle route"); written into the rule-books by #577. Card 3's code run
@@ -158,7 +159,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `82e1fd3` (2026-10-15). Also open: `claude/card3-code-part1`, card 3's code run (#576). Others on `origin`:
+**Branches:** `main` is at `e042f5b` (2026-10-15). Also open: `claude/card3-code-part1`, card 3's code run (#576). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -919,10 +920,18 @@ desktop's checkout still has the round 3 branch locally.
     label". To the pen's four numbered questions the Operator answered "1. yes 2. yes 3. yes 4. they": yes to the
     `OPERATING_MODEL.md` §7 sentence on where account data lives, yes to D38 as Part 5 (h) gives it, yes to creating
     the `pm-request` label, and "they" for the Operator in place of Part 5's "he", "his" and "him".
-    After the check of #580, "1. yes" widened step 9's last sentence from issues to every GitHub surface (an
-    issue, a pull request, a comment, a Run Summary, a worklog or a commit), as D38 point 2 already says. The pen writes the rule-book text; an Executor writes `scripts/session_open.py`'s branch rule
-    and the tests, in the same PR.
+    Later the same day, after a fresh-context check of #580, the pen asked a second, separate pair of
+    questions, and the Operator answered "1. yes 2. yes":
+    1. widen step 9's last sentence to "Never put anything private on GitHub, whether in an issue, a pull
+       request, a comment, a Run Summary, a worklog or a commit: …", as D38 point 2 already says;
+    2. the lines that block the brokerage connector's ten write tools (order instructions, alerts,
+       watchlists, feedback) in the Operator's own Claude Code settings. The Operator added them; the pen
+       read the file back: valid, all ten present. If the connector is reconnected, its id may change.
+    The pen wrote the rule-book text; an Executor wrote `scripts/session_open.py`'s branch rule, the tests
+    and the label, in the same PR. Merged as #580 (`e042f5b`).
 - **Proposed, not authorized.**
+  - `OPERATING_MODEL.md` Leg 4 still says "Nothing private goes on an issue", narrower than `CLAUDE.md` step 9
+    and D38 point 2. Widen it to every GitHub surface in the next rule-book pass, with the Operator's yes.
   - **From #565's checks, for the next kits and cards:**
     - the kit's privacy scan has no pattern for Drive folder ids; add one, or record that
       Drive ids are accepted as public;

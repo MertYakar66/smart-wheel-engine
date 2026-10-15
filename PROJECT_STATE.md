@@ -918,7 +918,9 @@ desktop's checkout still has the round 3 branch locally.
     your normal process, and ask me for the explicit yes your rules need for the §7 change, the D38 entry and the
     label". To the pen's four numbered questions the Operator answered "1. yes 2. yes 3. yes 4. they": yes to the
     `OPERATING_MODEL.md` §7 sentence on where account data lives, yes to D38 as Part 5 (h) gives it, yes to creating
-    the `pm-request` label, and "they" for the Operator in place of Part 5's "he", "his" and "him". The pen writes the rule-book text; an Executor writes `scripts/session_open.py`'s branch rule
+    the `pm-request` label, and "they" for the Operator in place of Part 5's "he", "his" and "him".
+    After the check of #580, "1. yes" widened step 9's last sentence from issues to every GitHub surface (an
+    issue, a pull request, a comment, a Run Summary, a worklog or a commit), as D38 point 2 already says. The pen writes the rule-book text; an Executor writes `scripts/session_open.py`'s branch rule
     and the tests, in the same PR.
 - **Proposed, not authorized.**
   - **From #565's checks, for the next kits and cards:**

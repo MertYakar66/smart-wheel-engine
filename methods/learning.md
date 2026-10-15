@@ -1,6 +1,6 @@
 # Syllabus: from understanding to CFA-level mastery
 
-**For:** the Operator. **Prepared by:** the Portfolio Manager / Risk Engineer. **Status:** approved 2026-10-15 (`DECISIONS.md` PM3). Before approval, two fresh agents checked the draft, and a skeptic confirmed 17 of their 20 findings. All 17 are fixed.
+**For:** the Operator. **Prepared by:** the Portfolio Manager / Risk Engineer, 2026-10-15. **Status:** approved 2026-10-15 (`DECISIONS.md` PM3). Before approval, two fresh agents checked the draft, and a skeptic confirmed 17 of their 20 findings. All 17 are fixed.
 
 **Built on the prompt you approved.**
 - **Backbone:** the CFA program.
@@ -144,7 +144,7 @@ The official material takes over once you register.
 
 | Window | Register by | Fee |
 | --- | --- | --- |
-| Feb 2027 | 5 Nov 2026 (21 days from today) | USD 1,490 |
+| Feb 2027 | 5 Nov 2026 (21 days from 2026-10-15) | USD 1,490 |
 | May 2027 | 10 Feb 2027 (the early price ended 14 Oct 2026) | USD 1,490 |
 | Aug 2027 | early price by 20 Jan 2027 (registration opens 3 Nov 2026, closes 29 Apr 2027) | **USD 1,140** early |
 
@@ -243,4 +243,4 @@ Chapter numbers for Natenberg, Carver and some others are still to be confirmed 
 1. The syllabus is approved.
 2. The CFA exam window is **August 2027**. Registration opens 3 Nov 2026, and the early price applies until 20 Jan 2027. Registering and paying is the Operator's to do.
 3. The read-only account read (the IBKR round) is scheduled in **week 1** (19–25 Oct 2026). It needs its own approved prompt first.
-4. This file and `learning-progress.md` were committed once through an `rm/` pull request checked by a fresh agent, in place of the Portfolio Manager Assistant, which is not yet set up.
+4. This file and `learning-progress.md` are committed once, through an `rm/` pull request that a fresh agent checks. The fresh agent stands in for the Portfolio Manager Assistant, which is not yet set up.

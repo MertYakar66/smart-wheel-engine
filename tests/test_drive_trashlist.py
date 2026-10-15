@@ -381,6 +381,23 @@ def test_the_census_stops_on_any_other_chain(small, change, capsys):
     assert not (small["tmp"] / "c.json").exists()
 
 
+def test_the_census_stops_when_an_area_folder_cannot_be_read_for_its_sharing(
+    small, monkeypatch, capsys
+):
+    real = dc.drive_query
+
+    def lose_the_folder(remote, query, tries=3, sharing=False):
+        found = real(remote, query, tries, sharing)
+        if sharing and "name = 'swe-local-only'" in query:
+            return [h for h in found if h["id"] != SLO]  # gone between the walk and this read
+        return found
+
+    monkeypatch.setattr(dc, "drive_query", lose_the_folder)
+    assert tdc._census(small) == 2
+    assert f"its folder {SLO} could not be read again" in capsys.readouterr().err
+    assert not (small["tmp"] / "c.json").exists()
+
+
 def test_the_re_census_of_copy_and_bytecheck_reads_no_chain_or_swe_data(small):
     small["calls"].write_text("", encoding="utf-8")
     doc = dc.census("fake:", [AREA["swe-local-only"]])
@@ -779,6 +796,18 @@ def test_each_blocker_makes_its_area_no_and_a_clean_area_stays_yes(rich):
     assert len(kept.splitlines()) == 1 + sum(1 for r in rich["rows"] if r["class"] == "blocker")
 
 
+def test_an_empty_file_needs_its_desktop_copy_too(rich, tmp_path):
+    root = tmp_path / "root"
+    shutil.copytree(rich["root"], root, ignore=shutil.ignore_patterns("_logs"))
+    plan, census, swe = (copy.deepcopy(d) for d in _docs(rich))
+    plan["root"] = str(root)
+    twin = f"{LEGACY}/swe-local-only/markers/done.flag"
+    (root / twin).unlink()
+    rows, _ = dc.trashlist(plan, census, swe, root)
+    r = next(r for r in rows if r["id"] == rich["world"].ids["emptyfile"])
+    assert (r["class"], r["reason"]) == ("blocker", f"root twin {twin}: missing")
+
+
 def test_the_proof_is_the_same_twice_over_the_same_inputs(rich):
     one = (rich["root"] / "_logs" / "list" / dc.PROOF).read_bytes()
     two = (rich["root"] / "_logs" / "again" / dc.PROOF).read_bytes()
@@ -899,6 +928,16 @@ REFUSALS = {
         "census",
         lambda p, c, s: c["swe_data"].update(id="another-folder"),
         "records swe-data/ as another-folder",
+    ),
+    "a census with no sharing for an area folder": (
+        "census",
+        lambda p, c, s: c["areas"][1].pop("sharing"),
+        "records no sharing",
+    ),
+    "a swe-data census with no sharing for a link": (
+        "swe",
+        lambda p, c, s: s["chain"][2].pop("sharing"),
+        "records no sharing",
     ),
 }
 

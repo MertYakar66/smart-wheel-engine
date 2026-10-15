@@ -2172,6 +2172,8 @@ def _check_trashlist_inputs(plan: dict, census_doc: dict, swe_doc: dict, root: P
             raise ToolError(f"{label} records no chain or swe-data/; make it with `census`")
         if swe.get("id") != SWE_DATA["id"]:
             raise ToolError(f"{label} records swe-data/ as {swe.get('id')}, not {SWE_DATA['id']}")
+        if any("sharing" not in x for x in [*doc["chain"], swe, *doc["areas"]]):
+            raise ToolError(f"{label} records no sharing for a folder; make it with `census`")
         tops = _my_drive_roots(doc)
         if tops & set(swe.get("parents") or []):
             raise ToolError(f"{label}: swe-data/ has My Drive's root as its parent")

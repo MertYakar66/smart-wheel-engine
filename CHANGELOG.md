@@ -53,7 +53,7 @@ Drive at all.
 - `tests/test_drive_trashlist.py`, new (136 tests); the fake rclone keeps owners, permissions
   and a trash.
 
-## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop)
+## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop; #580, `e042f5b`)
 
 **Docs** — PM1 Part 5 from the `Risk_Management` branch, on the Operator's "1. yes 2. yes 3. yes 4.
 they": yes to the `OPERATING_MODEL.md` §7 change, D38 and the `pm-request` label.

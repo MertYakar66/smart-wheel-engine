@@ -818,6 +818,20 @@ def test_the_proof_is_the_same_twice_over_the_same_inputs(rich):
 # ---------------------------------------------------------------- the proof and its sha256
 
 
+def test_the_printed_summary_names_its_inputs_and_when_it_ran(proven):
+    out = proven["root"] / "_logs" / "list"
+    lines = dc.trashlist_lines(proven["summary"], out)
+    ins = proven["summary"]["inputs"]
+    assert lines[0] == f"trashlist: ran {proven['summary']['ran']}, root {ins['root']}"
+    assert lines[1:4] == [
+        f"  --plan p.json (made {ins['plan']['generated']})",
+        f"  --census c6.json (made {ins['census']['generated']})",
+        f"  --swe-census swe.json (made {ins['swe_census']['generated']})",
+    ]
+    assert lines[-1] == f"trashlist: sha256 {proven['summary']['sha256']}"
+    assert sum(1 for x in lines if x.startswith("  clear to trash by hand: yes")) == 3
+
+
 def test_the_sha256_is_of_the_proof_bytes_alone_in_canonical_form(proven):
     out = proven["root"] / "_logs" / "list"
     data = (out / dc.PROOF).read_bytes()
@@ -1007,6 +1021,12 @@ def live(proven, tmp_path, monkeypatch):
     monkeypatch.setattr(dc, "RCLONE", proven["rclone"])
     monkeypatch.setattr(dc, "utc_now", Clock(T0 + dt.timedelta(days=1)))
     shutil.copy(proven["tmp"] / "early.json", tmp_path / "early.json")
+    # The copy stands for the proven root: its summary names this root (the sha256 is the
+    # proof's, which this does not touch).
+    summary_path = root / "_logs" / "list" / dc.PROOF_SUMMARY
+    summary = _load(summary_path)
+    summary["inputs"]["root"] = str(root)
+    summary_path.write_text(json.dumps(summary), encoding="utf-8")
     world_ = proven["world"]
     return SimpleNamespace(
         tmp=tmp_path,
@@ -1229,6 +1249,31 @@ def test_recount_refuses_an_area_with_a_blocker_and_checks_one_area_alone(live):
     _census_now(live, ["swe-local-only"], "slo.json")
     rc, rec = _recount(live, "swe-local-only", census="slo.json", **paths)
     assert (rc, rec["unchanged"], rec["areas"]) == (0, "yes", ["swe-local-only"])
+
+
+def test_recount_hashes_the_twins_in_the_proofs_own_root(live, tmp_path):
+    other = tmp_path / "an-older-copy"
+    shutil.copytree(live.root, other)
+    (live.root / "data" / "a.csv").write_bytes(b"ALPHA\n")  # the real root's twin changed
+    _census_now(live)
+    rc, _rec = _recount(live)
+    assert rc == 1
+    args = ["recount", "--proof", str(live.list / dc.PROOF)]
+    args += ["--summary", str(live.list / dc.PROOF_SUMMARY), "--expect-sha256", live.sha]
+    args += ["--census", str(live.tmp / "now.json"), "--root", str(other), "--remote", "fake:"]
+    assert dc.main(args) == 1
+    rec = _load(next((other / "_logs").glob("recount-*.json")))
+    assert rec["differences"] == [f"the proof was made for root {live.root}, not {other}"]
+
+
+def test_recount_compares_the_area_folders_name_as_drive_lists_it(live):
+    _census_now(live)
+    now = _load(live.tmp / "now.json")
+    _area_of(now, SLO)["root_name"] = "Swe-Local-Only"  # Drive's name = '…' ignores case
+    (live.tmp / "now.json").write_text(json.dumps(now), encoding="utf-8")
+    rc, rec = _recount(live)
+    assert rc == 1
+    assert rec["differences"] == [f"changed: swe-local-only (the area folder) ({SLO}): its name"]
 
 
 def test_recount_refuses_an_area_that_is_not_a_consolidate_area(live, capsys):

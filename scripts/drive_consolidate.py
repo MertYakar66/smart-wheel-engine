@@ -822,6 +822,7 @@ def census(remote: str, areas: list[dict]) -> dict:
             {
                 **area,
                 "root_parents": root_parents,
+                "root_name": root["name"],  # as Drive spells it: name = '…' ignores case
                 "root_owned": root["owned"],
                 "root_modified": root["modified"],
                 "objects": objects,
@@ -2056,14 +2057,15 @@ def _kind_count(row: dict) -> str:
 def _area_objects(area: dict) -> list[tuple[str, dict]]:
     """(path, object) for every object the census lists in an area, its own folder first.
 
-    The folder is built from the census's area record: its id and folder name, the parents
-    its root was found with (``root_parents``), whether the account owns it, and its
+    The folder is built from the census's area record: its id, its name as Drive lists it
+    (``root_name``), the parents its root was found with (``root_parents``), whether the
+    account owns it, and its
     modified time. trashlist and recount both build it here, so their id sets can match.
     """
     paths = _area_tree(area)[0]
     top = {
         "id": area["id"],
-        "name": area["folder"],
+        "name": area["root_name"],
         "mime": FOLDER,
         "size": None,
         "md5": None,
@@ -2503,7 +2505,12 @@ def write_trashlist(
 
 
 def trashlist_lines(summary: dict, out: Path) -> list[str]:
-    lines = []
+    ins = summary["inputs"]
+    lines = [f"trashlist: ran {summary['ran']}, root {ins['root']}"]
+    for key in ("plan", "census", "swe_census"):
+        lines.append(
+            f"  --{key.replace('_', '-')} {ins[key]['file']} (made {ins[key]['generated']})"
+        )
     for a in summary["areas"]:
         c, k = a["classes"], a["kinds"]
         lines.append(
@@ -2635,6 +2642,9 @@ def recount(
             f"the census ({census_doc.get('generated')}) is not later than the proof "
             f"({summary.get('ran')})"
         )
+    made_for = (summary.get("inputs") or {}).get("root")
+    if not made_for or not same_path(made_for, str(root)):
+        diffs.append(f"the proof was made for root {made_for}, not {root}")
     # An area is known in the proof by its folder's row (path ""), whatever it was named.
     named = {r["id"]: r["area"] for r in proof["rows"] if r["path"] == ""}
     label = {n: named.get(consolidate[n]["id"], n) for n in names}

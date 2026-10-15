@@ -14,6 +14,17 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-15 — D37: card 3 trashes the old Drive folders by hand, after a proof (desktop; #577, `82e1fd3`)
+
+**Docs** — the Operator's "yes, go with the middle route" and "yes, adopt D37" (campaign #544).
+- `DECISIONS.md`: D37. Card 3a proves every object in `swe-local-only`, `SmartWheelData` and
+  `smart-wheel-engine`; `recount` re-proves them on the day; the Operator trashes each clear folder
+  by hand; Drive's trash is the 30-day undo. D36 points 1, 2, 4 and 5 and D33 are marked partly
+  superseded; `scripts/drive_trash.py` and card 3b are dropped.
+- `CLAUDE.md` §2 and the `AGENTS.md` Appendix: the pen's read while D37's undo-window row is open
+  replaces D36's. No row is open yet.
+- `PROJECT_STATE.md`: the middle route, and the code run (#576) changed to `trashlist` and `recount`.
+
 ## 2026-10-15 — D36: card 3 moves approved files into a holding folder, then trashes it once (desktop; #574, `67f4b24`)
 
 **Docs** — the Operator's yes of 2026-10-15 ("yes to D36. adopt D36"), campaign #544.

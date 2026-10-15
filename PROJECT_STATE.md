@@ -1,6 +1,7 @@
 # Project State
 
-**Last updated:** 2026-10-15 (D37 adopted on the Operator's "yes, adopt D37": card 3 trashes the
+**Last updated:** 2026-10-15 (close after #577, `main` at `82e1fd3`: D37 merged.
+Earlier the same day: D37 adopted on the Operator's "yes, adopt D37": card 3 trashes the
 old Drive folders by hand, after card 3a proves every file in them (the middle route,
 "yes, go with the middle route"); written into the rule-books by #577. Card 3's code run
 is PR #576, without `scripts/drive_trash.py`.
@@ -155,7 +156,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `67f4b24` (2026-10-15). Others on `origin`:
+**Branches:** `main` is at `82e1fd3` (2026-10-15). Also open: `claude/card3-code-part1`, card 3's code run (#576). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,

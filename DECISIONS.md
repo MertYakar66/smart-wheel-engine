@@ -130,7 +130,15 @@ Two rounds of fresh-agent checks shaped the text. A skeptic confirmed 67 of 73 f
 
 ## PM2. The Operator's standing rule on every message (2026-10-15)
 
-**Confirmed by the Operator** on 2026-10-15, by pasting the rewritten rule back unchanged. It answered "Here is your message rewritten as the rule I'll follow. Nothing else happens until you approve it." The checklist change below was approved with "yes, apply the checklist change on those four points".
+**Confirmed by the Operator** on 2026-10-15, by pasting the rewritten rule back unchanged. It answered "Here is your message rewritten as the rule I'll follow. Nothing else happens until you approve it."
+
+**The checklist change was then put to him in four points:**
+1. "This exact text goes into my checklist on the branch:" §3 becomes "Every message: the Operator's standing rule", with his seven points word for word, plus one paragraph. That paragraph says the rewritten prompt is expert-grade; a warning is in plain words, "you warn; you never act"; it names its source and says whether it's confirmed; and a confirming account read waits for his yes. §4's question bullet becomes "In the first reply, questions are neutral (§3). In the answer, give one recommendation for each decision." `DECISIONS.md` gains PM2, recording his approval with the rule's text.
+2. "This session makes the change, once only: branch `rm/standing-rule`, a pull request into `Risk_Management`, then the merge."
+3. "A fresh agent checks it, in place of the Assistant, this time only."
+4. The pull request's title and body, shown to him before posting.
+
+**He answered** "yes, apply the checklist change on those four points" (2026-10-15).
 
 **The rule, word for word:**
 
@@ -151,4 +159,12 @@ Two rounds of fresh-agent checks shaped the text. A skeptic confirmed 67 of 73 f
 - `CLAUDE.md` §4, whose question line now says that questions in the first reply are neutral;
 - the PM/RE's private memory.
 
-**One exception to `CLAUDE.md` §1 and §7, approved for this change only.** The change was made from the session that runs in the engine's checkout, not from this worktree. A fresh agent checked it, in place of the Portfolio Manager Assistant, which is not yet set up.
+**The one-time exception (points 2 and 3 above).** `CLAUDE.md` §1 makes a Portfolio Manager session outside this worktree read-only, and §7 has the Assistant check every pull request. For this change only, the session in the engine's checkout made it, and a fresh agent checked it. The Assistant is not yet set up.
+
+**What the replaced §3 said that the new text no longer states:**
+- "If it turns out wrong, stop and ask."
+- That before the yes there are "no account reads, research, connector calls or agents".
+- The allowance for a brief read-only look, with "Say when you took one."
+- The warning examples: "a margin cushion running out or an assignment before the open".
+
+The fresh agent's check raised these, and a follow-up proposal to the Operator decides which ones come back.

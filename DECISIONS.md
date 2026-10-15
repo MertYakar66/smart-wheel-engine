@@ -127,3 +127,44 @@ Two rounds of fresh-agent checks shaped the text. A skeptic confirmed 67 of 73 f
 - `scripts/session_open.py`: "other branches" leaves out `refs/heads/Risk_Management` and `refs/heads/rm/*`. Its docstring and `tests/test_session_open.py` are updated to match, and (c)'s slot rule and §3.2's bullet land with them.
 - `tests/test_check_working_structure.py:44`: its sentinel string "Four roles." changes to match (a).
 - The `pm-request` label is created in the repository. This is a repository write, so it needs your yes.
+
+## PM2. The Operator's standing rule on every message (2026-10-15)
+
+**Confirmed by the Operator** on 2026-10-15, by pasting the rewritten rule back unchanged. It answered "Here is your message rewritten as the rule I'll follow. Nothing else happens until you approve it."
+
+**The checklist change was then put to him in four points:**
+1. "This exact text goes into my checklist on the branch:" §3 becomes "Every message: the Operator's standing rule", with his seven points word for word, plus one paragraph. That paragraph says the rewritten prompt is expert-grade; a warning is in plain words, "you warn; you never act"; it names its source and says whether it's confirmed; and a confirming account read waits for his yes. §4's question bullet becomes "In the first reply, questions are neutral (§3). In the answer, give one recommendation for each decision." `DECISIONS.md` gains PM2, recording his approval with the rule's text.
+2. "This session makes the change, once only: branch `rm/standing-rule`, a pull request into `Risk_Management`, then the merge."
+3. "A fresh agent checks it, in place of the Assistant, this time only."
+4. The pull request's title and body, shown to him before posting.
+
+**He answered** "yes, apply the checklist change on those four points" (2026-10-15).
+
+**The rule, word for word:**
+
+> Standing rule: how you handle every message of mine.
+> 1. When my message arrives, your first reply contains only three things:
+>    * my request, restated in one line;
+>    * numbered clarifying questions, neutral, with no analysis, options or answer inside them;
+>    * my request, rewritten as a better prompt.
+> 2. Then stop. Write no part of the answer: no findings, options, opinions or research. Use no tools beyond what you need to write the questions.
+> 3. After I approve or edit the rewritten prompt, carry it out and give the answer.
+> 4. If my edit changes the scope, rewrite it again and wait again.
+> 5. Not rewritten: my answers to your questions, my "approve", "yes" or edited prompt, and "close".
+> 6. One exception: a time-critical risk warning is given at once, before anything else.
+> 7. Record this rule in your memory, and in your checklist on the `Risk_Management` branch.
+
+**Where it lives:**
+- `CLAUDE.md` §3 on this branch, which replaces the earlier sharpening steps;
+- `CLAUDE.md` §4, whose question line now says that questions in the first reply are neutral;
+- the PM/RE's private memory.
+
+**The one-time exception (points 2 and 3 above).** `CLAUDE.md` §1 makes a Portfolio Manager session outside this worktree read-only, and §7 has the Assistant check every pull request. For this change only, the session in the engine's checkout made it, and a fresh agent checked it. The Assistant is not yet set up.
+
+**What the replaced §3 said that the new text no longer states:**
+- "If it turns out wrong, stop and ask."
+- That before the yes there are "no account reads, research, connector calls or agents".
+- The allowance for a brief read-only look, with "Say when you took one."
+- The warning examples: "a margin cushion running out or an assignment before the open".
+
+The fresh agent's check raised these, and a follow-up proposal to the Operator decides which ones come back.

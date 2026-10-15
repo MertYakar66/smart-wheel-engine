@@ -1973,6 +1973,8 @@ proven, as for Bloomberg. Everything else in D33 stands, including the MacBook's
 exclusion, "Theta will be collected again from the beginning" and the later choice of
 source, and every deletion and restore gate.
 
+**PARTLY SUPERSEDED by D36 (2026-10-15):** two places. In point 3, "`swe-data/` at the top of My Drive": it sits in `OptionsEngine_Project` (My Drive › The_Works › Projects), found by its id. In the Why, "So the design copies, never moves": card 3 moves each approved file by its id into a holding folder, then trashes that folder once. Every condition of point 5 stands.
+
 **Decision.** Confirmed by the Operator on 2026-09-24 ("yes"), after two reviews
 by the second opinion:
 
@@ -2210,6 +2212,53 @@ changes"):
 - `OPERATING_MODEL.md` §3.1 (the exception), with pointers in §2 Leg 2 and §5;
 - `CLAUDE.md` §6 and the `AGENTS.md` Appendix, which
   `scripts/check_working_structure.py` keeps word for word, in CI.
+
+## D36. Card 3 cleans Drive by moving each approved file into a holding folder, then trashing that folder once; the project's Drive folders sit in `OptionsEngine_Project` (2026-10-15)
+
+**Decision.** Confirmed by the Operator on 2026-10-15 ("yes to D36. adopt D36"), to the text below. Card 3's design is version 6 on #544 (comments 6165771818 and 6165775816), as addenda B (#544 comment 6168806648) and C (#544 comment 6185867812) amend it. The second opinion reviewed each of its six versions, and answered "agree with changes" to version 6.
+
+1. **How card 3 deletes.** Each approved file is moved by its Drive id into a holding folder, H, inside a container folder, C. After an audit, H alone goes to Drive's trash, once. No file is ever trashed or deleted by its name. This departs from D33's words "the design copies, never moves"; D33's reasons for them do not apply here (Why, below). Every other D33 condition stands, and card 3 widens one of them, the two proven copies of D33 point 6 and D34 point 1, to every file:
+   - only files on the named list whose sha256 the Operator approved are moved;
+   - each file's desktop copy (in the root, or under `data_archive/drive-legacy/`) and its `swe-data/` copy are both proven first, by size, MD5 and SHA-256, and again before the trash;
+   - files that cannot be proven stay where they are, and another project's folders are only read;
+   - card 3 deletes nothing forever. Drive's trash is the undo: Google keeps a trashed item 30 days, which the design assumes holds for H's contents too.
+2. **The moves are deletion, so they are attended** (deleting files is on `OPERATING_MODEL.md` §3.1's list that waits for the Operator, and D35 did not change that). The Operator launches every mutating run of the rehearsal and of card 3b, any later restore included, in their own console window, and stays present:
+   - presence is confirmed with a key in the script's console. It expires 30 minutes after the latest confirmation, or, before the first, 30 minutes after the window starts. The prompt appears 5 minutes before it expires;
+   - a group of moves runs for at most 5 minutes. No group starts if that limit would cross the presence expiry or the window's stop time. A group still running when presence expires is killed;
+   - the sign-off key ends a window cleanly: the running group finishes, and no new one starts. The Operator leaves only after the script prints that the window is closed;
+   - the stop key is for emergencies. It kills the running call at once.
+
+   Moving files while the Operator is away needs a later decision of its own.
+3. **`swe-data/` sits in `OptionsEngine_Project`** (My Drive › The_Works › Projects), with the same id, `13h0HIy_kLjsN431YJFRewJ8FAZGjxe3b`, since the Operator moved it there on 2026-10-12. Nothing of this project sits at the top of My Drive. From card 3's change run on, tools find `swe-data/` by its id, never by its name; until that run merges, no tool run reads Drive (`docs/deadlines.md`). This replaces D33 point 3's "`swe-data/` at the top of My Drive".
+4. **The undo window.** Before H is trashed, `docs/deadlines.md` gains a row with these words:
+
+   "No Empty trash, and nothing deleted forever. Do not trash, delete, move, rename or share the folders `The_Works`, `Projects` and `OptionsEngine_Project` themselves. Inside `OptionsEngine_Project`, do not trash, delete, move, rename or share card 3's container folder, its log folder, `swe-data/`, `swe-local-only`, `SmartWheelData` or `smart-wheel-engine`, or anything inside those six folders, and add nothing to card 3's container folder. Do not change the twin paths the trash report lists, in `swe-data/` or on the desktop, or the desktop's `_logs/card3/`, until the Operator's recorded word releases them. This holds in the web page, in Drive for desktop and with any tool. Other files and folders, in `OptionsEngine_Project`, `Projects`, `The_Works` and elsewhere, stay free to change. Card 3's own steps, sent by `drive_trash.py` as its design allows, are the exception."
+
+   Its Due cell is an ISO date, the earliest day the undo window may end: 30 days after the last read that showed H untrashed. Its Source cell cites D36, the #544 comment that records the folders' names and ids, and the #544 read that dates the Due cell. The row stays open until the Operator closes it. The credential file's "Delete forever" comes before the row opens, and is the only other exception.
+5. **The pen watches those folders while the row is open.** At every session-open, the pen reads, by the ids the row's source names, `The_Works`, `Projects`, `OptionsEngine_Project`, C, its log folder, `swe-data/`, the three cleaned areas' folders, and H while it is not yet seen trashed. It uses its Drive connector, reading only; if the rehearsal shows the connector cannot see a trashed folder and its parent, it uses rclone, and the Operator keeps that sign-in fresh. It records each read and its date on #544, and says in its first message that it read. A failed read is not a pass. A trashed or moved folder is reported to the Operator that day, with the earliest date Drive may delete it for good: 30 days after the last read that showed it untrashed. The Operator opens a pen session at least once a week until the row closes. `CLAUDE.md` §2 carries this step while the row is open.
+
+**Why.**
+- The Operator's aims: "make sure there are no duplicates" (2026-09-24, D33); "Quality is more important than anything" (2026-10-09; the original message is lost, and the cloud pen's notes record it as verbatim); and "everything related to smart wheel engine will not be on the very first page of my drive. It will placed under corresponding folder" (2026-10-12).
+- Trashing by name is unsafe. rclone looks a name up again before it acts, so the file trashed may not be the approved one (the second opinion's first finding on version 1, held against rclone v1.74.4's source). Moving by id binds each step to one file.
+- D33 moved nothing because a move can relocate a shortcut instead of its data, a mirror check proves nothing about the files left behind, `--files-from` cannot rename, and `--ignore-existing` skips a file on its name alone. None applies. Only files with an MD5 move, so never a shortcut. Each move names one id, and neither flag is used. The files go to H, not to `swe-data/`. And each file is proven on its own, before and after.
+- One trash request for H, after an audit, replaces about 178,000 separate deletions. One untrash of H should bring them all back, followed by moving each file back by its id; the rehearsal must prove that before 3b.
+- Since the move of 2026-10-12, C, the log folder, `swe-data/` and the cleaned areas' folders share `OptionsEngine_Project`. Trashing or deleting it, or a folder above it, during the undo window would take the undo and the second copy together.
+- On 2026-10-14 the Operator agreed in chat ("yes go on") to a narrower rule: do not trash, delete or move `The_Works`, `Projects` or `OptionsEngine_Project`, and use no "Delete forever", with work inside those folders still free. Point 4 goes further: it also protects the six folders card 3 uses inside `OptionsEngine_Project` and everything inside them, forbids renames, sharing and anything added to card 3's container, and keeps the listed twin paths and `_logs/card3/` unchanged. The yes to this text adopts it. Version 6 and the records of 2026-10-14 had said the Operator agreed to a wider rule; that was wrong. Addendum B (#544 comment 6168806648) corrects version 6, and PR #573 corrects the records.
+
+**Rejected alternatives.**
+- **Trashing by name** (`deletefile`, `delete --files-from`): the file trashed may not be the approved one.
+- **Renaming each file in place, then trashing it:** two writes per file, about 178,000 separate trash entries, and a crash between the two steps leaves oddly named files behind.
+- **Calling the Drive API directly:** a new dependency and a new sign-in.
+- **The pen's Drive connector:** a tool for single files, outside the attended, journaled run.
+- **Keeping the old copies:** against D33's "no duplicates".
+- **Freezing everything in `OptionsEngine_Project` for the undo window:** wider than the clean-up needs, and wider than the Operator agreed to. Its words could also be read as freezing the Operator's other projects.
+- **Moving files while the Operator is away, now:** the canary and the first window must measure the moves first.
+
+**Pinned by.**
+- card 3's design, version 6 (#544 comments 6165771818 and 6165775816), as addenda B (#544 comment 6168806648) and C (#544 comment 6185867812) amend it;
+- `scripts/drive_trash.py` and its tests, from card 3's change run. It refuses any list but the approved sha256, any verb but its own, a `mkdir` whose parent is My Drive's root, and the `purge` until the journal records the row open with the words in point 4;
+- `scripts/drive_consolidate.py`, which finds `swe-data/` by its id (the same change run);
+- the row in `docs/deadlines.md`; and `CLAUDE.md` §2 and the `AGENTS.md` Appendix, which `scripts/check_working_structure.py` keeps word for word, in CI (point 5, which has no test of its own).
 
 ## How to add a decision
 

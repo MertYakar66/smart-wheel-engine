@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-15 — card 3's code run: census owners, `swe-data/` by id, `trashlist` and `recount` (desktop; campaign #544)
+## 2026-10-15 — card 3's code run: census owners, `swe-data/` by id, `trashlist` and `recount` (desktop; #576, campaign #544)
 
 **Added** — `scripts/drive_consolidate.py`, for D36's middle route (the Operator's choice of
 2026-10-15). Nothing in it deletes, moves, trashes or uploads on Drive, and this run read no
@@ -38,7 +38,10 @@ Drive at all.
   "clear to trash by hand" verdict per area, all in a new folder under the root's `_logs/`.
 - `recount`: on the day of the trash, whether anything in the areas checked changed since the
   proof, the desktop twins hashed again and the `swe-data/` twins read again. It reads only.
-- `tests/test_drive_trashlist.py`, new; the fake rclone keeps owners, permissions and a trash.
+- `recount` also holds to the proof's own root, and the census records each area folder's name
+  as Drive lists it (both from the fresh-context review of #576).
+- `tests/test_drive_trashlist.py`, new (136 tests); the fake rclone keeps owners, permissions
+  and a trash.
 
 ## 2026-10-15 — D36: card 3 moves approved files into a holding folder, then trashes it once (desktop; #574, `67f4b24`)
 

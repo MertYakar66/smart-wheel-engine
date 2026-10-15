@@ -4,7 +4,7 @@ title: card 3 code: census owners, swe-data by id, trashlist
 kind: feature
 status: in-flight
 terminal: desktop Executor
-pr:
+pr: 576
 decisions: [D33, D34, D36]
 date: 2026-10-15
 headline: "scripts/drive_consolidate.py records each object's owner, reads swe-data/ by its id and the chain to OptionsEngine_Project, and gains trashlist (every object of the three consolidate areas listed, a folder or a blocker, with a proof whose sha256 the Operator approves) and recount (nothing changed since the proof, on the day of the trash). Read-only; no Drive was read."
@@ -53,6 +53,15 @@ the PR) and card 3's design (version 6 with addenda A, B and C, #544) specify it
   comparison cannot change without the `mime` one. The load-bearing table in the Run
   Summary says which.
 
+- A fresh-context review of the first push found three gaps, all fixed in the same PR:
+  `recount` did not hold to the proof's own root (a stale copy of the root could pass),
+  the area folder's row used the name the area was looked up by rather than Drive's own
+  (a rename that changes only case went unseen), and the printed summary left out the
+  inputs and the time. It also found a design question, not fixed here: the census's
+  completeness check (`rclone size`) counts only files with an MD5, so a listing that
+  dropped a Google-format file, a shortcut, a file without an MD5 or an empty folder
+  would go unseen, and under the middle route those go to the trash with their folder.
+
 ## How we fixed it
 
 See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`,
@@ -60,10 +69,18 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 
 ## Evidence
 
-The PR's Run Summary holds every command and its output: the test counts before and after,
-the fast lane, ruff, the registry checks, the load-bearing table and CI.
+- `tests/test_drive_consolidate.py`: 263 passed, 3 skipped on `origin/main` (`ebc354a`), and
+  the same on the branch; `tests/test_drive_trashlist.py`: 136 passed.
+- Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants, and
+  one that removes both `--out` checks together. The PR's Run Summary has the table.
+- The PR's Run Summary holds every command and its output: the fast lane, ruff, the registry
+  checks and CI.
 
 ## Unresolved / handoff
+
+- For the pen: whether the census needs a second, independent count of every object (not only
+  files with an MD5) before a folder is trashed whole. The allowed verbs (`backend query`,
+  `size`) give no such count today.
 
 - The pen closes `docs/deadlines.md`'s row "no tool run reads Drive until the tool finds
   `swe-data/` by id" after the merge, and the matching sentence under `docs/DATA_INVENTORY.md`

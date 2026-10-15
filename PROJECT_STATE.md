@@ -773,17 +773,22 @@ desktop's checkout still has the round 3 branch locally.
      - **The middle route, D37** (2026-10-15). The pen set out that the Operator could trash
        the three old folders by hand, and recommended keeping card 3a's proof. The Operator:
        "yes, go with the middle route", then "yes, adopt D37", to the text the pen sent (sha256
-       `773ccb716dae…`). Its date and words and part 1's PR number were filled in after the
+       `773ccb716dae…`). Its date and words and the code run's PR number were filled in after the
        yes. Card 3a proves every object in the three folders; `recount` re-proves them on the
        day; the Operator trashes each clear folder by hand; Drive's trash is the 30-day undo.
        D36's holding folder, its moves, `scripts/drive_trash.py`, the rehearsal of moves and
        card 3b are dropped. Two fresh-context checks of the draft found 22 points, all
        folded in. D37 goes beyond the Operator's earlier yeses, and the pen named each way
        before the yes: the writer pause runs from card 3a's census to the check after the
-       trash, likely days; the recount and the trash run with no break between; a rehearsal
+       trash (likely days, by the pen's estimate); the recount and the trash run with no break
+       between; a rehearsal
        by hand; and, for the undo window, `data/bloomberg/`, `data_processed/theta/` and
        `data_archive/drive-legacy/` unchanged on the desktop and in `swe-data/`, with a weekly
-       pen session and a fresh rclone sign-in every 7 days if the pen's read needs rclone.
+       pen session, and the rclone sign-in kept fresh if the pen's read needs rclone (every 7
+       days while the app stays in Testing, as the pen put it). D37 also overtakes two of the
+       section 9 answers above: whole folders go, so question 3's later pass is moot; and its
+       point 4, nothing else trashed between the trash baseline and the check, takes the place
+       of question 5's "while 3b runs", since there is no 3b.
        Codex did not review it: the pen offered that, and the Operator adopted D37 without it.
        Written by #577.
      Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
@@ -808,11 +813,18 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3), by D37: the code run is PR #576 (an Executor in its own
-     worktree, started by the pen on "yes, go with the middle route"); then the pen's check of it
-     and the merge; then card 3a on the desktop, read-only, after a fresh Drive sign-in (the
-     one of 2026-10-09 ends about 2026-10-16 18:54 UTC); then the Operator's yes to the
-     proof's sha256, the rehearsal by hand, the recount and the trash.
+  1. Card 3 (Remains 3), in D37's order:
+     - the code run, PR #576 (an Executor in its own worktree, started by the pen on "yes, go
+       with the middle route"), then the pen's check of it and the merge;
+     - a fresh Drive sign-in (the one of 2026-10-09 ends about 2026-10-16 18:54 UTC), and the
+       writer pause from card 3a's census on;
+     - card 3a on the desktop, read-only, and a check of its output by a context that did not
+       write it;
+     - the Operator's yes to the proof's sha256;
+     - the rehearsal by hand and the credential file's "Delete forever", both before the trash
+       baseline;
+     - the recount, the baseline, the trash by hand and the check, with no break; then the
+       undo-window row.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
   3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
@@ -890,8 +902,9 @@ desktop's checkout still has the round 3 branch locally.
     writer pauses while the clean-up runs, the Dashboard's `update` included. Question 5's
     other half ("yes to Q5", the same day): the Operator trashes nothing in their Drive
     while 3b runs.
-  - Card 3's code run ("authorize card 3's code run", 2026-10-15), narrowed by "yes, go
-    with the middle route" the same day: `scripts/drive_consolidate.py` gains `owned`, the
+  - Card 3's code run ("authorize card 3's code run", 2026-10-15), changed by "yes, go
+    with the middle route" the same day (no `scripts/drive_trash.py`; it adds whole-folder
+    accounting and `recount`): `scripts/drive_consolidate.py` gains `owned`, the
     read of `swe-data/` by id, the chain record, `trashlist` and `recount`, with tests; no
     `scripts/drive_trash.py`. It touches no Drive data. PR #576; its Execution Prompt
     (sha256 `959bea07c9f6…`) was shown to the Operator before it ran.

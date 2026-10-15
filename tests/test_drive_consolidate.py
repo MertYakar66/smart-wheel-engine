@@ -261,6 +261,19 @@ if args[:1] == ["lsjson"]:
                 # --drive-show-all-gdocs, else only the Google types it can export
                 if not all_gdocs and not (google and mt.rsplit(".", 1)[-1] in exportable):
                     continue
+            if o["name"] == "":
+                # path.Join(dir, "") is dir itself (drive.go:2012): a folder is put in the
+                # cache under it, then filterDir drops the entry with an ERROR line and
+                # carries on, exit 0 (fs/list/list.go:139-144); its subtree is never listed.
+                if mt == folder_mime:
+                    cache[path] = o["id"]
+                why = "same as directory" if path == "" else "too short"
+                obj = f"{path}: " if path else ""
+                sys.stderr.write(
+                    f"2026/10/15 00:00:00 ERROR : {obj}Entry doesn't belong in directory "
+                    f'"{path}" ({why}) - ignoring\n'
+                )
+                continue
             here = f"{path}/{o['name']}" if path else o["name"]
             e = {"Path": here, "Name": o["name"], "MimeType": mt, "ID": o["id"],
                  "IsDir": mt == folder_mime, "Size": int(o.get("size", "0")) if md5 else -1}

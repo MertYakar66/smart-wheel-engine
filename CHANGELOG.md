@@ -72,8 +72,19 @@ Drive at all.
   - `INCOMPLETE` on `lsjson`'s stderr fails the listing; `trashlist` refuses a `--swe-census`
     without its cross-check; recount's "finished before its start" is pinned; the docstring's
     card 3 sequence has `bytecheck`; `census --only <area>` keeps named areas of a set.
-- `tests/test_drive_trashlist.py`, new (203 tests); the fake rclone keeps owners, permissions
-  and a trash, and lists as `rclone lsjson` does, by path.
+- Fix round 4 (the pen's check of round 3, nothing blocking):
+  - the census records the other folders named like each area folder in its parent
+    (`same_name_siblings`); `trashlist` names them in a WARNING beside the area's verdict,
+    "trash by the id link only", and the verdict does not change (D37: by id);
+  - any line rclone logs at ERROR or above fails `lsjson`'s listing, an entry it drops
+    ("Entry doesn't belong in directory") among them; rclone runs without the variables
+    that would move or hide those lines (`RCLONE_LOG_FILE`, `RCLONE_LOG_LEVEL` and five more);
+  - the docstring: one area takes `--only` on the census and `--area` on recount; recount
+    reads the proof from trashlist's `--out` folder; the one-path check on rclone's listing
+    is the guard that decides, since rclone's path comes from ToStandardName.
+- `tests/test_drive_trashlist.py`, new (215 tests); the fake rclone keeps owners, permissions
+  and a trash, and lists by path, as rclone does; a folder reached by a second path only
+  with `FAKE_SIZE_BY_PATH`.
 
 ## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop; #580, `e042f5b`)
 

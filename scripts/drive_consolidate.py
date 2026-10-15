@@ -24,8 +24,8 @@ Card 3 (D37): the proof, then, on the day of the trash, the recount::
     python scripts/drive_consolidate.py plan      --census census6.json --inventory root.json --out plan.json
     python scripts/drive_consolidate.py bytecheck --plan plan.json --inventory root.json --root C:\\swe-data --remote gdrive:   # whenever byte checks are pending
     python scripts/drive_consolidate.py trashlist --plan plan.json --census census6.json --swe-census swe.json --root C:\\swe-data --out C:\\swe-data\\_logs\\card3a\\list
-    python scripts/drive_consolidate.py census    --remote gdrive: --preset consolidate --out fresh.json   # one area: add --only swe-local-only
-    python scripts/drive_consolidate.py recount   --proof trashlist.json --summary trashlist_summary.json --expect-sha256 <sha256> --census fresh.json --root C:\\swe-data --remote gdrive:
+    python scripts/drive_consolidate.py census    --remote gdrive: --preset consolidate --out fresh.json   # one area: add --only <area> to the census and --area <area> to recount
+    python scripts/drive_consolidate.py recount   --proof C:\\swe-data\\_logs\\card3a\\list\\trashlist.json --summary C:\\swe-data\\_logs\\card3a\\list\\trashlist_summary.json --expect-sha256 <sha256> --census fresh.json --root C:\\swe-data --remote gdrive:
 
 ``census`` lists every object in each area through raw Drive queries by parent id
 (``rclone backend query``), so a shortcut is recorded as a shortcut and never
@@ -39,10 +39,16 @@ asks about one folder per query: the count and bytes of its files with an MD5, a
 ids of its files (with and without an MD5), Google-format files and folders, must all
 be the census's. Any difference stops the run and names the ids; shortcuts are left out
 on purpose, since trashing one deletes no bytes. rclone walks by path, so of two sibling
-folders with the very same name it lists one twice and never the other's contents: one
-path given to two folder ids also stops the run, ``INCOMPLETE`` on its stderr too. The
-census records each area's same-name sibling folders (``same_name_folders``), and
-``trashlist`` blocks each of them and all they hold. The census records ``started``, the
+folders at one path it lists one twice and never the other's contents: one path given to
+two folder ids also stops the run. That check is the guard that decides, since rclone's
+path is the name after ToStandardName (drive.go:1132), which can merge two different
+names. Any line rclone logs at ERROR or above stops it too (``INCOMPLETE``, or an entry
+its listing drops); rclone runs without the variables that would move or hide those
+lines (``LOG_ENV``). The census records each area's same-name sibling folders, exact
+names (``same_name_folders``), and ``trashlist`` blocks each of them and all they hold.
+It also records the other folders named like each area folder in its parent
+(``same_name_siblings``; ``name =`` ignores case); ``trashlist`` names them in a
+warning beside the area's verdict: trash by the id link only. The census records ``started``, the
 time before its first query, and that this cross-check passed (``cross_checked``). A
 file Drive lists without an MD5 is listed but not counted, as rclone can neither count
 nor download it. Every ``backend query`` carries
@@ -632,10 +638,43 @@ def _check_areas(areas: list[dict]) -> None:
 # ---------------------------------------------------------------- rclone
 
 
+# Variables that would take rclone's ERROR lines away from the stderr this tool reads, or
+# change their spelling: a log file (stderr redirected to it), a level that hides ERROR, a
+# JSON or level-less format, syslog or systemd (fs/log/log.go InitLogging; every global
+# option takes its default from RCLONE_<NAME>).
+LOG_ENV = (
+    "RCLONE_LOG_FILE",
+    "RCLONE_LOG_LEVEL",
+    "RCLONE_USE_JSON_LOG",
+    "RCLONE_STATS_LOG_LEVEL",
+    "RCLONE_LOG_FORMAT",
+    "RCLONE_SYSLOG",
+    "RCLONE_LOG_SYSTEMD",
+)
+
+
+def rclone_env() -> dict[str, str]:
+    """This process's environment without LOG_ENV, so ERROR lines reach the captured stderr."""
+    return {k: v for k, v in os.environ.items() if k.upper() not in LOG_ENV}
+
+
 def run_cmd(cmd: list[str], stdin: str | None = None) -> subprocess.CompletedProcess:
+    # Text mode: an encoding implies it (subprocess.run).
     return subprocess.run(
-        cmd, input=stdin, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        cmd, input=stdin, capture_output=True, encoding="utf-8", errors="replace", env=rclone_env()
     )
+
+
+# rclone writes each log line as "<date> <time> LEVEL : <object>: <text>", the level padded
+# to six (fs/log/slog.go formatStdLogHeader, "%-6s: "): "ERROR : …", "CRITICAL: …".
+RCLONE_ERROR_LINE = re.compile(r"(?:^|\s)(?:EMERGENCY|ALERT|CRITICAL|ERROR)\s*:")
+
+
+def rclone_errors(stderr: str | None) -> list[str]:
+    """The lines rclone logged at ERROR or above. fs.Errorf only logs and the command still
+    exits 0: Drive's "search result INCOMPLETE" and a listing's "Entry doesn't belong in
+    directory" drop are both such lines (drive.go:1128-1129, fs/list/list.go:139-147)."""
+    return [line for line in (stderr or "").splitlines() if RCLONE_ERROR_LINE.search(line)]
 
 
 def rclone_version() -> tuple[int, int, int]:
@@ -704,6 +743,10 @@ def rclone_listing(remote: str, folder_id: str) -> list[dict]:
     - ``--hash-type MD5`` gives each file's stored MD5, read from the listing itself; a
       Google-format file, or one without an MD5, has none.
     It gets no ``--drive-auth-owner-only``, which would drop what the account does not own.
+    Any line rclone logs at ERROR or above fails the listing (``rclone_errors``): it
+    exits 0 after "search result INCOMPLETE", and after dropping an entry it cannot place
+    ("Entry doesn't belong in directory", a folder with an empty name), whose whole
+    subtree it then never lists.
     """
     cp = run_cmd(
         [
@@ -721,8 +764,10 @@ def rclone_listing(remote: str, folder_id: str) -> list[dict]:
             remote,
         ]
     )
-    if cp.returncode != 0 or "INCOMPLETE" in (cp.stderr or ""):
-        raise ToolError(f"rclone lsjson failed for {folder_id}: {cp.stderr.strip()[-300:]}")
+    errors = rclone_errors(cp.stderr)
+    if cp.returncode != 0 or "INCOMPLETE" in (cp.stderr or "") or errors:
+        why = "; ".join(errors[:5]) if errors else (cp.stderr or "").strip()[-300:]
+        raise ToolError(f"rclone lsjson failed for {folder_id}: {why[:600]}")
     entries = json.loads(cp.stdout or "[]") or []
     if any(not e.get("ID") for e in entries):
         raise ToolError(f"rclone lsjson listed an object with no id under {folder_id}")
@@ -733,12 +778,16 @@ ID_KINDS = ("files with an MD5", "files without an MD5", "Google-format files", 
 
 
 def same_name_folders(objects: list[dict]) -> list[dict]:
-    """Sibling folders that rclone would treat as one path: one parent, the very same name.
+    """Sibling folders that share a parent and the very same name: a second line of defence.
 
     rclone walks Drive by path, and its directory cache maps each path to one folder id,
     the last one listed (lib/dircache Put overwrites; the map's key is the exact path, case
-    and all, and Drive's names pass through unchanged). So of two such folders it lists one
-    twice and never the other's contents: neither can be proven by its listing.
+    and all). So of two folders at one path it lists one twice and never the other's
+    contents: neither can be proven by its listing. rclone's path is not always the Drive
+    name, though: each name goes through ToStandardName first (drive.go:1132), which can
+    turn two different names into one. So the guard that decides is the census's check
+    that rclone's listing gives no path to two folder ids (``one_path_two_folders``); this
+    one, on exact names, also lets ``trashlist`` and ``recount`` block what it finds.
     """
     groups: dict[tuple[str, str], list[str]] = defaultdict(list)
     for o in objects:
@@ -919,6 +968,10 @@ def census(remote: str, areas: list[dict]) -> dict:
                 f"area {area['name']}: no folder {area['folder']!r} with id {area['id']} under "
                 f"{area['parent']} (found {ids})"
             )
+        # Other folders named like the area folder in its parent (``name =`` ignores case):
+        # rclone is not misled, as it starts at the area's id, but a hand in Drive's web
+        # page sees two folders where the proof names one.
+        named_alike = sorted(i for i in ids if i != area["id"])
         top = next(h for h in hits if h["id"] == area["id"])
         root_parents = list(top.get("parents") or [])
         seen, objects, queue = {area["id"]}, [], [area["id"]]
@@ -981,6 +1034,7 @@ def census(remote: str, areas: list[dict]) -> dict:
                 "check": walk,
                 "cross_check": {k: len(listed[k]) for k in ID_KINDS},
                 "same_name_folders": siblings,
+                "same_name_siblings": named_alike,
             }
         )
         print(
@@ -2575,6 +2629,24 @@ def _clear(area_id: str, rows: list[dict]) -> bool:
     return has_top and all(r["class"] in CLEARED for r in rows)
 
 
+def _named_alike_warning(area: dict) -> str | None:
+    """A warning when other folders are named like the area folder in its parent, or when
+    the census did not look. It never changes the verdict: the Operator trashes from the
+    links the pen gives by id (D37), and this says so beside the verdict."""
+    alike = area.get("same_name_siblings")
+    if alike is None:
+        return (
+            f"WARNING: the census does not record the other folders named like "
+            f"{area['folder']!r} in its parent: trash by the id link only ({area['id']})"
+        )
+    if not alike:
+        return None
+    return (
+        f"WARNING: {len(alike)} other folder(s) named like {area['folder']!r} in its parent: "
+        f"{', '.join(alike)}: trash by the id link only ({area['id']})"
+    )
+
+
 def _area_summary(area: dict, rows: list[dict]) -> dict:
     cls = Counter(r["class"] for r in rows)
     kinds = Counter(_kind_count(r) for r in rows)
@@ -2592,6 +2664,8 @@ def _area_summary(area: dict, rows: list[dict]) -> dict:
         "sharing_flags": sharing_flags(area.get("sharing")),
         "clear_to_trash_by_hand": "yes" if _clear(area["id"], rows) else "no",
         "blockers": blockers,
+        "same_name_siblings": area.get("same_name_siblings"),
+        "warning": _named_alike_warning(area),
     }
 
 
@@ -2726,6 +2800,8 @@ def trashlist_lines(summary: dict, out: Path) -> list[str]:
         verdict = a["clear_to_trash_by_hand"]
         extra = f" ({a['blockers']} blocker(s); see kept.csv)" if verdict == "no" else ""
         lines.append(f"  clear to trash by hand: {verdict}{extra}")
+        if a.get("warning"):
+            lines.append(f"  {a['warning']}")
     lines.append(f"trashlist: proof {out / PROOF}")
     lines.append(f"trashlist: sha256 {summary['sha256']}")
     return lines

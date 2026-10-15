@@ -80,7 +80,8 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 
 - `tests/test_drive_consolidate.py`: 263 passed, 3 skipped on `origin/main` (`ebc354a`), and
   the same on the branch; `tests/test_drive_trashlist.py`: 136 passed at the first Run
-  Summary, 169 after fix round 1, 188 after fix round 2, 203 after fix round 3.
+  Summary, 169 after fix round 1, 188 after fix round 2, 203 after fix round 3, 215 after
+  fix round 4.
 - Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants and
   one that removes both `--out` checks together, then each fix round's rules, each run against
   the test written for it. The PR's Run Summary and its "Fix round" comments have the
@@ -105,7 +106,16 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
   same-name sibling folders it lists one twice and never the other's contents; a census whose
   batches also missed that twin's contents passed the cross-check. Now one path for two
   folder ids stops the census, and `trashlist` blocks such folders and all they hold.
+- Fix round 4, after the pen's check of round 3 (nothing blocking): any ERROR line from
+  rclone fails the listing (it drops an entry it cannot place, and exits 0), and rclone runs
+  without the variables that would move or hide those lines; `trashlist` warns, beside the
+  verdict, of any other folder named like an area folder in its parent: trash by the id
+  link only.
 - Card 3a (desktop, read-only on Drive): `census --preset card2b`, `census --preset
   swe-data`, the inventory, the plan, `bytecheck` if any check is pending, then `trashlist`;
-  on the day of the trash, `census --preset consolidate` (with `--only <area>` for one area),
-  then `recount`.
+  on the day of the trash, `census --preset consolidate`, then `recount`. For one area, add
+  `--only <area>` to that census and `--area <area>` to recount.
+- A same-name sibling folder in any of the six areas, read-only ones included, or in
+  `swe-data/`, stops the whole census, so no area can be proven until it is gone. For a
+  read-only area (another project's, only read and never cleaned) the remedy is the pen's
+  decision.

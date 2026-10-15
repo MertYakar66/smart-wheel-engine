@@ -37,6 +37,8 @@ import json
 import os
 import re
 import shutil
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -2302,6 +2304,13 @@ def test_the_docstring_gives_card_3s_sequence_with_its_byte_check():
     ]
     assert "--preset card2b" in flags[0] and "--preset swe-data" in flags[1]
     assert "pending" in flags[4] and "--preset consolidate" in flags[6] and "--only" in flags[6]
+    # One area: --only on the census and --area on recount (U); recount reads the proof and
+    # its summary from the folder trashlist wrote them into, its --out.
+    assert "add --only <area> to the census and --area <area> to recount" in flags[6]
+    out = flags[5].split("--out ", 1)[1].split()[0]
+    recount = flags[7].split()
+    assert recount[recount.index("--proof") + 1] == f"{out}\\{dc.PROOF}"
+    assert recount[recount.index("--summary") + 1] == f"{out}\\{dc.PROOF_SUMMARY}"
 
 
 # M. An INCOMPLETE listing is a failed one.
@@ -2312,6 +2321,138 @@ def test_an_incomplete_listing_stops_the_census(small, monkeypatch, capsys):
     assert tdc._census(small) == 2
     assert "rclone lsjson failed" in capsys.readouterr().err
     assert not (small["tmp"] / "c.json").exists()
+
+
+# S. Any line rclone logs at ERROR or above fails the listing, not only INCOMPLETE.
+
+
+@pytest.mark.parametrize(
+    "stderr, fails",
+    [
+        (
+            '2026/10/15 18:00:00 ERROR : sub: Entry doesn\'t belong in directory "sub" (too short) - ignoring',
+            True,
+        ),
+        (
+            '2026/10/15 18:00:00 ERROR : Entry doesn\'t belong in directory "" (same as directory) - ignoring',
+            True,
+        ),
+        ("2026/10/15 18:00:00 ERROR : search result INCOMPLETE", True),
+        ("2026/10/15 18:00:00 CRITICAL: Failed to lsjson: directory not found", True),
+        ("search result INCOMPLETE", True),  # INCOMPLETE without its level (--log-format nolevel)
+        ("2026/10/15 18:00:00 NOTICE: Google drive root '': a notice", False),
+        ("2026/10/15 18:00:00 WARNING: a warning", False),
+        ("", False),
+    ],
+)
+def test_rclone_listing_fails_on_any_error_line(monkeypatch, stderr, fails):
+    def fake_run(cmd, stdin=None):
+        return subprocess.CompletedProcess(cmd, 0, stdout="[]", stderr=stderr + "\n")
+
+    monkeypatch.setattr(dc, "run_cmd", fake_run)
+    monkeypatch.setattr(dc, "RCLONE", ["rclone-never-run"])  # run_cmd is faked: nothing runs
+    if fails:
+        with pytest.raises(dc.ToolError, match="rclone lsjson failed"):
+            dc.rclone_listing("fake:", "x")
+    else:
+        assert dc.rclone_listing("fake:", "x") == []
+
+
+def test_an_entry_rclone_drops_with_an_error_line_stops_the_census(tmp_path, monkeypatch, capsys):
+    # The final check's case: a folder with an empty name, which rclone puts in its cache
+    # and then drops from the listing with an ERROR line, exit 0, never listing what it
+    # holds; the batched census misses it too. Both agreed, and trashlist said yes.
+    monkeypatch.setattr(dc, "utc_now", Clock(T0))
+    w = World(tmp_path, monkeypatch)
+    _clean(w)
+    blank = w.d.folder("", w.dir(SLO, "sub"))
+    w.d.file("lost.csv", blank, b"bytes the desktop never had\n")
+    env = w.env()
+    monkeypatch.setenv("FAKE_DROP_IN_OR", blank)
+    assert _census_of(env, None, "c6.json", "card2b") == 2
+    err = capsys.readouterr().err
+    assert "rclone lsjson failed for" in err
+    assert 'Entry doesn\'t belong in directory "sub" (too short)' in err
+    assert not (tmp_path / "c6.json").exists()
+
+
+# T. rclone runs without the variables that would move or hide its ERROR lines.
+
+
+def test_rclone_runs_without_the_variables_that_move_or_hide_its_error_lines(monkeypatch):
+    assert set(dc.LOG_ENV) == {
+        "RCLONE_LOG_FILE",
+        "RCLONE_LOG_LEVEL",
+        "RCLONE_USE_JSON_LOG",
+        "RCLONE_STATS_LOG_LEVEL",
+        "RCLONE_LOG_FORMAT",
+        "RCLONE_SYSLOG",
+        "RCLONE_LOG_SYSTEMD",
+    }
+    for name in dc.LOG_ENV:
+        monkeypatch.setenv(name, "x")
+    monkeypatch.setenv("RCLONE_DRIVE_PACER_MIN_SLEEP", "10ms")  # any other is passed on
+    probe = (
+        "import json, os; "
+        "print(json.dumps(sorted(k.upper() for k in os.environ if k.upper().startswith('RCLONE_'))))"
+    )
+    seen = json.loads(dc.run_cmd([sys.executable, "-c", probe]).stdout)
+    assert not set(seen) & set(dc.LOG_ENV), seen
+    assert "RCLONE_DRIVE_PACER_MIN_SLEEP" in seen
+
+
+# R. Other folders named like an area folder in its parent: a warning, never the verdict.
+
+
+def test_an_area_folders_namesakes_are_named_beside_its_verdict(tmp_path, monkeypatch, capsys):
+    # Beside swe-local-only's folder, in its parent: a folder of the same name holding bytes
+    # the desktop never had, and one named in another case (name = ignores case). rclone
+    # starts at the area's id, so the proof is right; a hand in Drive's web page needs it.
+    monkeypatch.setattr(dc, "utc_now", Clock(T0))
+    w = World(tmp_path, monkeypatch)
+    _clean(w)
+    a = AREA["swe-local-only"]
+    alike = w.d.folder(a["folder"], a["parent"])
+    w.d.file("lost.csv", alike, b"bytes the desktop never had\n")
+    other_case = w.d.folder(a["folder"].upper(), a["parent"])
+    env = w.env()
+    _prepare(env)
+    ids = sorted([alike, other_case])
+    census = _load(tmp_path / "c6.json")
+    assert _area_of(census, SLO)["same_name_siblings"] == ids
+    assert _area_of(census, SWD)["same_name_siblings"] == []
+    capsys.readouterr()
+    assert _trashlist(env) == 0
+    printed = capsys.readouterr().out.splitlines()
+    areas = {
+        s["name"]: s for s in _load(env["root"] / "_logs" / "list" / dc.PROOF_SUMMARY)["areas"]
+    }
+    warning = (
+        f"WARNING: 2 other folder(s) named like {a['folder']!r} in its parent: "
+        f"{', '.join(ids)}: trash by the id link only ({SLO})"
+    )
+    slo = areas["swe-local-only"]
+    assert (slo["same_name_siblings"], slo["warning"]) == (ids, warning)
+    assert slo["clear_to_trash_by_hand"] == "yes"  # unchanged: the Operator trashes by id (D37)
+    for n in ("SmartWheelData", "smart-wheel-engine-git"):
+        assert (areas[n]["same_name_siblings"], areas[n]["warning"]) == ([], None)
+    start = printed.index(next(x for x in printed if x.startswith("trashlist: swe-local-only (")))
+    verdict = next(i for i in range(start, len(printed)) if "clear to trash by hand" in printed[i])
+    assert printed[verdict : verdict + 2] == ["  clear to trash by hand: yes", "  " + warning]
+    assert sum("WARNING" in x for x in printed) == 1
+
+
+def test_a_census_without_the_namesakes_record_gives_the_warning_too(case):
+    del _area_of(case.census, SLO)["same_name_siblings"]
+    _, areas = dc.trashlist(case.plan, case.census, case.swe, case.root)
+    slo = next(s for s in areas if s["name"] == "swe-local-only")
+    folder = AREA["swe-local-only"]["folder"]
+    assert slo["warning"] == (
+        f"WARNING: the census does not record the other folders named like {folder!r} in its "
+        f"parent: trash by the id link only ({SLO})"
+    )
+    assert slo["clear_to_trash_by_hand"] == "yes"
+    assert all(s["warning"] is None for s in areas if s["name"] != "swe-local-only")
 
 
 # N. The swe-data/ census needs its cross-check too.

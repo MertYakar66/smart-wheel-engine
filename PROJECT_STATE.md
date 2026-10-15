@@ -1,6 +1,11 @@
 # Project State
 
-**Last updated:** 2026-10-15 (D36 adopted on the Operator's "yes to D36. adopt D36", and written
+**Last updated:** 2026-10-15 (close after #574, `main` at `67f4b24`: D36 merged. The Operator
+answered version 6's section 9, "1. stay in Testing 3. yes 5. yes": stay in Testing, the emptied old
+folders go after the undo window, and every writer pauses while the clean-up runs; then
+"yes to Q5" (the Operator trashes nothing in their Drive while 3b runs) and "authorize
+card 3's code run".
+Earlier the same day: D36 adopted on the Operator's "yes to D36. adopt D36", and written
 into `DECISIONS.md`, `CLAUDE.md` and `AGENTS.md` by #574. Addendum C, which settles the one
 finding Codex raised on addendum B, is posted on #544 without a Codex review, at the
 Operator's word. Earlier the same day: close after #573, `main` at `04cd2e4`: #573 recorded what the
@@ -146,7 +151,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `04cd2e4` (2026-10-14). Others on `origin`:
+**Branches:** `main` is at `67f4b24` (2026-10-15). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -751,9 +756,16 @@ desktop's checkout still has the round 3 branch locally.
        the checksum records consistent.
      - **Seven questions** for the Operator are in version 6's section 9. D36 answers
        question 7, and question 4 with its "No Empty trash" while the row is open; its row
-       replaces the wider rule question 5 describes. Questions 1, 3 and 5 remain; question 6
-       is for later. Question 1 is now whether to stay in Testing
-       or publish the sign-in app (below).
+       replaces the wider rule question 5 describes. The Operator answered the rest on
+       2026-10-15, "1. stay in Testing 3. yes 5. yes", to the questions as the pen put them that day:
+       - question 1: the sign-in app stays in Testing (below);
+       - question 3: the emptied old folders are removed later, after the undo window, in a
+         pass of their own, never a folder an outstanding id still names;
+       - question 5, as put: "can everything that writes to Drive pause while the clean-up
+         runs, the Dashboard's `update` included?" Its other half, put next: "while 3b runs,
+         will you avoid trashing anything at all in your Google Drive?" The Operator: "yes to
+         Q5" (2026-10-15).
+       Question 6 is for later.
      Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
      UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
      covers were already home: 115,310 match archive copies under
@@ -776,9 +788,10 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): D36 is adopted and addendum C posted. Next, the Operator's
-     answers to version 6's section 9 (questions 1, 3 and 5), the change run that writes
-     card 3's code, then card 3a.
+  1. Card 3 (Remains 3): D36 is in force (#574), and version 6's section 9 is answered.
+     The Operator authorized the change run that writes card 3's code ("authorize card 3's
+     code run", 2026-10-15); the pen writes its Execution Prompt and shows it to the
+     Operator before anything runs. Then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
   3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
@@ -799,8 +812,9 @@ desktop's checkout still has the round 3 branch locally.
   again on 2026-10-09, pasting `Success!` at 18:54 UTC, so that sign-in ends about
   2026-10-16 at 18:54 UTC. Nothing reads Drive before card 3's code run merges, so the
   lapse costs nothing now. The console's "Publish app" needs a home-page link and a
-  privacy-policy link first. Whether to publish or stay in Testing is version 6's
-  question 1; the pen recommends staying in Testing for now. The first attempt failed: Windows refused rclone's sign-in
+  privacy-policy link first. The Operator chose on 2026-10-15 to stay in Testing
+  ("stay in Testing", version 6's question 1): a fresh sign-in comes before each Drive card or
+  window that would cross the 7 days. The first attempt failed: Windows refused rclone's sign-in
   port, 127.0.0.1:53682, which lay inside a range the Windows NAT driver (WinNAT) had
   reserved (53671–53770). `net stop winnat`, the sign-in, then `net start winnat` fixed it.
   Still open from before: the Operator deletes the credential file forever from Drive's
@@ -850,6 +864,15 @@ desktop's checkout still has the round 3 branch locally.
     `DECISIONS.md`, `CLAUDE.md` and the `AGENTS.md` Appendix by #574. Posting addendum C
     without a Codex review ("skip the codex", then "Post C, no Codex", the same day):
     done, #544 comment 6185867812.
+  - Card 3 version 6's section 9 ("1. stay in Testing 3. yes 5. yes", 2026-10-15): the sign-in app stays in
+    Testing; the emptied old folders go in a later pass, after the undo window; and every
+    writer pauses while the clean-up runs, the Dashboard's `update` included. Question 5's
+    other half ("yes to Q5", the same day): the Operator trashes nothing in their Drive
+    while 3b runs.
+  - Card 3's code run ("authorize card 3's code run", 2026-10-15): the change run that
+    writes `scripts/drive_trash.py` and its tests, and makes `scripts/drive_consolidate.py`
+    find `swe-data/` by id, per D36 and card 3's design. It touches no Drive data. Its
+    Execution Prompt is shown to the Operator before it runs.
 - **Proposed, not authorized.**
   - **From #565's checks, for the next kits and cards:**
     - the kit's privacy scan has no pattern for Drive folder ids; add one, or record that

@@ -19,7 +19,12 @@ and a slot whose source fails reads ``unknown``:
 * **docs behind** counts the content commits on ``main`` after the hash that
   ``PROJECT_STATE.md`` records (a "`main` is at `<hash>`" line). Merge commits and
   ``docs(close)`` commits are excluded.
-* **other branches** is ``git ls-remote --heads origin``, less ``main``.
+* **other branches** is ``git ls-remote --heads origin``, less ``main``, and less
+  ``Risk_Management`` and its ``rm/`` branches: the Portfolio Manager / Risk
+  Engineer's, which never merge into ``main`` (D38). Exactly
+  ``refs/heads/Risk_Management`` and the heads under ``refs/heads/rm/`` are left
+  out; a name that only looks alike (``rm``, ``rmx``, ``Risk_Management2``,
+  ``risk_management``) still counts.
 * **data** is the oldest date in the frontier that ``data/DATA_MANIFEST.json``
   records (``scripts/data_manifest.py build`` writes it), with its age in days.
 * **nearest deadline** is the nearest open row of ``docs/deadlines.md``. An
@@ -48,6 +53,9 @@ EXECUTOR = "Report from the Executor, Sir —"
 CODEX = "Second opinion from Codex, Sir —"
 MAIN_HASH = re.compile(r"`?main`? is at `([0-9a-f]{7,40})`")
 ISO = re.compile(r"\d{4}-\d{2}-\d{2}")
+# The Portfolio Manager / Risk Engineer's branches, which never merge into main (D38).
+PM_BRANCH = "refs/heads/Risk_Management"
+PM_PREFIX = "refs/heads/rm/"
 
 
 def git(*args: str, repo: Path = REPO) -> str | None:
@@ -90,12 +98,19 @@ def docs_drift(recorded: str | None, repo: Path = REPO) -> str:
     return out if out is not None and out.isdigit() else UNKNOWN
 
 
+def is_other_branch(head: str) -> bool:
+    """True for a head the pen's mark counts: not main, and not the PM/RE's (D38)."""
+    if head in ("refs/heads/main", PM_BRANCH):
+        return False
+    return not head.startswith(PM_PREFIX)
+
+
 def other_branches(repo: Path = REPO) -> str:
     out = git("ls-remote", "--heads", "origin", repo=repo)
     if out is None:
         return UNKNOWN
     heads = [line.split("\t", 1)[1] for line in out.splitlines() if "\t" in line]
-    return str(sum(1 for h in heads if h != "refs/heads/main"))
+    return str(sum(1 for h in heads if is_other_branch(h)))
 
 
 def as_date(text: str) -> dt.date | None:

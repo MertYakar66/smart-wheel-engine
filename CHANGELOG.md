@@ -14,6 +14,21 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop)
+
+**Docs** — PM1 Part 5 from the `Risk_Management` branch, on the Operator's "1. yes 2. yes 3. yes 4.
+they": yes to the `OPERATING_MODEL.md` §7 change, D38 and the `pm-request` label.
+- The pen's rule-book commit (`d203cdd`): `DECISIONS.md` D38. `CLAUDE.md` §1–§3 and the `AGENTS.md`
+  Appendix now have six roles, two of them above the engine, and the pen answers `pm-request`
+  issues. `OPERATING_MODEL.md` gains Leg 4 and §7's sentence on where account data lives.
+
+**Changed** — `scripts/session_open.py`: the pen's "other branches" leaves out exactly
+`Risk_Management` and the heads under `rm/`, the PM/RE's branches, which never merge into `main`.
+Names that only look alike (`rm`, `rmx`, `rm-x`, `Risk_Management2`, `risk_management`,
+`claude/rm/x`) still count; `tests/test_session_open.py` pins each one, with no network.
+`tests/test_check_working_structure.py`'s Appendix sentinel is now "Six roles:". The repository
+has a `pm-request` label.
+
 ## 2026-10-15 — D37: card 3 trashes the old Drive folders by hand, after a proof (desktop; #577, `82e1fd3`)
 
 **Docs** — the Operator's "yes, go with the middle route" and "yes, adopt D37" (campaign #544).

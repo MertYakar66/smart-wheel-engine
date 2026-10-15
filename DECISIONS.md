@@ -192,3 +192,27 @@ The branch's allow-list already accepts both paths, so no new root file and no `
 **Not yet done:**
 - The account read in week 1 needs its own approved prompt.
 - Registering for the August 2027 exam is the Operator's to do.
+
+## PM4. One Risk_Management folder (2026-10-15)
+
+**Confirmed by the Operator** on 2026-10-15: "yes, move the folders and apply the changes as proposed". That answered the proposal to turn the three folders into one, with every effect listed. The request it carried out was approved first by pasting the rewritten prompt back unchanged. That prompt began "Reduce the Risk Management folders on my Desktop to one."
+
+**The layout:**
+- `C:\Users\merty\Desktop\Risk_Management\` is the one folder. It is not a git folder itself.
+- `PM\` is the PM/RE's worktree, on the branch `Risk_Management`. Sessions open here.
+- `Assistant\` is the Portfolio Manager Assistant's worktree.
+- `pm-private\` holds the PM/RE's memory. It also has folders for account pulls, checks, reports, the journal and the library, all empty for now. It sits outside both worktrees, so the rule that private material is never saved inside a worktree still holds.
+
+**What changed:**
+- **The worktrees** moved with `git worktree move`. That also updated their two small records in the engine checkout's `.git`, which the Operator's yes covered. No engine file, branch or code changed.
+- **`PM\.claude\settings.local.json`** (never committed) now points the memory at `C:/Users/merty/Desktop/Risk_Management/pm-private/claude-memory`.
+- **Three lines in this branch's files**, word for word as proposed:
+  - `CLAUDE.md` §1 now gives the worktree path `C:\Users\merty\Desktop\Risk_Management\PM`;
+  - `CLAUDE.md` §6 now gives the private folder `C:\Users\merty\Desktop\Risk_Management\pm-private\`;
+  - `AGENTS.md` now gives the Assistant's worktree `C:\Users\merty\Desktop\Risk_Management\Assistant`.
+
+  `CHARTER.md` names `pm-private` only by its short name and is unchanged. Earlier entries in this file keep the old paths as history.
+
+**The exception, a third time.** As with PM2 and PM3, this session makes the change from the engine's checkout, and a fresh agent checks it in place of the Portfolio Manager Assistant, which is not yet set up. The proposal named both:
+- "I make the three-line change and PM4 on an `rm/` branch. A fresh agent checks it in place of the Assistant, the same one-time exception as before."
+- "Your yes covers: the layout and the names; the updates to the two worktree records in the engine's `.git`; the three line changes and PM4, word for word; the fresh-agent check; and the pull request text."

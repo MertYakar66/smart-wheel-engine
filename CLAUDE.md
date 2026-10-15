@@ -159,8 +159,10 @@ compacted session that has not re-read `OPERATING_MODEL.md` is not following it.
    each through these same steps, with the `main` commit. A run on public inputs
    posts its outputs on the issue. A run that read a file in the PM/RE's private
    folder writes its outputs to a dated file there, and the issue gets only that
-   file's name and date. Never put anything private on an issue: positions,
-   holdings, balances, account size, trades, or anything derived from them.
+   file's name and date. Never put anything private on GitHub, whether in an
+   issue, a pull request, a comment, a Run Summary, a worklog or a commit:
+   positions, holdings, balances, account size, trades, or anything derived from
+   them.
 
 ## 4. Executor — on every Execution Prompt
 

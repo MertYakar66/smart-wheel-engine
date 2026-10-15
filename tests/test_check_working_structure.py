@@ -41,7 +41,7 @@ def test_one_word_changed_in_the_appendix_fails_and_names_the_fix(tmp_path):
     agents = (root / "AGENTS.md").read_text(encoding="utf-8")
     head, appendix = agents.split("\n## Appendix", 1)
     (root / "AGENTS.md").write_text(
-        head + "\n## Appendix" + appendix.replace("Four roles.", "Five roles.", 1), encoding="utf-8"
+        head + "\n## Appendix" + appendix.replace("Six roles:", "Seven roles:", 1), encoding="utf-8"
     )
     failures = cws.check_appendix(root)
     assert failures and "copy CLAUDE.md §1–§6 into the AGENTS.md Appendix" in failures[0]

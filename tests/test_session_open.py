@@ -4,7 +4,9 @@ Pins: the pen's mark carries main, the docs drift from the hash PROJECT_STATE.md
 records, the other-branch count, the data age from the manifest frontier, and the
 nearest open deadline, an overdue row first; a slot whose source fails reads
 ``unknown``; the Executor's and Codex's marks; the Executor needs a run mode; a
-data root that runs past the recorded frontier is flagged.
+data root that runs past the recorded frontier is flagged; "other branches" leaves
+out exactly ``Risk_Management`` and its ``rm/`` branches (D38), while names that
+only look alike still count.
 """
 
 from __future__ import annotations
@@ -119,6 +121,60 @@ def test_pen_mark_fills_every_slot(tmp_path, monkeypatch):
         " · nearest deadline: Shut the old host down, overdue by 42 days"
     )
     assert details[0].startswith("data frontier: prices 2026-07-02")
+
+
+def _ls_remote(*names: str) -> str:
+    """`git ls-remote --heads origin` output for these branch names."""
+    return "\n".join(f"{i:040x}\trefs/heads/{name}" for i, name in enumerate(names))
+
+
+# The PM/RE's branches (D38): never counted as "other branches".
+PM_HEADS = ("Risk_Management", "rm/standing-rule", "rm/a/b")
+# Names that only look like the PM/RE's: each one still counts. `RM/x` pins that the
+# rule is case-sensitive; `claude/Risk_Management` that it matches the whole name.
+LOOKALIKES = (
+    "rm",
+    "rmx",
+    "rm-x",
+    "Risk_Management2",
+    "risk_management",
+    "claude/rm/x",
+    "RM/x",
+    "claude/Risk_Management",
+)
+
+
+def test_other_branches_leaves_out_risk_management_and_its_rm_branches(monkeypatch):
+    monkeypatch.setattr(so, "git", _git_stub({"ls-remote": _ls_remote("main", *PM_HEADS)}))
+    assert so.other_branches() == "0"
+    monkeypatch.setattr(
+        so, "git", _git_stub({"ls-remote": _ls_remote("main", *PM_HEADS, "claude/x")})
+    )
+    assert so.other_branches() == "1"
+
+
+@pytest.mark.parametrize("name", LOOKALIKES)
+def test_a_name_that_only_looks_like_the_pm_branches_still_counts(name, monkeypatch):
+    monkeypatch.setattr(so, "git", _git_stub({"ls-remote": _ls_remote("main", *PM_HEADS, name)}))
+    assert so.other_branches() == "1"
+
+
+def test_pen_mark_counts_every_lookalike_and_no_pm_branch(tmp_path, monkeypatch):
+    repo = _fake_repo(tmp_path)
+    monkeypatch.delenv("SWE_DATA_ROOT", raising=False)
+    monkeypatch.setattr(
+        so,
+        "git",
+        _git_stub(
+            {
+                "log": "f1c0066 2026-09-23",
+                "rev-list": "2",
+                "ls-remote": _ls_remote("main", *PM_HEADS, *LOOKALIKES),
+            }
+        ),
+    )
+    mark, _ = so.pen_mark(repo, TODAY)
+    assert f" · {len(LOOKALIKES)} other branches · " in mark
 
 
 def test_pen_mark_says_unknown_when_sources_fail(tmp_path, monkeypatch):

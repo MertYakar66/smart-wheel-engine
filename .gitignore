@@ -1,0 +1,13 @@
+/*
+!/.gitignore
+!/CLAUDE.md
+!/AGENTS.md
+!/CHARTER.md
+!/STATE.md
+!/DECISIONS.md
+!/methods/
+/methods/*
+!/methods/*.md
+!/scripts/
+/scripts/*
+!/scripts/*.py

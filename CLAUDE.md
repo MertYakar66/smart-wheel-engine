@@ -8,7 +8,7 @@ The engine's code is written by its Executors, and its rule-books by its pen, un
 
 ## 1. Where you work
 
-- Write only from the `Risk_Management` worktree, `C:\Users\merty\Desktop\Risk_Management`. Never switch the engine's checkout to this branch.
+- Write only from the `Risk_Management` worktree, `C:\Users\merty\Desktop\Risk_Management\PM`. Never switch the engine's checkout to this branch.
 - A session called "Portfolio Manager" anywhere else is read-only until the Operator opens one in that folder.
 - You never take an Execution Prompt for the engine. You file a request instead (`CHARTER.md` §3).
 - To read `main`, run `git fetch origin`, then `git show origin/main:<path>`. Never check it out here.
@@ -74,7 +74,7 @@ The repository is public. Never write anything private to any GitHub surface: co
 
 Private means account numbers; positions and holdings; balances, account size and P&L; trades; statements; screenshots; other people's names or money amounts; credentials; text copied from emails; and anything derived from them, such as a candidate list built from the holdings.
 
-- Private material lives only in `C:\Users\merty\Desktop\pm-private\`, outside git. It is never saved inside the worktree.
+- Private material lives only in `C:\Users\merty\Desktop\Risk_Management\pm-private\`, outside git. It is never saved inside the worktree.
 - When the engine or the Assistant needs private inputs, point to a file in `pm-private` by its name and date. Outputs built from private inputs come back as a file in `pm-private` too.
 - Before every commit, read `git diff --staged`.
 - Show the Operator the text of every issue, pull request or comment, and post it only on his yes.

@@ -2,7 +2,9 @@
 
 **Last updated:** 2026-10-15 (close after #574, `main` at `67f4b24`: D36 merged. The Operator
 answered version 6's section 9, "1. stay in Testing 3. yes 5. yes": stay in Testing, the emptied old
-folders go after the undo window, and every writer pauses while the clean-up runs.
+folders go after the undo window, and every writer pauses while the clean-up runs; then
+"yes to Q5" (the Operator trashes nothing in their Drive while 3b runs) and "authorize
+card 3's code run".
 Earlier the same day: D36 adopted on the Operator's "yes to D36. adopt D36", and written
 into `DECISIONS.md`, `CLAUDE.md` and `AGENTS.md` by #574. Addendum C, which settles the one
 finding Codex raised on addendum B, is posted on #544 without a Codex review, at the
@@ -760,8 +762,9 @@ desktop's checkout still has the round 3 branch locally.
        - question 3: the emptied old folders are removed later, after the undo window, in a
          pass of their own, never a folder an outstanding id still names;
        - question 5, as put: "can everything that writes to Drive pause while the clean-up
-         runs, the Dashboard's `update` included?" Its other half, that the Operator trashes
-         nothing in their Drive while 3b runs, was not put that day; it is asked before 3b.
+         runs, the Dashboard's `update` included?" Its other half, put next: "while 3b runs,
+         will you avoid trashing anything at all in your Google Drive?" The Operator: "yes to
+         Q5" (2026-10-15).
        Question 6 is for later.
      Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
      UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
@@ -785,10 +788,10 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): D36 is in force (#574), and version 6's section 9 is answered,
-     except question 5's half on the Operator's own trashing, which is asked before 3b.
-     Next, the change run that writes card 3's code (an Execution Prompt from the pen),
-     then card 3a.
+  1. Card 3 (Remains 3): D36 is in force (#574), and version 6's section 9 is answered.
+     The Operator authorized the change run that writes card 3's code ("authorize card 3's
+     code run", 2026-10-15); the pen writes its Execution Prompt and shows it to the
+     Operator before anything runs. Then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
   3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
@@ -863,7 +866,13 @@ desktop's checkout still has the round 3 branch locally.
     done, #544 comment 6185867812.
   - Card 3 version 6's section 9 ("1. stay in Testing 3. yes 5. yes", 2026-10-15): the sign-in app stays in
     Testing; the emptied old folders go in a later pass, after the undo window; and every
-    writer pauses while the clean-up runs, the Dashboard's `update` included.
+    writer pauses while the clean-up runs, the Dashboard's `update` included. Question 5's
+    other half ("yes to Q5", the same day): the Operator trashes nothing in their Drive
+    while 3b runs.
+  - Card 3's code run ("authorize card 3's code run", 2026-10-15): the change run that
+    writes `scripts/drive_trash.py` and its tests, and makes `scripts/drive_consolidate.py`
+    find `swe-data/` by id, per D36 and card 3's design. It touches no Drive data. Its
+    Execution Prompt is shown to the Operator before it runs.
 - **Proposed, not authorized.**
   - **From #565's checks, for the next kits and cards:**
     - the kit's privacy scan has no pattern for Drive folder ids; add one, or record that

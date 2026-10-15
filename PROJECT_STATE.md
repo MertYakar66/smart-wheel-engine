@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-15 (close after #573, `main` at `04cd2e4`: #573 recorded what the
+**Last updated:** 2026-10-15 (D36 adopted on the Operator's "yes to D36. adopt D36", and written
+into `DECISIONS.md`, `CLAUDE.md` and `AGENTS.md` by #574. Addendum C, the one correction
+Codex asked for on addendum B, is posted on #544 without a Codex review, at the Operator's
+word. Earlier the same day: close after #573, `main` at `04cd2e4`: #573 recorded what the
 Operator agreed to on 2026-10-14, and addendum B and D36's draft posted on #544.
 Earlier, 2026-10-14: close after #572, `main` at `f85354f`. Card 3: Codex
 reviewed version 6 ("agree with changes"), settling all but two details of the proofs that
@@ -703,7 +706,7 @@ desktop's checkout still has the round 3 branch locally.
        one ("yes go on"): do not trash, delete or move `The_Works`, `Projects` or
        `OptionsEngine_Project`, and no "Delete forever", with work inside those folders
        still free. Addendum B and D36's draft narrow the row to the folders card 3 needs;
-       only the Operator's yes to D36 adopts a rule. Addendum A is folded in. Four fresh reviewers and a final
+       only the Operator's yes to D36 adopts a rule, and it came on 2026-10-15 (below). Addendum A is folded in. Four fresh reviewers and a final
        two-lens check confirmed 50 more points, all folded in.
      - **Codex's review of version 6** (pasted by the Operator, 2026-10-14): "agree with
        changes". It settled the journal loss, both twins, the folders above C and the
@@ -719,14 +722,32 @@ desktop's checkout still has the round 3 branch locally.
        6's claim about the Operator's agreement, and the Operator chose "Post both for
        Codex" (2026-10-14). **Addendum B** is #544 comment 6168806648: three corrections to
        the proofs, and a fourth that narrows the undo-window row to the folders card 3 needs.
-     - **D36's draft** is #544 comment 6168812067, for Codex's review and then the
-       Operator's word-for-word yes. Two fresh-context checks confirmed 32 points in earlier
-       drafts, all folded in. It is not in `DECISIONS.md`, and nothing in it is in force.
+     - **D36's draft** is #544 comment 6168812067. Two fresh-context checks confirmed 32
+       points in earlier drafts, all folded in.
+     - **Codex's review of addendum B and D36's draft** (pasted by the Operator,
+       2026-10-14): "agree with changes" to addendum B, with one finding, and "agree" to
+       D36's draft. The finding: a failed reply on the first page of C's listing was tied to
+       its request by a value Go may reuse, and a wait could then license a second `untrash`.
+       **Addendum C** (#544 comment 6185867812, 2026-10-15) settles it, one step further than
+       Codex's wording: only an error that names its own address can prove page one's request
+       failed, and no wait ever licenses a second `untrash`. A restore that cannot be proven
+       unsent waits to see H untrashed, or for the Operator's restore by hand. A fresh-context
+       check confirmed four wording findings, all applied. At the Operator's word ("skip the
+       codex", then "Post C, no Codex", 2026-10-15), Codex did not review it.
+     - **D36 is adopted** (2026-10-15, "yes to D36. adopt D36"), to the text of #544 comment
+       6168812067 with the one change the pen put to the Operator first: its pin names
+       version 6 as addenda B and C amend it. It is in `DECISIONS.md`, with a line under
+       D33, and the pen's read during the undo window is in `CLAUDE.md` §2 and the
+       `AGENTS.md` Appendix (#574). It goes beyond the Operator's 2026-10-14 yes: the
+       undo-window row also protects the six folders card 3 uses inside
+       `OptionsEngine_Project`, and the Operator opens a pen session at least once a week
+       while the row is open. The pen named both before the yes.
      - **Off card 3:** the stray `ibkr$p`. It becomes its own later step, which keeps
        the checksum records consistent.
-     - **Seven questions** for the Operator are in version 6's section 9. They include
-       a D36 text for its departure from D33's "never moves". Question 1 is now whether to
-       stay in Testing or publish the sign-in app (below).
+     - **Seven questions** for the Operator are in version 6's section 9. D36 answers
+       question 7, and its row replaces the wider rule question 5 describes. Questions 1, 3,
+       4 and 5 remain; question 6 is for later. Question 1 is now whether to stay in Testing
+       or publish the sign-in app (below).
      Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
      UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
      covers were already home: 115,310 match archive copies under
@@ -749,9 +770,9 @@ desktop's checkout still has the round 3 branch locally.
      check on 2026-10-09).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3): addendum B and D36's draft wait for Codex's review; then D36's
-     final text for the Operator's word-for-word yes, the Operator's answers to version 6's
-     section 9, the change run that writes its code, then card 3a.
+  1. Card 3 (Remains 3): D36 is adopted and addendum C posted. Next, the Operator's
+     answers to version 6's section 9 (questions 1, 3, 4 and 5), the change run that writes
+     card 3's code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
   3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
@@ -761,8 +782,8 @@ desktop's checkout still has the round 3 branch locally.
      nothing of this project left at the top of My Drive. The day-bot's `_local_archive/`
      stays. Card 3's design gains addendum A (#544 comment 6125252917): its own folders go in
      `OptionsEngine_Project`, and the tool finds `swe-data/` by id. Until card 3's code run does that, no tool run
-     reads Drive (`docs/deadlines.md`). D33 point 3 still says "at the top of My Drive"; D36
-     will carry the new place for the Operator's yes.
+     reads Drive (`docs/deadlines.md`). D36 (2026-10-15) records the new place,
+     and marks D33 point 3 partly superseded.
 
   The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
   census before it deletes anything.
@@ -818,6 +839,11 @@ desktop's checkout still has the round 3 branch locally.
   - The pen's merge while the Operator is away, within limits ("yes to both", 2026-10-10;
     "Write D35 and the rule-book changes as you drafted them", the same day; the narrowed
     text on "yes, merge D35 as narrowed", 2026-10-11): D35.
+  - D36 ("yes to D36. adopt D36", 2026-10-15), to the text of #544 comment 6168812067 with its pin
+    naming addenda B and C, which the pen put to the Operator first: written into
+    `DECISIONS.md`, `CLAUDE.md` and the `AGENTS.md` Appendix by #574. Posting addendum C
+    without a Codex review ("skip the codex", then "Post C, no Codex", the same day):
+    done, #544 comment 6185867812.
 - **Proposed, not authorized.**
   - **From #565's checks, for the next kits and cards:**
     - the kit's privacy scan has no pattern for Drive folder ids; add one, or record that

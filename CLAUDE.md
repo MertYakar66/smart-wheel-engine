@@ -103,6 +103,14 @@ Then, before any work, in this order:
    - **`DECISIONS.md`** before changing anything it has an entry for;
    - `docs/REPO_MAP.md` to answer "where does X live".
 
+**While D36's undo-window row is open in `docs/deadlines.md`,** the pen also
+reads, by the ids the row's source names, `The_Works`, `Projects`,
+`OptionsEngine_Project`, card 3's container folder, its log folder, `swe-data/`,
+the three cleaned areas' folders, and H while it is not yet seen trashed. It
+uses its Drive connector, reading only, or rclone where D36 says. It records the
+read on #544, and says in its first reply that it read, naming any trashed or
+moved folder. A failed read is not a pass.
+
 **If this conversation has been compacted, run session-open again.** A
 compacted session that has not re-read `OPERATING_MODEL.md` is not following it.
 
@@ -275,6 +283,6 @@ The rules to work by:
 
 ---
 
-*Version 4 — 2026-09-23 (`DECISIONS.md` D32); §6 amended 2026-10-10 (D35).
-Update it when a role, a step or the folder layout changes, not when individual
-fixes land.*
+*Version 4 — 2026-09-23 (`DECISIONS.md` D32); §6 amended 2026-10-10 (D35); §2
+amended 2026-10-15 (D36). Update it when a role, a step or the folder layout
+changes, not when individual fixes land.*

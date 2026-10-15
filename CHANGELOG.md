@@ -14,6 +14,33 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-15 — D36: card 3 moves approved files into a holding folder, then trashes it once (desktop; #574, `67f4b24`)
+
+**Docs** — the Operator's yes of 2026-10-15 ("yes to D36. adopt D36"), campaign #544.
+- `DECISIONS.md`: D36, the text of #544 comment 6168812067, its pin naming card 3's design
+  version 6 as addenda B and C amend it; D33 marked partly superseded (`swe-data/`'s place, and
+  "the design copies, never moves").
+- `CLAUDE.md` §2 and the `AGENTS.md` Appendix: while D36's undo-window row is open, the pen
+  reads the project's Drive folders by id at session-open and reports on them. No row is open
+  yet. `CLAUDE.md`'s footer records §2 amended (D36).
+- `PROJECT_STATE.md`: the close after #573; addendum C posted on #544 without a Codex review, at
+  the Operator's word; four record fixes from the fresh-context check posted on #574.
+
+## 2026-10-12 to 2026-10-14 — card 3's design recorded, versions 2 to 6 (cloud and desktop; #567–#573)
+
+**Docs** — records and closes, campaign #544. Each touched `PROJECT_STATE.md`; nothing else
+changed but the files named.
+- #567 (`15d6145`): the already-home counts corrected to 115,310 archive matches and 59,084
+  root matches, with `docs/DATA_INVENTORY.md`; card 3's design version 2.
+- #568 (`ad73e3f`), #569 (`4ee1aaa`) and #570 (`e9a2d2a`): versions 3, 4 and 5 posted, and
+  Codex's reviews recorded; #569 and #570 are also the closes after #568 and #569.
+- #571 (`e734c87`): the close after #570; the project's Drive folders moved into
+  `OptionsEngine_Project`, with `docs/DATA_INVENTORY.md` and a `docs/deadlines.md` row.
+- #572 (`f85354f`): the close after #571; version 6 posted; `docs/deadlines.md`'s sign-in row
+  records that the app is in Testing.
+- #573 (`04cd2e4`): the close after #572; what the Operator agreed to on 2026-10-14
+  corrected; addendum B and D36's draft posted for Codex.
+
 ## 2026-10-11 — D33 card 2d addendum: the evidence, and the fragment corrected (desktop; #565, `cfcaf5c`)
 
 **Docs** — campaign #544, the addendum the pen's evaluation of #556 asked for.

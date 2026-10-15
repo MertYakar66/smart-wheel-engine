@@ -1433,7 +1433,9 @@ def test_no_rclone_verb_in_the_source_is_outside_the_allowlist():
 # G. Each census is cross-checked against rclone's own listing, one folder per query.
 
 
-@pytest.mark.parametrize("what", ["a Google-format file", "a folder"])
+@pytest.mark.parametrize(
+    "what", ["a Google-format file", "a folder", "a file without an MD5", "a file with an MD5"]
+)
 def test_the_cross_check_stops_a_census_whose_batches_missed_an_object(
     small, monkeypatch, capsys, what
 ):
@@ -1442,6 +1444,11 @@ def test_the_cross_check_stops_a_census_whose_batches_missed_an_object(
     data = w.dir(SLO, "data")
     if what == "a folder":
         lost, kind = w.d.folder("sub", data), "folders"
+    elif what == "a file without an MD5":
+        lost = w.d.file("odd.bin", data, b"no md5", md5="", sha=False)
+        kind = "files without an MD5"
+    elif what == "a file with an MD5":  # its count would differ too: the ids are named first
+        lost, kind = w.d.file("extra.csv", data, b"extra bytes"), "files with an MD5"
     else:
         lost = w.d.special("notes", data, "application/vnd.google-apps.document")
         kind = "Google-format files"
@@ -1473,6 +1480,31 @@ def test_the_cross_check_passes_a_whole_census(small, what):
     assert cross["files with an MD5"] == 2 and cross["folders"] == 1
     assert cross["Google-format files"] == (what == "a Google Form")
     assert cross["files without an MD5"] == (what == "a file without an MD5")
+
+
+def test_the_census_records_its_start_before_its_first_query(small, monkeypatch):
+    events: list[tuple[str, object]] = []
+    clock = Clock(T0)
+
+    def now():
+        value = clock()
+        events.append(("clock", value))
+        return value
+
+    real = dc.run_cmd
+
+    def run(cmd, stdin=None):
+        events.append(("call", list(cmd[len(dc.RCLONE) :][:2])))
+        return real(cmd, stdin)
+
+    monkeypatch.setattr(dc, "utc_now", now)
+    monkeypatch.setattr(dc, "run_cmd", run)
+    assert tdc._census(small) == 0
+    doc = _load(small["tmp"] / "c.json")
+    first = next(i for i, e in enumerate(events) if e == ("call", ["backend", "query"]))
+    before = [v for kind, v in events[:first] if kind == "clock"]
+    assert before and doc["started"] == before[-1]
+    assert dc._later(doc["generated"], doc["started"])
 
 
 def test_the_census_walk_keeps_its_batches(small):

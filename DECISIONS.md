@@ -168,3 +168,27 @@ Two rounds of fresh-agent checks shaped the text. A skeptic confirmed 67 of 73 f
 - The warning examples: "a margin cushion running out or an assignment before the open".
 
 The fresh agent's check raised these, and a follow-up proposal to the Operator decides which ones come back.
+
+## PM3. The learning program: the syllabus, the exam window, the account read (2026-10-15)
+
+**Confirmed by the Operator** on 2026-10-15: "Approve the syllabus. 2. August 2027. 3. yes, schedule the account read in week 1. 4. yes, commit the two files once via an rm/ pull request checked by a fresh agent."
+
+**The questions it answered** (the syllabus's §7, version 2):
+1. "Approve this syllabus, or edit any part of it."
+2. "Your CFA exam window. My recommendation is August 2027, registered after 3 November 2026. Only February needs a decision before 5 November."
+3. "The read-only account read (the IBKR round). Should it be scheduled inside week 1, so the account cases can start early? It also confirms which IBKR entity holds your account and your residency for margin."
+4. "Committing the two files. The Assistant is not set up yet. Should this session commit them once, through an `rm/` pull request checked by a fresh agent, the same one-off exception as PM2? Or should they wait for the Assistant?"
+
+**It adopts:**
+- `methods/learning.md`, the syllabus;
+- `methods/learning-progress.md`, the progress file.
+
+The branch's allow-list already accepts both paths, so no new root file and no `.gitignore` change was needed.
+
+**The learning prompt it builds on** was approved earlier the same day ("prompt approved"). The Operator's answers then: "I will definitely get my CFA levels, but lets prioritize the real portfolio work because it is real money"; "I can do more hours probably"; progress measurement "Yes"; the library location "Okay"; lessons in chat and notes "both"; training his own model "later".
+
+**The one-time exception (point 4).** As with PM2, this session makes the change from the engine's checkout. A fresh agent checks it in place of the Portfolio Manager Assistant.
+
+**Not yet done:**
+- The account read in week 1 needs its own approved prompt.
+- Registering for the August 2027 exam is the Operator's to do.

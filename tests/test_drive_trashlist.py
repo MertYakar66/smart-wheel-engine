@@ -2200,10 +2200,12 @@ def test_same_name_sibling_folders_and_all_they_hold_are_blockers(case):
         "parents": ["twin-data"],
     }
     slo["objects"].append(inside)
+    slo["objects"].append(_folder_obj("twin-sub", "sub", "twin-data"))  # the whole subtree
+    slo["objects"].append({**inside, "id": "twin-deep", "parents": ["twin-sub"]})
     cls = _classes(case)
     for fid in (data, "twin-data"):
         assert (cls[fid]["class"], cls[fid]["reason"]) == ("blocker", dc.SAME_NAME), fid
-    for oid in (case.ids["a"], "twin-file"):  # a proven file too: rclone cannot list it
+    for oid in (case.ids["a"], "twin-file", "twin-sub", "twin-deep"):  # proven files too
         assert (cls[oid]["class"], cls[oid]["reason"]) == ("blocker", dc.SHADOWED), oid
     assert cls[SLO]["reason"].startswith("holds a blocker: data")
     assert _verdicts(case) == {
@@ -2243,6 +2245,63 @@ def test_recount_says_no_for_an_area_holding_same_name_sibling_folders(live):
         f"area swe-local-only: same-name sibling folders 'data' in {SLO} "
         f"({', '.join(sorted([data, 'twin-data']))}): rclone cannot list both"
     ]
+
+
+def test_the_final_checks_case_gives_no_and_a_blocker_never_yes(tmp_path, monkeypatch, capsys):
+    # The final check's scratch case, which gave "yes" for all three areas and recount
+    # "unchanged: yes": the batched census drops lost.csv, and rclone's walk lists the empty
+    # twin twice. The census stops on it (test above); here that path check is bypassed, as
+    # if rclone had listed the twins apart, to pin the second line: the census's own record,
+    # trashlist's blockers and recount's no.
+    w, lost = _twin_world(tmp_path, monkeypatch)
+    twins = sorted(
+        o["id"] for o in w.d.objects if o["name"] == "dup" and o["mimeType"] == dc.FOLDER
+    )
+    env = w.env()
+    monkeypatch.setenv("FAKE_DROP_IN_OR", lost)
+    monkeypatch.setattr(dc, "one_path_two_folders", lambda entries: [])
+    _prepare(env)
+    slo = _area_of(_load(tmp_path / "c6.json"), SLO)
+    assert lost not in {o["id"] for o in slo["objects"]}  # the census missed it
+    assert slo["same_name_folders"] == [{"parent": SLO, "name": "dup", "ids": twins}]
+    assert _trashlist(env) == 0
+    out = env["root"] / "_logs" / "list"
+    rows = {r["id"]: r for r in _load(out / dc.PROOF)["rows"]}
+    for twin in twins:
+        assert (rows[twin]["class"], rows[twin]["reason"]) == ("blocker", dc.SAME_NAME)
+    summary = _load(out / dc.PROOF_SUMMARY)
+    verdicts = {a["name"]: a["clear_to_trash_by_hand"] for a in summary["areas"]}
+    assert verdicts["swe-local-only"] == "no"
+    # The trash day: a fresh census of the three, then recount.
+    assert _census_of({"tmp": tmp_path}, None, "now.json", "consolidate") == 0
+    lv = SimpleNamespace(tmp=tmp_path, root=env["root"], list=out, sha=summary["sha256"])
+    capsys.readouterr()
+    rc, rec = _recount(lv)
+    assert (rc, rec["unchanged"]) == (1, "no")
+    assert (
+        f"area swe-local-only: same-name sibling folders 'dup' in {SLO} ({', '.join(twins)}): "
+        "rclone cannot list both"
+    ) in rec["differences"]
+    assert "unchanged: no" in capsys.readouterr().out
+
+
+def test_the_docstring_gives_card_3s_sequence_with_its_byte_check():
+    doc = dc.__doc__
+    block = doc[doc.index("Card 3 (D37)") :].split("\n\n``census``", 1)[0]
+    steps = [line.split()[2:4] for line in block.splitlines() if "drive_consolidate.py" in line]
+    flags = [line for line in block.splitlines() if "drive_consolidate.py" in line]
+    assert [s[0] for s in steps] == [
+        "census",
+        "census",
+        "inventory",
+        "plan",
+        "bytecheck",
+        "trashlist",
+        "census",
+        "recount",
+    ]
+    assert "--preset card2b" in flags[0] and "--preset swe-data" in flags[1]
+    assert "pending" in flags[4] and "--preset consolidate" in flags[6] and "--only" in flags[6]
 
 
 # M. An INCOMPLETE listing is a failed one.

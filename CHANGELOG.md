@@ -72,7 +72,7 @@ Drive at all.
   - `INCOMPLETE` on `lsjson`'s stderr fails the listing; `trashlist` refuses a `--swe-census`
     without its cross-check; recount's "finished before its start" is pinned; the docstring's
     card 3 sequence has `bytecheck`; `census --only <area>` keeps named areas of a set.
-- `tests/test_drive_trashlist.py`, new (201 tests); the fake rclone keeps owners, permissions
+- `tests/test_drive_trashlist.py`, new (203 tests); the fake rclone keeps owners, permissions
   and a trash, and lists as `rclone lsjson` does, by path.
 
 ## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop; #580, `e042f5b`)

@@ -80,7 +80,7 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 
 - `tests/test_drive_consolidate.py`: 263 passed, 3 skipped on `origin/main` (`ebc354a`), and
   the same on the branch; `tests/test_drive_trashlist.py`: 136 passed at the first Run
-  Summary, 169 after fix round 1, 188 after fix round 2, 201 after fix round 3.
+  Summary, 169 after fix round 1, 188 after fix round 2, 203 after fix round 3.
 - Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants and
   one that removes both `--out` checks together, then each fix round's rules, each run against
   the test written for it. The PR's Run Summary and its "Fix round" comments have the

@@ -103,24 +103,42 @@ def edit_in_place(oid):
     with open(os.environ["FAKE_DRIVE"], "w", encoding="utf-8") as fh:
         json.dump(state, fh)
 
-def wire(o):
+def wire(o, flags=()):
     o = dict(o)
     if o.get("size") == "0":
         del o["size"]  # rclone's JSON omits a zero size (size,omitempty)
+    # Drive returns owners only when asked: --drive-auth-owner-only, or -M (metadataFields).
+    if "--drive-auth-owner-only" not in flags and "-M" not in flags:
+        o.pop("owners", None)
+    if "-M" not in flags:  # permissions come only with -M (metadataFields)
+        o.pop("permissions", None)
+    if not o.get("trashed"):
+        o.pop("trashed", None)  # omitempty
     return o
 
+def mine(o):
+    return any(u.get("me") for u in o.get("owners", []))
+
+if os.environ.get("FAKE_CALLS"):
+    with open(os.environ["FAKE_CALLS"], "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(args) + "\n")
 if args[:1] == ["version"]:
     print("rclone v1.68.2")
     sys.exit(0)
 if args[:2] == ["backend", "query"]:
-    q = args[3]
+    flags = {a for a in args[2:] if a.startswith("-")}
+    q = [a for a in args[2:] if not a.startswith("-")][1]
     parents = set(re.findall(r"'([^']+)' in parents", q))
+    if "root" in parents and state.get("root_id"):
+        parents.add(state["root_id"])  # Drive's alias for My Drive's root
     name = re.search(r"name = '([^']*)'", q)
-    if os.environ.get("FAKE_MULTI_EMPTY") and len(parents) > 1:
+    live = "trashed = false" in q
+    if os.environ.get("FAKE_MULTI_EMPTY") and len(parents - {"root"}) > 1:
         print("null")  # Google issue 149522397
         sys.exit(0)
-    out = [wire(o) for o in objs if parents & set(o.get("parents", []))
-           and (name is None or o["name"] == name.group(1))]
+    out = [wire(o, flags) for o in objs if parents & set(o.get("parents", []))
+           and (name is None or o["name"] == name.group(1))
+           and not (live and o.get("trashed"))]
     if os.environ.get("FAKE_INCOMPLETE"):
         sys.stderr.write("ERROR : search result INCOMPLETE\n")
     print(json.dumps(out or None))
@@ -129,6 +147,9 @@ if args[:1] == ["size"]:
     if "--disable" not in args or args[args.index("--disable") + 1] != "ListR":
         sys.stderr.write("fake: the check must list one folder at a time (--disable ListR)\n")
         sys.exit(3)
+    if "--drive-auth-owner-only" in args:  # rclone's listing drops what the account does not own
+        objs = [o for o in objs if o["mimeType"].endswith(".folder") or mine(o)]
+    objs = [o for o in objs if not o.get("trashed")]
     top = args[args.index("--drive-root-folder-id") + 1]
     folders, frontier = {top}, [top]
     while frontier:
@@ -218,25 +239,73 @@ sys.exit(2)
 """
 
 
+# My Drive's root as Drive names it: the API never returns the alias "root" as a parent.
+MY_DRIVE_ROOT = "0AFakeMyDriveRootFolderUk9PVA"
+OWNER = [{"kind": "drive#user", "me": True, "displayName": "The Owner"}]
+SOMEONE_ELSE = [{"kind": "drive#user", "displayName": "Someone Else"}]
+# The permissions Drive lists for an owner's own object; the census keeps no name or email.
+OWNER_ONLY_PERMS = [
+    {
+        "kind": "drive#permission",
+        "id": "perm-owner",
+        "type": "user",
+        "role": "owner",
+        "emailAddress": "owner@example.invalid",
+        "displayName": "The Owner",
+    }
+]
+
+
 class FakeDrive:
+    """A fake Drive. It always holds D36's chain, My Drive › The_Works › Projects ›
+    OptionsEngine_Project (the pinned id), and swe-data/ in it (the pinned id): the
+    ``census`` command reads both every time."""
+
     def __init__(self) -> None:
         self.objects: list[dict] = []
         self.content: dict[str, str] = {}
         self.n = 0
+        self.folder("The_Works", MY_DRIVE_ROOT, "chain-the-works")
+        self.folder("Projects", "chain-the-works", "chain-projects")
+        self.folder("OptionsEngine_Project", "chain-projects", dc.PROJECT_FOLDER_ID)
+        self.folder("swe-data", dc.PROJECT_FOLDER_ID, dc.SWE_DATA["id"])
 
     def _id(self) -> str:
         self.n += 1
         return f"id{self.n:04d}"
 
-    def folder(self, name: str, parent: str, oid: str | None = None, parents=None) -> str:
+    def obj(self, oid: str) -> dict:
+        return next(o for o in self.objects if o["id"] == oid)
+
+    def folder(
+        self, name: str, parent: str, oid: str | None = None, parents=None, owned=True
+    ) -> str:
         oid = oid or self._id()
         self.objects.append(
-            {"id": oid, "name": name, "mimeType": dc.FOLDER, "parents": parents or [parent]}
+            {
+                "id": oid,
+                "name": name,
+                "mimeType": dc.FOLDER,
+                "parents": parents or [parent],
+                "modifiedTime": "2026-07-03T00:00:00Z",
+                "owners": OWNER if owned else SOMEONE_ELSE,
+                "permissions": OWNER_ONLY_PERMS,
+            }
         )
         return oid
 
     def file(
-        self, name, parent, data: bytes, *, sha=True, md5=None, sha256=None, parents=None, oid=None
+        self,
+        name,
+        parent,
+        data: bytes,
+        *,
+        sha=True,
+        md5=None,
+        sha256=None,
+        parents=None,
+        oid=None,
+        owned=True,
     ):
         oid = oid or self._id()
         obj = {
@@ -248,6 +317,8 @@ class FakeDrive:
             "md5Checksum": md5 or hashlib.md5(data).hexdigest(),
             "createdTime": "2026-07-01T00:00:00Z",
             "modifiedTime": "2026-07-02T00:00:00Z",
+            "owners": OWNER if owned else SOMEONE_ELSE,
+            "permissions": OWNER_ONLY_PERMS,
         }
         if md5 == "":
             del obj["md5Checksum"]  # Drive lists no MD5 for it
@@ -260,13 +331,24 @@ class FakeDrive:
     def special(self, name, parent, mime, **extra) -> str:
         oid = self._id()
         self.objects.append(
-            {"id": oid, "name": name, "mimeType": mime, "parents": [parent], **extra}
+            {
+                "id": oid,
+                "name": name,
+                "mimeType": mime,
+                "parents": [parent],
+                "owners": OWNER,
+                "permissions": OWNER_ONLY_PERMS,
+                **extra,
+            }
         )
         return oid
 
     def save(self, path: Path) -> None:
         path.write_text(
-            json.dumps({"objects": self.objects, "content": self.content}), encoding="utf-8"
+            json.dumps(
+                {"objects": self.objects, "content": self.content, "root_id": MY_DRIVE_ROOT}
+            ),
+            encoding="utf-8",
         )
 
 
@@ -447,7 +529,13 @@ def test_census_lists_every_object_and_never_follows_a_shortcut(world):
     names = {o["name"] for a in doc["areas"] for o in a["objects"]}
     assert "private.txt" not in names and "personal" not in names  # behind the shortcut
     assert {"link", "notes", "flex_credentials.json"} <= names
-    assert doc["swe_data"] == []
+    # swe-data/ is recorded where it is, by its id (D36), not looked for by name.
+    swe = doc["swe_data"]
+    assert (swe["id"], swe["parents"], swe["trashed"]) == (
+        dc.SWE_DATA["id"],
+        [dc.PROJECT_FOLDER_ID],
+        False,
+    )
     a = next(a for a in doc["areas"] if a["name"] == "A")
     link = next(o for o in a["objects"] if o["name"] == "link")
     assert link["mime"] == dc.SHORTCUT and link["target_mime"] == dc.FOLDER

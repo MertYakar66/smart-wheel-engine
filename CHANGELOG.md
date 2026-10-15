@@ -14,6 +14,32 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-15 — card 3's code run: census owners, `swe-data/` by id, `trashlist` and `recount` (desktop; campaign #544)
+
+**Added** — `scripts/drive_consolidate.py`, for D36's middle route (the Operator's choice of
+2026-10-15). Nothing in it deletes, moves, trashes or uploads on Drive, and this run read no
+Drive at all.
+- The census records each object's owner (`owned`), from `backend query` with
+  `--drive-auth-owner-only`, which no other command gets (rclone v1.74.4 only adds the
+  owners field there; `lsjson` and `size` would drop objects). `SCHEMA` is 5: documents of an
+  older schema are refused.
+- The `census` command reads `swe-data/` by its id, `13h0HIy_kLjsN431YJFRewJ8FAZGjxe3b`, in
+  OptionsEngine_Project, never by its name, and stops if it is missing, trashed or not a
+  folder. It records the chain My Drive › The_Works › Projects › OptionsEngine_Project, and
+  the sharing of each link, of `swe-data/` and of each area folder (`backend query -M`), with
+  no name or email address. The re-census of `copy` and `bytecheck` reads none of it. The
+  plan's "a top-level swe-data already exists" warning is gone; the plan says where
+  `swe-data/` is.
+- `DEFAULT_AREAS` puts `swe-local-only` and `smart-wheel-engine-git` in OptionsEngine_Project,
+  as `docs/DATA_INVENTORY.md` §C.3's rows 1 and 3 now record.
+- `trashlist`: every object of the three consolidate areas, and each area folder, is
+  `listed`, `folder` or `blocker`; the proof `trashlist.json` (canonical JSON; its sha256 is
+  of its exact bytes), `trashlist.csv`, `kept.csv`, `sharing.json` and a summary with a
+  "clear to trash by hand" verdict per area, all in a new folder under the root's `_logs/`.
+- `recount`: on the day of the trash, whether anything in the areas checked changed since the
+  proof, the desktop twins hashed again and the `swe-data/` twins read again. It reads only.
+- `tests/test_drive_trashlist.py`, new; the fake rclone keeps owners, permissions and a trash.
+
 ## 2026-10-15 — D36: card 3 moves approved files into a holding folder, then trashes it once (desktop; #574, `67f4b24`)
 
 **Docs** — the Operator's yes of 2026-10-15 ("yes to D36. adopt D36"), campaign #544.

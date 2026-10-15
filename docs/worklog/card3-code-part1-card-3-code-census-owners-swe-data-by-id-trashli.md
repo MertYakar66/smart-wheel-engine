@@ -80,11 +80,11 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 
 - `tests/test_drive_consolidate.py`: 263 passed, 3 skipped on `origin/main` (`ebc354a`), and
   the same on the branch; `tests/test_drive_trashlist.py`: 136 passed at the first Run
-  Summary, 169 after fix round 1, 188 after fix round 2.
+  Summary, 169 after fix round 1, 188 after fix round 2, 201 after fix round 3.
 - Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants and
-  one that removes both `--out` checks together, then fix round 1's and fix round 2's rules,
-  each run against the test written for it. The PR's Run Summary and its "Fix round 1" and
-  "Fix round 2" comments have the tables.
+  one that removes both `--out` checks together, then each fix round's rules, each run against
+  the test written for it. The PR's Run Summary and its "Fix round" comments have the
+  tables.
 - The PR's Run Summary holds every command and its output: the fast lane, ruff, the registry
   checks and CI.
 
@@ -100,6 +100,12 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
   and folders. It needs `--drive-show-all-gdocs`, or rclone leaves out a Google file it
   cannot export (a Form). Freshness counts from the census's `started`; `census --preset`
   names card 3's area sets.
+- Fix round 3, after the pen's final check (one blocking gap, confirmed by a skeptic): rclone
+  walks by path and its directory cache keeps the last folder listed for a path, so of two
+  same-name sibling folders it lists one twice and never the other's contents; a census whose
+  batches also missed that twin's contents passed the cross-check. Now one path for two
+  folder ids stops the census, and `trashlist` blocks such folders and all they hold.
 - Card 3a (desktop, read-only on Drive): `census --preset card2b`, `census --preset
   swe-data`, the inventory, the plan, `bytecheck` if any check is pending, then `trashlist`;
-  on the day of the trash, `census --preset consolidate`, then `recount`.
+  on the day of the trash, `census --preset consolidate` (with `--only <area>` for one area),
+  then `recount`.

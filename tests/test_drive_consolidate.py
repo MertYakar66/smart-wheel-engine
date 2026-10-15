@@ -234,46 +234,44 @@ if args[:1] == ["lsjson"]:
     hashes = "--hash" in args or "--hash-type" in args
     all_gdocs = "--drive-show-all-gdocs" in args
     exportable = {"document", "spreadsheet", "presentation", "drawing"}
-    folders, frontier = {top}, [top]
-    while frontier:
-        f = frontier.pop()
-        for o in objs:
-            if (f in o.get("parents", []) and o["mimeType"] == "application/vnd.google-apps.folder"
-                    and o["id"] not in folders):
-                folders.add(o["id"])
-                frontier.append(o["id"])
-    by_path = os.environ.get("FAKE_SIZE_BY_PATH")  # rclone's walk: a folder once per path
-    paths = {top: 1}
-
-    def npaths(f, depth=0):
-        if f not in paths:
-            obj = next(o for o in objs if o["id"] == f)
-            ups = [p for p in obj.get("parents", []) if p in folders]
-            paths[f] = sum(npaths(p, depth + 1) for p in ups) if depth < 50 else 1
-        return paths[f]
-
-    out = []
-    for o in objs:
-        if o["id"] == top:
+    # rclone's walk goes by path: one job per folder entry, keyed by its path, and each job
+    # lists the folder its directory cache holds for that path, the last one listed under
+    # that name (lib/dircache Put overwrites). So of two same-name sibling folders, one is
+    # listed twice and the other's contents never. A folder reached by a second, different
+    # path is listed again only with FAKE_SIZE_BY_PATH (rclone always does; the tests of what
+    # a plan does with such a folder keep it off).
+    by_path = os.environ.get("FAKE_SIZE_BY_PATH")
+    folder_mime = "application/vnd.google-apps.folder"
+    cache, jobs, first_path, out = {"": top}, [""], {}, []
+    while jobs:
+        path = jobs.pop(0)
+        fid = cache[path]
+        if (first_path.setdefault(fid, path) != path and not by_path) or path.count("/") > 60:
             continue
-        mt = o["mimeType"]
-        if mt == "application/vnd.google-apps.shortcut" and "--drive-skip-shortcuts" in args:
-            continue  # left out, never followed
-        md5 = o.get("md5Checksum")
-        google = mt.startswith("application/vnd.google-apps.") and mt != "application/vnd.google-apps.shortcut"
-        if mt != "application/vnd.google-apps.folder" and not md5:
-            # rclone shows a file without an MD5 only as a document: all of them with
-            # --drive-show-all-gdocs, else only the Google types it can export
-            if not all_gdocs and not (google and mt.rsplit(".", 1)[-1] in exportable):
+        for o in objs:
+            if fid not in o.get("parents", []) or o["id"] == top:
                 continue
-        ups = [p for p in o.get("parents", []) if p in folders]
-        k = sum(npaths(p) for p in ups) if by_path else len(ups)
-        e = {"Path": o["name"], "Name": o["name"], "MimeType": mt, "ID": o["id"],
-             "IsDir": mt == "application/vnd.google-apps.folder",
-             "Size": int(o.get("size", "0")) if md5 else -1}
-        if hashes and md5:
-            e["Hashes"] = {"md5": md5}
-        out.extend(dict(e) for _ in range(k))
+            mt = o["mimeType"]
+            if mt == "application/vnd.google-apps.shortcut" and "--drive-skip-shortcuts" in args:
+                continue  # left out, never followed
+            md5 = o.get("md5Checksum")
+            google = mt.startswith("application/vnd.google-apps.") and mt != "application/vnd.google-apps.shortcut"
+            if mt != folder_mime and not md5:
+                # rclone shows a file without an MD5 only as a document: all of them with
+                # --drive-show-all-gdocs, else only the Google types it can export
+                if not all_gdocs and not (google and mt.rsplit(".", 1)[-1] in exportable):
+                    continue
+            here = f"{path}/{o['name']}" if path else o["name"]
+            e = {"Path": here, "Name": o["name"], "MimeType": mt, "ID": o["id"],
+                 "IsDir": mt == folder_mime, "Size": int(o.get("size", "0")) if md5 else -1}
+            if hashes and md5:
+                e["Hashes"] = {"md5": md5}
+            out.append(e)
+            if mt == folder_mime:
+                cache[here] = o["id"]
+                jobs.append(here)
+    if os.environ.get("FAKE_LSJSON_INCOMPLETE"):
+        sys.stderr.write("ERROR : search result INCOMPLETE")
     extra = int(os.environ.get("FAKE_SIZE_OFFSET", "0"))
     first = next((e for e in out if e.get("Hashes")), None)
     if extra and first:  # the same file listed again, under another path

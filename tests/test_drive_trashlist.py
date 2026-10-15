@@ -132,9 +132,11 @@ def _clean(w: World) -> None:
     w.home("data/v.csv", b"vendor bytes\n")
 
 
-def _census_of(w: dict, areas, name: str, preset: str | None = None) -> int:
+def _census_of(w: dict, areas, name: str, preset: str | None = None, only=()) -> int:
     """The census command over these areas, or over one of the tool's presets (card 3's)."""
     args = ["census", "--remote", "fake:", "--out", str(w["tmp"] / name)]
+    for area in only:
+        args += ["--only", area]
     if preset:
         return dc.main([*args, "--preset", preset])
     spec = w["tmp"] / f"{name}.areas.json"
@@ -1057,10 +1059,8 @@ def live(proven, tmp_path, monkeypatch):
 
 
 def _census_now(lv, names=CONS, out="now.json") -> None:
-    if tuple(names) == CONS:
-        assert _census_of({"tmp": lv.tmp}, None, out, "consolidate") == 0
-    else:
-        assert _census_of({"tmp": lv.tmp}, [AREA[n] for n in names], out) == 0
+    only = () if tuple(names) == CONS else tuple(names)
+    assert _census_of({"tmp": lv.tmp}, None, out, "consolidate", only) == 0
 
 
 def _recount(lv, *areas, sha=None, census="now.json", proof=None, summary=None):
@@ -1596,6 +1596,7 @@ def test_recount_says_no_for_a_row_neither_listed_nor_a_folder(live):
         ("started 24 hours before", 1, 60, 24 * 3600, "yes", None),
         ("started just over 24 hours before", 1, 3600, 24 * 3600 + 1, "no", "not within"),
         ("dated after the recount", 1, 60, -10, "no", "not within"),
+        ("finished before its start", 60, -70, 3600, "no", "finished"),
     ],
 )
 def test_recount_counts_freshness_from_the_census_start(
@@ -1637,6 +1638,10 @@ def test_recount_counts_freshness_from_the_census_start(
         assert rec["differences"] == [
             f"the census started at {started.isoformat()}, not within the 24 hours before this "
             f"recount ({now.isoformat()})"
+        ]
+    if case_ == "finished before its start":
+        assert rec["differences"] == [
+            f"the census finished at {finished.isoformat()}, not between its start and this recount"
         ]
     if case_ == "dated after the recount":
         assert rec["differences"] == [
@@ -2127,6 +2132,182 @@ def test_the_source_scan_refuses_a_shell_or_a_joined_rclone(old, new, rule, tmp_
         test_no_process_or_rclone_call_in_the_source_is_outside_the_allowlist()
     first = str(caught.value).splitlines()[0]  # the list of problems, as the scan reports it
     assert first.startswith("['" + rule) and first.count(" at line ") == 1, first
+
+
+# L. Same-name sibling folders: rclone lists one twice, and the other's contents never.
+
+
+def _twin_world(tmp_path, monkeypatch, empty_twin_last=True):
+    """A clean world plus a folder 'dup' in swe-local-only holding a file the desktop never
+    had, and a same-name sibling (the twin a retried mkdir leaves; card 2c met one)."""
+    monkeypatch.setattr(dc, "utc_now", Clock(T0))
+    w = World(tmp_path, monkeypatch)
+    _clean(w)
+    if empty_twin_last:
+        full = w.d.folder("dup", SLO)
+        lost = w.d.file("lost.csv", full, b"bytes the desktop never had\n")
+        w.d.folder("dup", SLO)  # empty, listed last: rclone's cache resolves 'dup' to it
+    else:
+        w.d.folder("dup", SLO)
+        full = w.d.folder("dup", SLO)
+        lost = w.d.file("lost.csv", full, b"bytes the desktop never had\n")
+    return w, lost
+
+
+@pytest.mark.parametrize("empty_twin_last", [True, False])
+@pytest.mark.parametrize("dropped", [True, False])
+def test_same_name_sibling_folders_stop_the_census(
+    tmp_path, monkeypatch, capsys, empty_twin_last, dropped
+):
+    # The final check's case: the batched census misses lost.csv, and rclone's walk never
+    # lists the twin that holds it. Before this round both agreed and trashlist said yes.
+    w, lost = _twin_world(tmp_path, monkeypatch, empty_twin_last)
+    env = w.env()
+    if dropped:
+        monkeypatch.setenv("FAKE_DROP_IN_OR", lost)
+    assert _census_of(env, None, "c6.json", "card2b") == 2
+    err = capsys.readouterr().err
+    assert "one path for two folders in rclone's listing: dup (" in err, err
+    assert not (tmp_path / "c6.json").exists()  # so no proof, and no "yes", can follow
+
+
+def test_different_case_names_are_not_one_path(tmp_path, monkeypatch):
+    # rclone's cache keys on the exact path, case and all: Dup and dup are two paths.
+    monkeypatch.setattr(dc, "utc_now", Clock(T0))
+    w = World(tmp_path, monkeypatch)
+    _clean(w)
+    w.drive_file("upper", SLO, "Dup/u.csv", b"upper case\n")
+    w.home("upper/u.csv", b"upper case\n")  # desktop paths that Windows keeps apart
+    w.drive_file("lower", SLO, "dup/l.csv", b"lower case\n")
+    w.home("lower/l.csv", b"lower case\n")
+    env = w.env()
+    _prepare(env)
+    slo = _area_of(_load(tmp_path / "c6.json"), SLO)
+    assert slo["same_name_folders"] == []
+    assert _trashlist(env) == 0
+    rows = _load(env["root"] / "_logs" / "list" / dc.PROOF)["rows"]
+    mine = {r["id"]: r for r in rows}
+    assert mine[w.ids["upper"]]["class"] == mine[w.ids["lower"]]["class"] == "listed"
+
+
+def test_same_name_sibling_folders_and_all_they_hold_are_blockers(case):
+    slo = _area_of(case.census, SLO)
+    data = case.folders[(SLO, "data")]
+    slo["objects"].append(_folder_obj("twin-data", "data", SLO))
+    inside = {
+        **_listings(case.census, case.ids["a"])[0],
+        "id": "twin-file",
+        "parents": ["twin-data"],
+    }
+    slo["objects"].append(inside)
+    cls = _classes(case)
+    for fid in (data, "twin-data"):
+        assert (cls[fid]["class"], cls[fid]["reason"]) == ("blocker", dc.SAME_NAME), fid
+    for oid in (case.ids["a"], "twin-file"):  # a proven file too: rclone cannot list it
+        assert (cls[oid]["class"], cls[oid]["reason"]) == ("blocker", dc.SHADOWED), oid
+    assert cls[SLO]["reason"].startswith("holds a blocker: data")
+    assert _verdicts(case) == {
+        "swe-local-only": "no",
+        "SmartWheelData": "yes",
+        "smart-wheel-engine-git": "yes",
+    }
+
+
+def test_the_census_records_same_name_sibling_folders():
+    objs = [
+        {"id": "f1", "name": "dup", "mime": dc.FOLDER, "parents": ["top"]},
+        {"id": "f2", "name": "dup", "mime": dc.FOLDER, "parents": ["top"]},
+        {"id": "f3", "name": "Dup", "mime": dc.FOLDER, "parents": ["top"]},
+        {"id": "f4", "name": "dup", "mime": dc.FOLDER, "parents": ["f1"]},
+        {"id": "x1", "name": "dup", "mime": "text/csv", "parents": ["top"]},
+    ]
+    assert dc.same_name_folders(objs) == [{"parent": "top", "name": "dup", "ids": ["f1", "f2"]}]
+    entries = [
+        {"Path": "dup", "IsDir": True, "ID": "f1"},
+        {"Path": "dup", "IsDir": True, "ID": "f2"},
+        {"Path": "dup/x", "IsDir": False, "ID": "x1"},
+        {"Path": "Dup", "IsDir": True, "ID": "f3"},
+    ]
+    assert dc.one_path_two_folders(entries) == ["dup (f1, f2)"]
+
+
+def test_recount_says_no_for_an_area_holding_same_name_sibling_folders(live):
+    _census_now(live)
+    census = _load(live.tmp / "now.json")
+    _area_of(census, SLO)["objects"].append(_folder_obj("twin-data", "data", SLO))
+    (live.tmp / "now.json").write_text(json.dumps(census), encoding="utf-8")
+    rc, rec = _recount(live)
+    data = live.folders[(SLO, "data")]
+    assert rc == 1
+    assert rec["differences"] == [
+        f"area swe-local-only: same-name sibling folders 'data' in {SLO} "
+        f"({', '.join(sorted([data, 'twin-data']))}): rclone cannot list both"
+    ]
+
+
+# M. An INCOMPLETE listing is a failed one.
+
+
+def test_an_incomplete_listing_stops_the_census(small, monkeypatch, capsys):
+    monkeypatch.setenv("FAKE_LSJSON_INCOMPLETE", "1")
+    assert tdc._census(small) == 2
+    assert "rclone lsjson failed" in capsys.readouterr().err
+    assert not (small["tmp"] / "c.json").exists()
+
+
+# N. The swe-data/ census needs its cross-check too.
+
+
+def test_trashlist_refuses_a_swe_data_census_without_its_cross_check(proven, tmp_path, capsys):
+    for drop in ("its record", "its area's record"):
+        plan, census, swe = copy.deepcopy(proven["docs"])
+        if drop == "its record":
+            swe.pop("cross_checked")
+        else:
+            swe["areas"][0].pop("cross_check")
+        w = {"tmp": tmp_path, "root": proven["root"]}
+        names = {
+            "plan": _write(tmp_path, "p.json", plan),
+            "census": _write(tmp_path, "c6.json", census),
+        }
+        names["swe"] = _write(tmp_path, "swe.json", swe)
+        out = proven["root"] / "_logs" / "refused-swe-unchecked"
+        assert _trashlist(w, out_path=out, **names) == 2, drop
+        assert "the swe-data/ census records no cross-check" in capsys.readouterr().err
+        assert not out.exists()
+
+
+# Q. census --only: one area of a set, with no hand-written file.
+
+
+def test_only_keeps_the_named_areas_of_a_set(small, capsys):
+    assert _census_of(small, None, "one.json", "consolidate", ("swe-local-only",)) == 0
+    doc = _load(small["tmp"] / "one.json")
+    assert [a["name"] for a in doc["areas"]] == ["swe-local-only"]
+    assert doc["only"] == ["swe-local-only"] and doc["preset"] == "consolidate"
+    two = ("SmartWheelData", "swe-local-only")
+    assert _census_of(small, None, "two.json", "consolidate", two) == 0
+    assert [a["name"] for a in _load(small["tmp"] / "two.json")["areas"]] == [
+        "swe-local-only",
+        "SmartWheelData",
+    ]
+    file_set = [AREA["swe-local-only"], AREA["smart-wheel-engine-git"]]
+    assert _census_of(small, file_set, "file.json", None, ("smart-wheel-engine-git",)) == 0
+    assert [a["name"] for a in _load(small["tmp"] / "file.json")["areas"]] == [
+        "smart-wheel-engine-git"
+    ]
+    assert _census_of(small, None, "bad.json", "consolidate", ("vendor_swe_data",)) == 2
+    assert "--only ['vendor_swe_data']: not an area of this census's set" in (
+        capsys.readouterr().err
+    )
+    assert not (small["tmp"] / "bad.json").exists()
+
+
+def test_a_one_area_recount_needs_no_hand_written_file(live):
+    _census_now(live, ["swe-local-only"], "slo.json")  # --preset consolidate --only ...
+    rc, rec = _recount(live, "swe-local-only", census="slo.json")
+    assert (rc, rec["unchanged"], rec["areas"]) == (0, "yes", ["swe-local-only"])
+    assert not list(live.tmp.glob("slo.json.areas.json"))
 
 
 # D, last: every call the fake rclone has received in this session is an allowed one.

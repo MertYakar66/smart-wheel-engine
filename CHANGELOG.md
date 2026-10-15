@@ -63,8 +63,17 @@ Drive at all.
   - tests pin recount's "no row for its folder", `kept.csv`, the session's verb check run
     alone, a sentinel for `dc.RCLONE` outside the fake, and the scan of `shell=` and a joined
     `RCLONE`.
-- `tests/test_drive_trashlist.py`, new (188 tests); the fake rclone keeps owners, permissions
-  and a trash, and lists as `rclone lsjson` does.
+- Fix round 3 (the pen's final check, one blocking gap):
+  - same-name sibling folders: rclone's walk goes by path and its directory cache keeps the last
+    folder listed for a path, so it lists one twin twice and never the other's contents. The
+    cross-check now stops when rclone's listing gives one path to two folder ids; the census
+    records each area's same-name sibling folders; `trashlist` blocks each of them and all
+    they hold; `recount` says no for an area holding one;
+  - `INCOMPLETE` on `lsjson`'s stderr fails the listing; `trashlist` refuses a `--swe-census`
+    without its cross-check; recount's "finished before its start" is pinned; the docstring's
+    card 3 sequence has `bytecheck`; `census --only <area>` keeps named areas of a set.
+- `tests/test_drive_trashlist.py`, new (201 tests); the fake rclone keeps owners, permissions
+  and a trash, and lists as `rclone lsjson` does, by path.
 
 ## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop; #580, `e042f5b`)
 

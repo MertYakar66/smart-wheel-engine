@@ -127,3 +127,28 @@ Two rounds of fresh-agent checks shaped the text. A skeptic confirmed 67 of 73 f
 - `scripts/session_open.py`: "other branches" leaves out `refs/heads/Risk_Management` and `refs/heads/rm/*`. Its docstring and `tests/test_session_open.py` are updated to match, and (c)'s slot rule and §3.2's bullet land with them.
 - `tests/test_check_working_structure.py:44`: its sentinel string "Four roles." changes to match (a).
 - The `pm-request` label is created in the repository. This is a repository write, so it needs your yes.
+
+## PM2. The Operator's standing rule on every message (2026-10-15)
+
+**Confirmed by the Operator** on 2026-10-15, by pasting the rewritten rule back unchanged. It answered "Here is your message rewritten as the rule I'll follow. Nothing else happens until you approve it." The checklist change below was approved with "yes, apply the checklist change on those four points".
+
+**The rule, word for word:**
+
+> Standing rule: how you handle every message of mine.
+> 1. When my message arrives, your first reply contains only three things:
+>    * my request, restated in one line;
+>    * numbered clarifying questions, neutral, with no analysis, options or answer inside them;
+>    * my request, rewritten as a better prompt.
+> 2. Then stop. Write no part of the answer: no findings, options, opinions or research. Use no tools beyond what you need to write the questions.
+> 3. After I approve or edit the rewritten prompt, carry it out and give the answer.
+> 4. If my edit changes the scope, rewrite it again and wait again.
+> 5. Not rewritten: my answers to your questions, my "approve", "yes" or edited prompt, and "close".
+> 6. One exception: a time-critical risk warning is given at once, before anything else.
+> 7. Record this rule in your memory, and in your checklist on the `Risk_Management` branch.
+
+**Where it lives:**
+- `CLAUDE.md` §3 on this branch, which replaces the earlier sharpening steps;
+- `CLAUDE.md` §4, whose question line now says that questions in the first reply are neutral;
+- the PM/RE's private memory.
+
+**One exception to `CLAUDE.md` §1 and §7, approved for this change only.** The change was made from the session that runs in the engine's checkout, not from this worktree. A fresh agent checked it, in place of the Portfolio Manager Assistant, which is not yet set up.

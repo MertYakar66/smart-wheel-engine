@@ -2,9 +2,9 @@
 id: d38-pm-role
 title: D38: the PM/RE above the engine; the mark leaves its branches out
 kind: feature
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 580
 decisions: [D38]
 date: 2026-10-15
 headline: the pen's mark no longer counts Risk_Management or rm/ branches as other branches; the Appendix sentinel test follows the new CLAUDE.md wording; the pm-request label

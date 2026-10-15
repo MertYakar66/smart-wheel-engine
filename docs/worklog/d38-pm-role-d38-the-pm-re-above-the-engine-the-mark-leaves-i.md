@@ -28,9 +28,12 @@ D38 entry and the label"; then "1. yes 2. yes 3. yes 4. they". Three pieces:
 The rule as the prompt specified it: leave out exactly
 `refs/heads/Risk_Management`, and every head that starts with `refs/heads/rm/`.
 Every other head except `main` still counts. That includes names that only look
-alike: `rm`, `rmx`, `rm-x`, `Risk_Management2`, `risk_management`, and
-`claude/rm/x`, which has `rm/` inside it but not at the start. The comparison is
-exact and case-sensitive, like git's own ref names.
+alike: `rm`, `rmx`, `rm-x`, `Risk_Management2`, `risk_management`,
+`claude/rm/x`, which has `rm/` inside it but not at the start, `RM/x` (the rule is
+case-sensitive) and `claude/Risk_Management` (it matches the whole name, not its
+last segment). The comparison is exact and case-sensitive, like git's own ref
+names. The last two were added in fix round 1, at the pen's request after an
+independent check.
 
 ## What worked
 - `is_other_branch(head)`, a small pure function, with two module constants
@@ -43,8 +46,12 @@ exact and case-sensitive, like git's own ref names.
   - each look-alike, parametrized, counts exactly 1 beside `main` and the PM/RE's
     heads. That fails both when the PM/RE's heads are counted and when the
     look-alike is wrongly left out;
-  - the pen's whole mark reads ` · 6 other branches · ` for the six look-alikes
+  - the pen's whole mark reads ` · 8 other branches · ` for the eight look-alikes
     beside the PM/RE's heads.
+- Two mutants of `is_other_branch()` are each caught, with 2 tests failing each:
+  - `head.lower().startswith(PM_PREFIX)` fails `[RM/x]` and the whole-mark test;
+  - `head.endswith("/Risk_Management")` in place of the exact match fails
+    `[claude/Risk_Management]` and the whole-mark test.
 - The sentinel replaces "Six roles:" with "Seven roles:" in the Appendix copy only.
   The test still asserts that the untouched copy passes first, so a sentinel that
   no longer exists would fail it. That is how this run found the old one.
@@ -68,9 +75,10 @@ fix, labelled in the Run Summary.
 
 ## Evidence
 - Fail-before: with `d203cdd`'s `scripts/session_open.py` in place, the new tests
-  give `8 failed, 10 passed`. With this run's script they give `18 passed`.
+  give `8 failed, 10 passed`. With this run's script they give `18 passed`
+  (`20 passed` after fix round 1 added `RM/x` and `claude/Risk_Management`).
 - `python -m pytest tests/test_session_open.py tests/test_check_working_structure.py -q`:
-  `1 failed, 24 passed`. The one failure is `test_a_mark_missing_from_claude_md_fails`,
+  `1 failed, 24 passed` (`1 failed, 26 passed` after fix round 1). The one failure is `test_a_mark_missing_from_claude_md_fails`,
   the encoding failure above, and `main`'s own files fail it the same way.
 - `python scripts/session_open.py` after `git fetch origin`: `2 other branches`
   (before this branch was pushed). `git ls-remote --heads origin` listed

@@ -130,8 +130,18 @@ def _ls_remote(*names: str) -> str:
 
 # The PM/RE's branches (D38): never counted as "other branches".
 PM_HEADS = ("Risk_Management", "rm/standing-rule", "rm/a/b")
-# Names that only look like the PM/RE's: each one still counts.
-LOOKALIKES = ("rm", "rmx", "rm-x", "Risk_Management2", "risk_management", "claude/rm/x")
+# Names that only look like the PM/RE's: each one still counts. `RM/x` pins that the
+# rule is case-sensitive; `claude/Risk_Management` that it matches the whole name.
+LOOKALIKES = (
+    "rm",
+    "rmx",
+    "rm-x",
+    "Risk_Management2",
+    "risk_management",
+    "claude/rm/x",
+    "RM/x",
+    "claude/Risk_Management",
+)
 
 
 def test_other_branches_leaves_out_risk_management_and_its_rm_branches(monkeypatch):

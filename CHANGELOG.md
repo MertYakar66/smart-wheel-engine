@@ -25,7 +25,8 @@ they": yes to the `OPERATING_MODEL.md` §7 change, D38 and the `pm-request` labe
 **Changed** — `scripts/session_open.py`: the pen's "other branches" leaves out exactly
 `Risk_Management` and the heads under `rm/`, the PM/RE's branches, which never merge into `main`.
 Names that only look alike (`rm`, `rmx`, `rm-x`, `Risk_Management2`, `risk_management`,
-`claude/rm/x`) still count; `tests/test_session_open.py` pins each one, with no network.
+`claude/rm/x`, `RM/x`, `claude/Risk_Management`) still count; `tests/test_session_open.py` pins
+each one, with no network.
 `tests/test_check_working_structure.py`'s Appendix sentinel is now "Six roles:". The repository
 has a `pm-request` label.
 

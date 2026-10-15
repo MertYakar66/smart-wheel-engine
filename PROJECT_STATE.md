@@ -1,9 +1,9 @@
 # Project State
 
 **Last updated:** 2026-10-15 (D36 adopted on the Operator's "yes to D36. adopt D36", and written
-into `DECISIONS.md`, `CLAUDE.md` and `AGENTS.md` by #574. Addendum C, the one correction
-Codex asked for on addendum B, is posted on #544 without a Codex review, at the Operator's
-word. Earlier the same day: close after #573, `main` at `04cd2e4`: #573 recorded what the
+into `DECISIONS.md`, `CLAUDE.md` and `AGENTS.md` by #574. Addendum C, which settles the one
+finding Codex raised on addendum B, is posted on #544 without a Codex review, at the
+Operator's word. Earlier the same day: close after #573, `main` at `04cd2e4`: #573 recorded what the
 Operator agreed to on 2026-10-14, and addendum B and D36's draft posted on #544.
 Earlier, 2026-10-14: close after #572, `main` at `f85354f`. Card 3: Codex
 reviewed version 6 ("agree with changes"), settling all but two details of the proofs that
@@ -736,17 +736,23 @@ desktop's checkout still has the round 3 branch locally.
        codex", then "Post C, no Codex", 2026-10-15), Codex did not review it.
      - **D36 is adopted** (2026-10-15, "yes to D36. adopt D36"), to the text of #544 comment
        6168812067 with the one change the pen put to the Operator first: its pin names
-       version 6 as addenda B and C amend it. It is in `DECISIONS.md`, with a line under
-       D33, and the pen's read during the undo window is in `CLAUDE.md` §2 and the
-       `AGENTS.md` Appendix (#574). It goes beyond the Operator's 2026-10-14 yes: the
-       undo-window row also protects the six folders card 3 uses inside
-       `OptionsEngine_Project`, and the Operator opens a pen session at least once a week
-       while the row is open. The pen named both before the yes.
+       version 6 as addenda B and C amend it. Addendum C's comment id was filled in when C
+       was posted, after the yes, as the date and the Operator's words were. It is in
+       `DECISIONS.md`, with a line under D33, and the pen's read during the undo window is
+       in `CLAUDE.md` §2 and the
+       `AGENTS.md` Appendix (#574). It goes beyond the Operator's 2026-10-14 yes, in every
+       way D36's Why lists: the undo-window row also forbids renaming and sharing; protects
+       the six folders card 3 uses inside `OptionsEngine_Project`, and everything inside
+       them; forbids adding anything to card 3's container; and keeps the listed twin paths
+       and `_logs/card3/` unchanged. And the Operator opens a pen session at least once a
+       week while the row is open. The pen summed these up for the Operator before the yes;
+       D36 point 4 holds the full row, which the yes adopts.
      - **Off card 3:** the stray `ibkr$p`. It becomes its own later step, which keeps
        the checksum records consistent.
      - **Seven questions** for the Operator are in version 6's section 9. D36 answers
-       question 7, and its row replaces the wider rule question 5 describes. Questions 1, 3,
-       4 and 5 remain; question 6 is for later. Question 1 is now whether to stay in Testing
+       question 7, and question 4 with its "No Empty trash" while the row is open; its row
+       replaces the wider rule question 5 describes. Questions 1, 3 and 5 remain; question 6
+       is for later. Question 1 is now whether to stay in Testing
        or publish the sign-in app (below).
      Card 2b's coverage holds for Drive as it stood on 2026-10-02 at 13:32
      UTC, so card 3 checks again before it deletes. 174,394 of the Drive files it
@@ -771,7 +777,7 @@ desktop's checkout still has the round 3 branch locally.
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
   1. Card 3 (Remains 3): D36 is adopted and addendum C posted. Next, the Operator's
-     answers to version 6's section 9 (questions 1, 3, 4 and 5), the change run that writes
+     answers to version 6's section 9 (questions 1, 3 and 5), the change run that writes
      card 3's code, then card 3a.
   2. The next-phase plan (Proposed): five questions wait for the Operator.
   3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related

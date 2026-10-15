@@ -201,7 +201,7 @@ The branch's allow-list already accepts both paths, so no new root file and no `
 - `C:\Users\merty\Desktop\Risk_Management\` is the one folder. It is not a git folder itself.
 - `PM\` is the PM/RE's worktree, on the branch `Risk_Management`. Sessions open here.
 - `Assistant\` is the Portfolio Manager Assistant's worktree.
-- `pm-private\` holds the private material: account pulls, reports, the journal, the library, and the PM/RE's memory. It sits outside both worktrees, so the rule that private material is never saved inside a worktree still holds.
+- `pm-private\` holds the PM/RE's memory. It also has folders for account pulls, checks, reports, the journal and the library, all empty for now. It sits outside both worktrees, so the rule that private material is never saved inside a worktree still holds.
 
 **What changed:**
 - **The worktrees** moved with `git worktree move`. That also updated their two small records in the engine checkout's `.git`, which the Operator's yes covered. No engine file, branch or code changed.
@@ -213,4 +213,6 @@ The branch's allow-list already accepts both paths, so no new root file and no `
 
   `CHARTER.md` names `pm-private` only by its short name and is unchanged. Earlier entries in this file keep the old paths as history.
 
-**The one-time exception.** As with PM2 and PM3, a fresh agent checks this change in place of the Portfolio Manager Assistant, which is not yet set up.
+**The exception, a third time.** As with PM2 and PM3, this session makes the change from the engine's checkout, and a fresh agent checks it in place of the Portfolio Manager Assistant, which is not yet set up. The proposal named both:
+- "I make the three-line change and PM4 on an `rm/` branch. A fresh agent checks it in place of the Assistant, the same one-time exception as before."
+- "Your yes covers: the layout and the names; the updates to the two worktree records in the engine's `.git`; the three line changes and PM4, word for word; the fresh-agent check; and the pull request text.\"

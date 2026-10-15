@@ -215,4 +215,4 @@ The branch's allow-list already accepts both paths, so no new root file and no `
 
 **The exception, a third time.** As with PM2 and PM3, this session makes the change from the engine's checkout, and a fresh agent checks it in place of the Portfolio Manager Assistant, which is not yet set up. The proposal named both:
 - "I make the three-line change and PM4 on an `rm/` branch. A fresh agent checks it in place of the Assistant, the same one-time exception as before."
-- "Your yes covers: the layout and the names; the updates to the two worktree records in the engine's `.git`; the three line changes and PM4, word for word; the fresh-agent check; and the pull request text.\"
+- "Your yes covers: the layout and the names; the updates to the two worktree records in the engine's `.git`; the three line changes and PM4, word for word; the fresh-agent check; and the pull request text."

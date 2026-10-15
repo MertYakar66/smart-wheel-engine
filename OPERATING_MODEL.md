@@ -1,8 +1,8 @@
 # smart-wheel-engine — Operating Model
 
 **Status:** Primary project document. Read this before doing anything else in this repository.
-**Version:** 4 — 2026-09-23. It adds four roles, marks filled from commands, the close, and the checklist files, adopted from the Operator's ORCA project (`DECISIONS.md` D32). It supersedes v3 of 2026-09-16, and v3 superseded every earlier scheme. Amended on 2026-10-10: the pen's merge while the Operator is away, §3.1 (`DECISIONS.md` D35).
-**Audience:** Every participant in this project: the human Operator, the Strategist (the pen: Claude Code in a chat with the Operator), the second opinion (Codex), and every Executor.
+**Version:** 4 — 2026-09-23. It adds four roles, marks filled from commands, the close, and the checklist files, adopted from the Operator's ORCA project (`DECISIONS.md` D32). It supersedes v3 of 2026-09-16, and v3 superseded every earlier scheme. Amended on 2026-10-10: the pen's merge while the Operator is away, §3.1 (`DECISIONS.md` D35). Amended on 2026-10-15: the Portfolio Manager / Risk Engineer and its assistant, Leg 4, and §7's sentence on where account data lives (`DECISIONS.md` D38).
+**Audience:** Every participant in this project: the human Operator, the Strategist (the pen: Claude Code in a chat with the Operator), the second opinion (Codex), every Executor, and the Portfolio Manager / Risk Engineer and its assistant (Leg 4).
 **Rule of precedence:** If any other instruction in this project conflicts with this document, this document wins until the Operator amends it. Two files carry the checklist:
 - `CLAUDE.md`, which every Claude session loads by itself. It covers the roles, session-open and the marks, the pen's and the Executor's steps, the close, and what never happens without a yes.
 - `AGENTS.md`, which carries the same checklist word for word for Codex and other agents.
@@ -13,7 +13,7 @@ The reasoning lives here. When the checklist and this document disagree, this do
 
 ## 1. Why this document exists
 
-Work on this project moves through four participants with sharply different capabilities. Without a written contract between them, three failure modes recur: the Executor executes the wrong thing confidently, the Strategist approves work it never actually verified, and the Operator is handed technical output they cannot fully evaluate under the pace of parallel work. This document defines the roles, the handoffs, and the verification model that prevent those failures.
+Work on this project moves through four participants in the engine's loop, and two above it (Leg 4), with sharply different capabilities. Without a written contract between them, three failure modes recur: the Executor executes the wrong thing confidently, the Strategist approves work it never actually verified, and the Operator is handed technical output they cannot fully evaluate under the pace of parallel work. This document defines the roles, the handoffs, and the verification model that prevent those failures.
 
 This matters more here than in most projects because this is a probabilistic engine that informs real-money decisions. A wrong number that looks plausible is more dangerous than a crash. The entire system is built so that no single participant is the sole safety net.
 
@@ -29,7 +29,7 @@ Read the section for your role. Then read the handoff contracts — those are th
 
 ---
 
-## 2. The four legs
+## 2. The legs
 
 ### Leg 1 — The Operator (human)
 
@@ -79,11 +79,11 @@ While the Operator is away, the pen merges only under §3.1's exception (D35).
 
 ### Leg 2b — The second opinion (Codex)
 
-Codex reads the repository (GitHub, read-only) and whatever the Operator pastes. It reviews and challenges:
+The engine's Codex reads the repository (GitHub, read-only) and whatever the Operator pastes. It reviews and challenges:
 - the pen's proposals and Execution Prompts;
 - the Executor's pull requests (its automatic pull-request reviews on GitHub are this role).
 
-It verifies independently and **writes nothing**: no files, no branches, no Execution Prompts. It opens with its mark (§3.2). Each finding quotes the line it objects to and proposes a one-sentence fix. When the pen and the second opinion disagree, they settle on one recommendation before anything reaches the Executor. Whoever has evidence wins; when neither has it, the next step is asking the Executor for it. The Operator never breaks a technical tie. `AGENTS.md` carries its checklist and review guidelines.
+It verifies independently and **writes nothing**: no files, no branches, no Execution Prompts. The Portfolio Manager Assistant is a separate Codex setup (Leg 4). It opens with its mark (§3.2). Each finding quotes the line it objects to and proposes a one-sentence fix. When the pen and the second opinion disagree, they settle on one recommendation before anything reaches the Executor. Whoever has evidence wins; when neither has it, the next step is asking the Executor for it. The Operator never breaks a technical tie. `AGENTS.md` carries its checklist and review guidelines.
 
 ### Leg 3 — The Executor
 
@@ -108,6 +108,10 @@ The hands. Reads files, edits files, runs commands, runs tests, manages branches
 - claim a verification it did not actually run;
 - **answer a question by changing files.** When a run is marked read-only, it reports and stops;
 - **add or amend a §7 invariant, a `DECISIONS.md` entry, or any project constraint on its own initiative.** Proposing one is in scope. Writing one is not, unless the Execution Prompt says so explicitly.
+
+### Leg 4 — The Portfolio Manager / Risk Engineer (above the engine's loop)
+
+A Claude agent the Operator set up on 2026-10-15 to manage and watch the portfolio with them; they place every order. Its scope is portfolio management, risk management and any other area, not just the wheel engine. It is the bridge between the engine and the portfolio. It works on the `Risk_Management` branch and its `rm/` branches, which never merge into `main`, with its own assistant, the Portfolio Manager Assistant (a second Codex setup). On that branch the two roles' own checklists govern their session-open and steps, and §9.6's session-open does not apply. §7 binds both. The PM/RE writes none of the engine's code or rule-books, takes no Execution Prompt for the engine, and brings findings and requests as `pm-request` issues, which the pen answers (`CLAUDE.md` §3). Nothing private goes on an issue. It may downgrade or block an engine candidate against the Operator's limits, and never upgrade one. Its charter is CHARTER.md on the Risk_Management branch (`DECISIONS.md` D38).
 
 ### 2.4 One session in two roles, and concurrency
 
@@ -176,7 +180,7 @@ The Operator is offline for 8 to 10 hours most nights. Work may continue in that
 The pen's mark carries five facts:
 - where `main` is;
 - how many content commits `PROJECT_STATE.md` is behind;
-- how many other branches exist;
+- how many other branches exist, leaving out `Risk_Management` and its `rm/` branches;
 - how old the data is (the frontier `data/DATA_MANIFEST.json` records);
 - the nearest open deadline in `docs/deadlines.md`.
 
@@ -344,7 +348,7 @@ Both the Strategist and the Executor must honour these. The Strategist must not 
 
 **Data integrity.** The active data provider is logged at the start of every run. A per-endpoint failure of a live provider raises the defined failure rather than being silently substituted with the CSV provider; a globally-down provider may fall back, a single failing endpoint may not. No computation that feeds a decision may use data timestamped after the decision moment — point-in-time discipline is absolute, and any claimed look-ahead fix must be shown to hold. Split-adjusted and raw price series are never mixed.
 
-**Brokerage safety.** Every path that touches the brokerage is read-only. No participant places, modifies, or cancels an order, and no order-routing or OMS surface is built, however sandboxed it looks. Simulated fills are permitted only in explicitly-labelled paper surfaces that cannot reach a broker. Real account data lives only in the gitignored data directory, is never committed, and is owned by the named terminal responsible for it.
+**Brokerage safety.** Every path that touches the brokerage is read-only. No participant places, modifies, or cancels an order, and no order-routing or OMS surface is built, however sandboxed it looks. Simulated fills are permitted only in explicitly-labelled paper surfaces that cannot reach a broker. Real account data lives only in the gitignored data directory or, for the Portfolio Manager / Risk Engineer, in its private folder outside git. It is never committed or posted, and each copy is owned by the named role responsible for it.
 
 **Modelling.** Every Greek consumed anywhere in the system respects the single unit contract at every call site; unit drift is a silent correctness failure. Dormant tooling is not wired into the decision path without a named missing-data contract first being chosen. Deprecated trees are not extended; new logic goes in the live modules. No news, sentiment, or narrative input reaches the EV path; when a news layer is redesigned it enters, if at all, as a downgrade-only reviewer under an explicit decision.
 
@@ -369,6 +373,8 @@ Both the Strategist and the Executor must honour these. The Strategist must not 
 | **Decides** | Direction, merges, final approval | What to do and why | Nothing: finds and challenges | Nothing: executes the approved plan |
 | **Produces** | yes / authorize / close, answers to sharpening questions | Marks, restatements, Execution Prompts, evaluations, the records | Findings that quote the line and propose a fix | Pushed branches, PRs, Run Summaries |
 | **Must never** | Be the mechanism that catches a technical error | Advise without being sure; verify its own writing; push to `main` | Write anything | Skip a gate, hide a fix, touch the decision layer unclaimed, merge without a yes, or hand over unpushed work |
+
+This table covers the engine's loop. Leg 4 covers the two roles above it.
 
 **The six sentences that matter most:**
 
@@ -457,18 +463,18 @@ For sandbox-vs-machine capability differences, see `docs/DATA_POLICY.md` §7.
 ### 9.5 Concurrency mechanics
 
 - **Worktrees or clones.** Every Executor works in its own worktree (`git worktree add ../swe-<id> -b claude/<slug> origin/main`) or its own clone. Two Executors in one working tree share one index and one HEAD; one's `checkout` silently moves the other's branch. When several Executors share a machine, source `scripts/setup-terminal.sh <id>` (or the `.ps1`) so each gets its own `SWE_API_PORT`, `COVERAGE_FILE`, and `PYTEST_CACHE_DIR`.
-- **One branch, one PR per run.** Branch names `claude/<short-slug>` (Codex writes no branches, D32). `git fetch origin && git rebase origin/main` before every push on your own branch; never rewrite a branch someone else has checked out.
+- **One branch, one PR per run.** Branch names `claude/<short-slug>` (the engine's Codex writes no branches, D32; the Portfolio Manager Assistant writes on `Risk_Management` and its `rm/` branches only, D38). `git fetch origin && git rebase origin/main` before every push on your own branch; never rewrite a branch someone else has checked out.
 - **The campaign issue.** Each piece of work that spans more than one run, or that will run while the Operator is away, gets one GitHub issue: the sharpened request, the Execution Prompts as numbered comments, the reports, the blocked items, the stand-down. Its number goes in the lane-claim block's `campaign:` line and in every PR body for the campaign. The old board (#113) and the July channels are closed and are history.
 - **The decision-layer hard gate (CI-enforced).** The trio is edited one run at a time. `scripts/check_lane_claim.py` runs in CI on every PR: if the diff touches a decision-layer file, the PR description must carry a `lane-claim` block naming that file, or the build fails. Run it locally before pushing: `python scripts/check_lane_claim.py --base origin/main --claim-file <pr-body.md>`.
 - **Worklog fragment per run** (`python scripts/new_worklog.py <id> --title "..." --kind <kind>`, then `python scripts/gen_worklog_index.py`; CI fails if the index is stale). Format: `docs/worklog/README.md`. Set `status` and `pr:` when the PR merges; a fragment left `in-flight` after merge is a defect.
 - **Where to document.** The learning record goes in the worklog fragment; the PR body links it; a structural decision with rejected alternatives becomes a `DECISIONS.md` entry (only when one was actually made, and only when the Operator directed it); the one-line "what shipped" is a `CHANGELOG.md` bullet added in the same PR. `PROJECT_STATE.md`'s date line is refreshed by any PR that changes durable state; the doc-currency CI gate fails when it or `CHANGELOG.md` is more than 45 days old.
 - **Magnet files.** `FILE_MANIFEST.md`, `docs/worklog/INDEX.md`, `CHANGELOG.md`, `PROJECT_STATE.md` collide by construction; resolve per §6 (union of rows, regenerate the index), never by taking one side.
 - **Retired with v3:** the allocator role, task cards, the live board, ripple notices, lettered terminals A–D, scenario (`Sn`) numbering (campaigns are keyed by name and PR), and the July command-bus variants (their surviving rules are §3.1).
-- **Retired with v4 (D32):** Codex as an equal Strategist or as an Executor (it is the read-only second opinion), and `CLAUDE.md` as a bare pointer (it is the checklist).
+- **Retired with v4 (D32):** Codex as an equal Strategist or as an Executor (it is the read-only second opinion), and `CLAUDE.md` as a bare pointer (it is the checklist). The Portfolio Manager Assistant is the one Codex that writes, on `Risk_Management` and its `rm/` branches only (D38).
 
 ### 9.6 Onboarding and read order
 
-`CLAUDE.md` is auto-loaded on every Claude Code session and carries the checklist; Codex loads `AGENTS.md`, whose Appendix is the same checklist word for word. Any AI agent entering this repo first runs session-open (`CLAUDE.md` §2) and then follows the same read order:
+`CLAUDE.md` is auto-loaded on every Claude Code session and carries the checklist; Codex loads `AGENTS.md`, whose Appendix is the same checklist word for word. Any AI agent entering this repo, except the PM/RE and the Portfolio Manager Assistant on `Risk_Management` (Leg 4), first runs session-open (`CLAUDE.md` §2) and then follows the same read order:
 
 1. **This document**, §§1–8 in full; §9 as reference.
 2. **`PROJECT_STATE.md`** §0 (the direction, the handoff, the recorded `main` commit) and §1 — what is authoritative right now.
@@ -545,6 +551,7 @@ If the Operator addresses a session by a **role name**, it adopts that role and 
 | Operator says | You are | Read first |
 |---|---|---|
 | **"You are responsible for the Dashboard"** (or `dashboard`) | the **Dashboard** terminal — owns the live IBKR portfolio viewer; on **"update"** it refreshes all live data | **`docs/DASHBOARD_TERMINAL.md`** |
+| **"You are the Portfolio Manager"** | the **Portfolio Manager / Risk Engineer**: manages and watches the portfolio above the engine; writes only on `Risk_Management` and its `rm/` branches | **`CLAUDE.md` on the `Risk_Management` branch** |
 
 The Dashboard terminal is strictly read-only (§7 Brokerage safety). Other sessions leave the dashboard, `data_processed/ibkr/`, and the `/api/portfolio/*` pipeline to it.
 

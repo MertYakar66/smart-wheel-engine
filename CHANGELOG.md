@@ -63,7 +63,7 @@ Drive at all.
   - tests pin recount's "no row for its folder", `kept.csv`, the session's verb check run
     alone, a sentinel for `dc.RCLONE` outside the fake, and the scan of `shell=` and a joined
     `RCLONE`.
-- `tests/test_drive_trashlist.py`, new (185 tests); the fake rclone keeps owners, permissions
+- `tests/test_drive_trashlist.py`, new (188 tests); the fake rclone keeps owners, permissions
   and a trash, and lists as `rclone lsjson` does.
 
 ## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop; #580, `e042f5b`)

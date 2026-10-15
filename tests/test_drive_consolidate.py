@@ -85,19 +85,21 @@ dc = importlib.util.module_from_spec(_SPEC)
 assert _SPEC.loader is not None
 _SPEC.loader.exec_module(dc)
 
-# Every invocation the fake rclone receives, in any test of this session, is appended here
-# (its path is written into each copy of the fake), and checked against the allowlist:
-# the only verbs the tool may give rclone (D33: nothing that writes to Drive).
-VERB_LOG = Path(tempfile.gettempdir()) / f"swe-fake-rclone-calls-{os.getpid()}.jsonl"
+# Every invocation the fake rclone receives, in any test of this session, is recorded here,
+# one new file per call, so calls made in parallel lose none (an append is not atomic on
+# Windows). The folder is written into each copy of the fake. A session fixture checks the
+# calls against the allowlist: the only verbs the tool may give rclone (D33: nothing that
+# writes to Drive).
+VERB_DIR = Path(tempfile.gettempdir()) / f"swe-fake-rclone-calls-{os.getpid()}"
 ALLOWED_VERBS = frozenset({"version", "backend query", "size", "backend copyid"})
+_CHECKS_OPEN = [0]  # session fixtures still open: the last one to close removes VERB_DIR
 
 
 def fake_calls() -> list[list[str]]:
-    """Every invocation the fake rclone has recorded in this session so far."""
-    if not VERB_LOG.exists():
+    """Every invocation the fake rclone has recorded in this session so far, in order."""
+    if not VERB_DIR.is_dir():
         return []
-    lines = VERB_LOG.read_text(encoding="utf-8").splitlines()
-    return [json.loads(x) for x in lines if x]
+    return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(VERB_DIR.iterdir())]
 
 
 def verb_of(call: list[str]) -> str:
@@ -109,17 +111,23 @@ def verb_of(call: list[str]) -> str:
 @pytest.fixture(scope="session", autouse=True)
 def every_fake_rclone_call_is_allowed():
     """At the end of the session: every verb the fake received was an allowed one."""
+    _CHECKS_OPEN[0] += 1
     start = len(fake_calls())
     yield
     bad = [c for c in fake_calls()[start:] if verb_of(c) not in ALLOWED_VERBS]
+    _CHECKS_OPEN[0] -= 1
+    if _CHECKS_OPEN[0] == 0:
+        shutil.rmtree(VERB_DIR, ignore_errors=True)  # this session's own record of calls
     assert not bad, f"rclone given a verb outside the allowlist: {bad[:5]}"
 
 
 FAKE_RCLONE = r"""
-import hashlib, json, os, re, sys
+import hashlib, json, os, re, sys, time
 args = sys.argv[1:]
-with open(VERB_LOG, "a", encoding="utf-8") as fh:  # every invocation, for the session's check
-    fh.write(json.dumps(args) + "\n")
+os.makedirs(VERB_DIR, exist_ok=True)  # every invocation, one new file each: the session's check
+_mine = f"{time.time_ns():020d}-{os.getpid()}-{os.urandom(4).hex()}.json"
+with open(os.path.join(VERB_DIR, _mine), "x", encoding="utf-8") as fh:
+    fh.write(json.dumps(args))
 state = json.load(open(os.environ["FAKE_DRIVE"], encoding="utf-8"))
 objs = state["objects"]
 by_id = {o["id"]: o for o in objs}
@@ -414,7 +422,7 @@ def _env(tmp_path, monkeypatch, drive: FakeDrive, areas: list[dict], files: dict
     state = tmp_path / "drive.json"
     drive.save(state)
     script = tmp_path / "fake_rclone.py"
-    script.write_bytes((f"VERB_LOG = {str(VERB_LOG)!r}\n" + FAKE_RCLONE).encode())
+    script.write_bytes((f"VERB_DIR = {str(VERB_DIR)!r}\n" + FAKE_RCLONE).encode())
     log = tmp_path / "copyid.log"
     log.write_bytes(b"")
     monkeypatch.setenv("FAKE_DRIVE", str(state))

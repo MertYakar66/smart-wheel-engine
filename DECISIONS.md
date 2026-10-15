@@ -1975,6 +1975,8 @@ source, and every deletion and restore gate.
 
 **PARTLY SUPERSEDED by D36 (2026-10-15):** two places. In point 3, "`swe-data/` at the top of My Drive": it sits in `OptionsEngine_Project` (My Drive › The_Works › Projects), found by its id. In the Why, "So the design copies, never moves": card 3 moves each approved file by its id into a holding folder, then trashes that folder once. Every condition of point 5 stands.
 
+**PARTLY SUPERSEDED by D37 (2026-10-15):** in D36's line above, card 3 no longer moves files. It trashes up to three whole folders by hand, after proving every file in them. Every condition of point 5 stands.
+
 **Decision.** Confirmed by the Operator on 2026-09-24 ("yes"), after two reviews
 by the second opinion:
 
@@ -2215,6 +2217,8 @@ changes"):
 
 ## D36. Card 3 cleans Drive by moving each approved file into a holding folder, then trashing that folder once; the project's Drive folders sit in `OptionsEngine_Project` (2026-10-15)
 
+**PARTLY SUPERSEDED by D37 (2026-10-15):** points 1, 2, 4 and 5. Card 3 trashes up to three old folders by hand, after card 3a's whole-folder proof and a recount. There is no holding folder, there are no scripted moves, and there is no `scripts/drive_trash.py`. D37 carries the undo-window row and the pen's read. Point 3 stands.
+
 **Decision.** Confirmed by the Operator on 2026-10-15 ("yes to D36. adopt D36"), to the text below. Card 3's design is version 6 on #544 (comments 6165771818 and 6165775816), as addenda B (#544 comment 6168806648) and C (#544 comment 6185867812) amend it. The second opinion reviewed each of its six versions, and answered "agree with changes" to version 6.
 
 1. **How card 3 deletes.** Each approved file is moved by its Drive id into a holding folder, H, inside a container folder, C. After an audit, H alone goes to Drive's trash, once. No file is ever trashed or deleted by its name. This departs from D33's words "the design copies, never moves"; D33's reasons for them do not apply here (Why, below). Every other D33 condition stands, and card 3 widens one of them, the two proven copies of D33 point 6 and D34 point 1, to every file:
@@ -2259,6 +2263,84 @@ changes"):
 - `scripts/drive_trash.py` and its tests, from card 3's change run. It refuses any list but the approved sha256, any verb but its own, a `mkdir` whose parent is My Drive's root, and the `purge` until the journal records the row open with the words in point 4;
 - `scripts/drive_consolidate.py`, which finds `swe-data/` by its id (the same change run);
 - the row in `docs/deadlines.md`; and `CLAUDE.md` §2 and the `AGENTS.md` Appendix, which `scripts/check_working_structure.py` keeps word for word, in CI (point 5, which has no test of its own).
+
+## D37. Card 3 trashes the old Drive folders by hand, after card 3a proves every file in them; D36's scripted moves are dropped (2026-10-15)
+
+**Decision.** Confirmed by the Operator on 2026-10-15 ("yes, adopt D37"), to the text below. On 2026-10-15 the Operator chose this route over D36's method ("yes, go with the middle route"), after the pen set out what it keeps and what it costs.
+
+1. **How card 3 deletes.** The Operator moves up to three folders to Drive's trash, by hand, in Drive's web page, from links the pen gives by id. All three sit in `OptionsEngine_Project`:
+   - `swe-local-only` (`1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`);
+   - `SmartWheelData` (`1wCFPBf0o9PJMy2f2vy34S316XFc1Sq3e`);
+   - `smart-wheel-engine` (`1dA_fq1MorvsqUWeVxqR0aAaJ9XMwEjUY`).
+
+   No script moves or trashes anything, and nothing is deleted forever. D36's holding folder, its moves and `scripts/drive_trash.py` are not used. D33's conditions stand, with the wider rule card 3 took in D36 point 1: every file needs both of its copies proven, and proven again before the trash.
+2. **The proof, card 3a.** Card 3a runs read-only. It makes a census of card 2b's six areas and one of `swe-data/`, a root inventory and a whole-area plan, then runs `trashlist`. For each of the three folders, every object in its tree is accounted for:
+   - **Each file is proven.** It has one parent and is owned by the account. Drive lists its size, MD5 and SHA-256, and its desktop copy (in the root, or under `data_archive/drive-legacy/`), hashed again, and its `swe-data/` copy at the same path both match them.
+   - **Each folder** has one parent, is owned by the account, and holds only such files and folders.
+   - **Anything else is a blocker.** It is listed with its reason, and is never trashed.
+
+   `trashlist` gives each folder a verdict. Only a folder whose verdict is "clear to trash by hand: yes" may be trashed. A folder holding a blocker stays where it is. If the blocker is first moved out by its own approved step, card 3a runs again.
+3. **The yes.** A context that did not write card 3a checks its output. The Operator then says yes to the proof's sha256.
+4. **The trash.** Two acts come first, and both are done before the baseline below is read:
+   - **A rehearsal, once, before the first trash.** The Operator trashes and then restores, by hand, a throwaway folder that holds a few files and sits outside `OptionsEngine_Project`. The pen reads that the files came back, and whether its Drive connector sees a trashed folder as trashed.
+   - **The credential file's "Delete forever",** the Operator's own act, unless Drive's own 30-day emptying has already removed it.
+
+   Then, with no break between the recount's "yes" and the trash:
+   - **The recount.** `recount`, run on a fresh census, must say "unchanged: yes" for each folder to be trashed. That means the same objects with the same details as in the proof, the desktop copies hashed again, and the `swe-data/` copies read again. Anything else stops the trash, and card 3a runs again.
+   - **A baseline of Drive's trash**, read just before.
+   - **The trash itself.** The Operator trashes the folders by hand, from the pen's links. Nothing else is trashed between the baseline and the check.
+   - **The check.** The pen, or an Executor, reads that:
+     - the folders are trashed;
+     - `swe-data/`, `OptionsEngine_Project`, `Projects` and `The_Works` are untrashed and in place;
+     - Drive's trash holds exactly the baseline, less what Drive's own 30-day emptying removed, plus the trashed folders and their contents.
+
+     Drive may take a while to show every item in a trashed folder as trashed, so a difference counts only after a re-read following a settling wait. Any difference that remains is reported at once, and anything trashed by mistake is restored.
+5. **Writers pause** from card 3a's census to the check after the trash, so that the recount can pass. The pause covers:
+   - the Dashboard's `update`;
+   - any refresh of `swe-data/`;
+   - the tool's `copy` and `sweep`;
+   - any scheduled task that writes the root or Drive;
+   - changes made through Drive for desktop to the three folders or `swe-data/`.
+
+   A change made in that span is caught by the recount, not taken on trust.
+6. **The undo window.** In the same sitting, right after the check, `docs/deadlines.md` gains a row with these words:
+
+   "No Empty trash, and nothing deleted forever. Do not trash, delete, move, rename or share the folders `The_Works`, `Projects` and `OptionsEngine_Project` themselves, or `swe-data/` or anything inside it. Restore the trashed folders only whole, never a file or a subfolder alone. Do not change anything under `data/bloomberg/`, `data_processed/theta/` or `data_archive/drive-legacy/`, in the desktop's data root or in `swe-data/`. This holds in the web page, in Drive for desktop and with any tool. Other files and folders stay free to change."
+
+   - **Its Due cell** is an ISO date: 30 days after the last read that showed the folders untrashed, the earliest if they went on different days. This is an assumption: Google documents 30 days for a trashed item, not for the contents of a trashed folder.
+   - **Its Owner** is the Operator. **Its Status** is `**OPEN**`.
+   - **Its Source cell** cites D37, the #544 comment that records the ids of the folders and of the chain above them, and the #544 read that dates the Due cell.
+   - The row stays open until the Operator closes it. Until then the trashed files still count against Drive's storage.
+7. **The pen's read while the row is open.** It replaces D36 point 5's. At every session-open, the pen reads by id `The_Works`, `Projects`, `OptionsEngine_Project`, `swe-data/` and the trashed folders.
+   - It uses its Drive connector, reading only, or rclone if the rehearsal shows the connector cannot see a trashed folder. If rclone is used, the Operator keeps its sign-in fresh.
+   - It records the read on #544, and says in its first reply that it read. A failed read is not a pass.
+   - It reports that day a protected folder trashed or moved, or a trashed folder restored or gone.
+
+   The Operator opens a pen session at least once a week until the row closes.
+8. **D36 point 3,** `swe-data/`'s place, stands.
+
+**Why.**
+- **The Operator's aims:**
+  - "make sure there are no duplicates" (2026-09-24, D33);
+  - "Quality is more important than anything" (2026-10-09; the original message is lost, and the cloud pen's notes record it as verbatim).
+- **D36's method was heavy:** a new script, a rehearsal, and 25 to 40 hours of the Operator's attended presence for about 178,000 moves. That machinery existed so that a script could do three things:
+  - remove files one at a time;
+  - leave any unproven file in place;
+  - never lose track of a request cut off midway.
+
+  A person trashing whole folders needs none of it, so long as nothing unproven sits inside them.
+- **The proof stays whole.** Every file a folder's trash takes has both of its copies proven, and the recount re-proves them object by object on the day of the trash.
+- **The Bloomberg and Theta data cannot be pulled again** (D29, D33), so their copies, and the archive of what came home from Drive, stay unchanged until the undo window closes.
+
+**Rejected alternatives.**
+- **D36's scripted moves:** the same end state, at the cost of days of engineering and 25 to 40 attended hours.
+- **Trashing by hand with no proof:** the trash would take anything not proven twice, and after 30 days it would be gone for good.
+- **A recount by count and bytes alone:** it misses a same-size swap, and a Google-format file or a shortcut added after the proof.
+
+**Pinned by.**
+- `scripts/drive_consolidate.py`'s `trashlist` and `recount`, and their tests, from card 3's code run (PR #576);
+- the row in `docs/deadlines.md`;
+- `CLAUDE.md` §2 and the `AGENTS.md` Appendix, which `scripts/check_working_structure.py` keeps word for word, in CI (point 7).
 
 ## How to add a decision
 

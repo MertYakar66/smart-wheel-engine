@@ -5,7 +5,7 @@ kind: feature
 status: in-flight
 terminal: desktop Executor
 pr: 576
-decisions: [D33, D34, D36]
+decisions: [D33, D34, D36, D37]
 date: 2026-10-15
 headline: "scripts/drive_consolidate.py records each object's owner, reads swe-data/ by its id and the chain to OptionsEngine_Project, and gains trashlist (every object of the three consolidate areas listed, a folder or a blocker, with a proof whose sha256 the Operator approves) and recount (nothing changed since the proof, on the day of the trash). Read-only; no Drive was read."
 surface:
@@ -17,7 +17,7 @@ surface:
 
 ## Goal
 
-Card 3's one code run under D36's middle route (the Operator's choice of 2026-10-15): give
+Card 3's one code run under D37, the middle route (the Operator's choice of 2026-10-15): give
 the Drive consolidation tool what card 3a needs to prove, file by file, that the three old
 Drive folders (`swe-local-only`, `SmartWheelData`, `smart-wheel-engine`) hold nothing whose
 bytes are not proven twice, on the desktop and in `swe-data/`, so the Operator can trash

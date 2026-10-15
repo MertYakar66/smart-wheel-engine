@@ -91,7 +91,7 @@ and ``copy``, ``sweep`` and ``verify`` refuse a destination with one on its path
 matched to: one changed or removed since the inventory fails the check, because
 its Drive twin is the only copy again.
 
-``trashlist`` (card 3a, D36's middle route) accounts for every object the census lists
+``trashlist`` (card 3a, D37) accounts for every object the census lists
 in the three consolidate areas, and for each area folder: each gets one class.
 ``listed`` is a file proven twice: every plan row naming it is ``deletable``; Drive
 lists its size, MD5 and SHA-256, and it has one parent, is owned by the account, is
@@ -2001,7 +2001,7 @@ def verify(plan: dict, root: Path) -> int:
 
 # ---------------------------------------------------------------- trashlist and recount
 
-# One row per object of the three consolidate areas, and per area folder (card 3, D36).
+# One row per object of the three consolidate areas, and per area folder (card 3, D37).
 TRASHLIST_FIELDS = (
     "area",
     "path",
@@ -2676,7 +2676,7 @@ def recount(
                 diffs.append(f"changed: {_place_of(old[oid])} ({oid}): its {', '.join(changed)}")
     listed = [r for r in rows if r["class"] == "listed"]
     twins = _Twins(root)
-    for r in listed:  # D36 point 1: "and again before the trash"
+    for r in listed:  # D37 point 4: the desktop copies hashed again
         why, got = twins.get(r["twin"])
         if why or got is None:
             diffs.append(f"{r['area']}/{r['path']}: its desktop twin {r['twin']}: {why}")

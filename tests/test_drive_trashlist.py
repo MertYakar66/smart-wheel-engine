@@ -1,6 +1,6 @@
 """scripts/drive_consolidate.py: card 3's census fields, swe-data/ by id, trashlist and recount.
 
-Card 3's code run, for D36's middle route (design version 6 §2 (a), (b), (d) and (e), §3's
+Card 3's code run, for D37, the middle route (design version 6 §2 (a), (b), (d) and (e), §3's
 reading by id and §7, with version 4's §2 (a) and (b)). Pins:
 - census: ``owned`` comes from ``backend query`` with ``--drive-auth-owner-only``, which no
   other command gets; ``-M`` goes only to the sharing reads; ``swe-data/`` is read by its

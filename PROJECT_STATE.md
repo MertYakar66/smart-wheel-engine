@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-15 (close after #580, `main` at `e042f5b`: D38 merged, the Portfolio
+**Last updated:** 2026-10-16 (close after #576, `main` at `9cd074f`: card 3's code run merged, after
+the pen's check and five fix rounds, each checked by a context that did not write it. Card 3a
+authorized: "authorize card 3a, but make sure all the claims above are actually accurate and
+right". Earlier, 2026-10-15: close after #580, `main` at `e042f5b`: D38 merged, the Portfolio
 Manager / Risk Engineer and its assistant above the engine, from PM1 Part 5 on `Risk_Management`, on
 the Operator's "1. yes 2. yes 3. yes 4. they". The `pm-request` label exists, and the mark leaves
 `Risk_Management` and its `rm/` branches out of "other branches". Earlier the same day: close after #577, `main` at `82e1fd3`: D37 merged.
@@ -159,7 +162,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `e042f5b` (2026-10-15). Also open: `claude/card3-code-part1`, card 3's code run (#576). Others on `origin`:
+**Branches:** `main` is at `9cd074f` (2026-10-16). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -818,12 +821,16 @@ desktop's checkout still has the round 3 branch locally.
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
   1. Card 3 (Remains 3), in D37's order:
-     - the code run, PR #576 (an Executor in its own worktree, started by the pen on "yes, go
-       with the middle route"), then the pen's check of it and the merge;
+     - the code run, PR #576: merged on 2026-10-16 as `9cd074f`, after the pen's check and five
+       fix rounds, each checked by a context that did not write it. Round 3 closed a blocking
+       gap: rclone walks Drive by path, so of two same-name sibling folders it lists one twice
+       and never the other; the census now stops on one path given to two folder ids. One test
+       gap is left for a small change before the recount: recount's namesake warning is pinned
+       for one area only;
      - a fresh Drive sign-in (the one of 2026-10-09 ends about 2026-10-16 18:54 UTC), and the
        writer pause from card 3a's census on;
-     - card 3a on the desktop, read-only, and a check of its output by a context that did not
-       write it;
+     - card 3a on the desktop, read-only (authorized 2026-10-16, below; its card is drafted and
+       under a fresh-context check), and a check of its output by a context that did not write it;
      - the Operator's yes to the proof's sha256;
      - the rehearsal by hand and the credential file's "Delete forever", both before the trash
        baseline;
@@ -847,16 +854,19 @@ desktop's checkout still has the round 3 branch locally.
   Answered on 2026-10-13: the Google Cloud app behind rclone (project `rclone-backup`) is
   in "Testing". The pen read it in Google Cloud Console, read-only. The Operator signed in
   again on 2026-10-09, pasting `Success!` at 18:54 UTC, so that sign-in ends about
-  2026-10-16 at 18:54 UTC. Nothing reads Drive before card 3's code run merges, so the
-  lapse costs nothing now. The console's "Publish app" needs a home-page link and a
-  privacy-policy link first. The Operator chose on 2026-10-15 to stay in Testing
+  2026-10-16 at 18:54 UTC. Card 3's code run merged that morning (#576); card 3a, the next
+  card that reads Drive, starts on a fresh sign-in the Operator makes just before it. The
+  console's "Publish app" needs a home-page link and a privacy-policy link first. The Operator chose on 2026-10-15 to stay in Testing
   ("stay in Testing", version 6's question 1): a fresh sign-in comes before each Drive card or
   window that would cross the 7 days. The first attempt failed: Windows refused rclone's sign-in
   port, 127.0.0.1:53682, which lay inside a range the Windows NAT driver (WinNAT) had
   reserved (53671–53770). `net stop winnat`, the sign-in, then `net start winnat` fixed it.
   Still open from before: the Operator deletes the credential file forever from Drive's
   trash, rotates the Flex token, and decides whether the desktop's `stash@{0}` (the stray
-  paste) is dropped.
+  paste) is dropped. Drive's own 30-day emptying removes the credential file about
+  2026-10-26, a month after the pen moved it to the trash on 2026-09-26; D37 point 4 wants it
+  gone before the trash baseline. The Flex token is due before the Dashboard's next `update`,
+  which pulls Flex; the writer pause holds that `update` until the check after the trash.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -914,6 +924,16 @@ desktop's checkout still has the round 3 branch locally.
     (sha256 `959bea07c9f6…`) was shown to the Operator before it ran.
   - D37 ("yes, adopt D37", 2026-10-15), to the text the pen sent: card 3 trashes the old
     folders by hand after card 3a's proof and a recount. Written by #577.
+  - Card 3a ("authorize card 3a, but make sure all the claims above are actually accurate and
+    right", 2026-10-16), to the pen's restatement: one run that only reads Drive lists card 2b's
+    six areas and `swe-data/`, takes stock of the root, plans and runs `trashlist`, for a verdict
+    on each old folder and the proof's sha256. A fresh-context check of the restatement's
+    eighteen claims, each verdict challenged by a skeptic, found ten of them right only in part,
+    and the pen gave the Operator the corrections the same day: a context that did not write
+    card 3a checks its output before the Operator's yes; a clean run takes about 10 hours, up to
+    about 20 if a census must start again; the writer pause runs until the check after the
+    trash, likely days; a same-name folder pair stops the census hours in, not early; the
+    sign-in needs the WinNAT steps only if Windows refuses rclone's port.
   - The Portfolio Manager / Risk Engineer's change to `main` (2026-10-15): the Operator asked the pen to carry out
     PM1 Part 5 (on the orphan branch `Risk_Management`, commit `6c087a0`): "carry it out as one change run through
     your normal process, and ask me for the explicit yes your rules need for the §7 change, the D38 entry and the
@@ -947,8 +967,10 @@ desktop's checkout still has the round 3 branch locally.
     the data track (parked on 2026-09-17) needs a new decision.
   - **D33 point 8, the refresh routine** (a draft). After a data change in the root, run
     an `rclone copy`, never a `sync`, of the root to `swe-data/`, with the tool's
-    exclusions. Then check both ways by checksum, and compare `rclone size` with the
-    root's count, as card 2d's step 7 did.
+    exclusions, reaching `swe-data/` by its id (`--drive-root-folder-id`), never by a path
+    such as `gdrive:swe-data`, which would make a second folder at the top of My Drive.
+    Then check both ways by checksum, and compare `rclone size` with the root's count, as
+    card 2d's step 7 did.
     - One question for the Operator first: when a file leaves the root, does it leave
       `swe-data/` too? `copy` keeps it there, and the two-way check then reports it.
       `sync` deletes it on Drive.

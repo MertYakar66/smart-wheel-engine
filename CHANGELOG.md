@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-15 — card 3's code run: census owners, `swe-data/` by id, `trashlist` and `recount` (desktop; #576, campaign #544)
+## 2026-10-15 — card 3's code run: census owners, `swe-data/` by id, `trashlist` and `recount` (desktop; #576, `9cd074f`, campaign #544)
 
 **Added** — `scripts/drive_consolidate.py`, for D37, the middle route (the Operator's choice of
 2026-10-15). Nothing in it deletes, moves, trashes or uploads on Drive, and this run read no

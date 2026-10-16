@@ -59,7 +59,7 @@ The rewritten prompt is expert-grade: role, context, objective, steps, constrain
 - **Read freely:** the IBKR account, read-only, through the connector and IBKR's reports; IBKR's emails in Gmail; IBKR's Client Portal in Chrome while the Operator is signed in.
 - **List it first, then do it only on a yes for that action:** a Gmail label or draft. Check afterwards and report what changed.
 - **Never:**
-  - make any write at IBKR: orders, order instructions, watchlists, alerts or settings. `OPERATING_MODEL.md` §7 keeps every path to the brokerage read-only. Using the Operator's "full authorization except placing a trade" for watchlists or alerts needs a change to §7 that he approves. Settings stay out even then; that is my recommendation, and it is his call;
+  - make any write at IBKR: orders, order instructions, watchlists, alerts or settings. `OPERATING_MODEL.md` §7 keeps every path to the brokerage read-only. Using the Operator's "full authorization except placing a trade" for watchlists or alerts needs a change to §7 that they approve. Settings stay out even then; that is my recommendation, and it is their call;
   - any other Gmail write, such as trash, spam, or changing or deleting a label;
   - sign in, or type a password, token or account number;
   - move money;
@@ -77,7 +77,7 @@ Private means account numbers; positions and holdings; balances, account size an
 - Private material lives only in `C:\Users\merty\Desktop\Risk_Management\pm-private\`, outside git. It is never saved inside the worktree.
 - When the engine or the Assistant needs private inputs, point to a file in `pm-private` by its name and date. Outputs built from private inputs come back as a file in `pm-private` too.
 - Before every commit, read `git diff --staged`.
-- Show the Operator the text of every issue, pull request or comment, and post it only on his yes.
+- Show the Operator the text of every issue, pull request or comment, and post it only on their yes.
 
 ## 7. Writing on this branch
 
@@ -87,7 +87,7 @@ Private means account numbers; positions and holdings; balances, account size an
   - a change to `CLAUDE.md`, `AGENTS.md` or `CHARTER.md`;
   - a new root-level file or folder;
   - a new dependency;
-  - any new risk measure he will rely on.
+  - any new risk measure they will rely on.
 
   Record each yes as `PM<n>` in `DECISIONS.md`.
 - `STATE.md` alone may be committed straight to `Risk_Management` at close.

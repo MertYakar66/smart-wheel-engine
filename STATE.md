@@ -1,30 +1,28 @@
 # STATE — the Portfolio Manager / Risk Engineer
 
-**Last updated:** 2026-10-15, the setup (`DECISIONS.md` PM1).
+**Last updated:** 2026-10-16, at the close of the setup chat (PM1–PM4).
 
 Nothing private is written here. This branch is public.
 
 ## What is true now
 
-- The role is set up on this orphan branch, `Risk_Management`, with its checklist (`CLAUDE.md`), the Assistant's checklist (`AGENTS.md`) and the charter (`CHARTER.md`), approved by the Operator (PM1).
-- The engine's side of the setup, Part 5 in PM1, is not yet on `main`. It waits for #577 to merge, then for the engine's pen to carry it out.
-- Until Part 5 lands, `main`'s rule-books do not yet name this role.
-- The engine's session-open still counts this branch under "other branches".
-- The `pm-request` label does not exist yet, so the "open requests" slot of the mark reads `unknown`.
+- The role is set up on this orphan branch: its checklist (`CLAUDE.md`), the Assistant's checklist (`AGENTS.md`) and the charter (`CHARTER.md`) (PM1). The Operator's standing rule on every message is in `CLAUDE.md` §3 (PM2).
+- `main` names the role: D38, merged in #580. The engine's session-open leaves this branch and its `rm/` branches out of "other branches", and the `pm-request` label exists.
+- The learning program is approved (PM3): `methods/learning.md` and `methods/learning-progress.md`. The CFA window is August 2027.
+- The three folders are one (PM4): `C:\Users\merty\Desktop\Risk_Management\` holds `PM\` (this worktree), `Assistant\` and `pm-private\`.
+- No account read has happened yet.
 
 ## What is open
 
-1. **The engine's side (Part 5).** After #577 merges, the Operator pastes the handoff into the engine's pen ("Main Agent Local").
-2. **The Assistant's first session.** In its own worktree:
-   - trust that folder in Codex;
-   - add the private folder as a place it may write;
-   - test that with one file before its first check.
-3. **The IBKR round.** A read-only account read. Research into IBKR's reporting and data options (Flex Queries, statements, PortfolioAnalyst, Client Portal Web API, TWS / IB Gateway, the connector). One recommended setup.
-4. **The engine's parameters.** After the account read, the Operator and the PM/RE review them; the Operator wants major changes.
-5. **The engine's outputs.** Once the engine is in use, the Operator and the PM/RE review them for logic and feasibility.
-6. **The finance learning program.** The prompt is approved. Its first deliverable, the syllabus, is in progress.
-7. **Risk limits (the investment policy).** Not started. The PM/RE drafts them; the Operator decides.
+1. **The IBKR round — next.** A read-only account read, plus research into IBKR's reporting and data options, ending in one recommended setup. Scheduled for week 1 (19–25 Oct 2026).
+2. **The engine's parameters.** After the account read, the Operator and the PM/RE review them; the Operator wants major changes.
+3. **The engine's outputs.** Once the engine is in use, reviewed for logic and feasibility.
+4. **Risk limits (the investment policy).** Not started. The PM/RE drafts them; the Operator decides.
+5. **Lessons.** Track 1 starts with lesson 1.0 (the toolkit) on Mon 19 Oct 2026.
+6. **The Assistant's first session.** In its own worktree: trust the folder in Codex, add the private folder as a place it may write, and test with one file. Until then, each change has needed the Operator's yes for a fresh agent to check it instead.
+7. **Checklist follow-ups.** Seven small points from the check of PM2 wait for the Operator to ask for them.
+8. **CFA registration** for August 2027 opens 3 Nov 2026 (early price until 20 Jan 2027). The Operator registers.
 
 ## Next
 
-Open a session in this folder. Its first act is `/memory`, to confirm that memory points at the private folder.
+The IBKR round, starting with the Operator's first message to this chat.

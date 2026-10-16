@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**203 records.**
+**204 records.**
 
 ## Features (23)
 
@@ -105,12 +105,13 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 | [trader500k-campaign](trader500k-campaign-trader-500k-reliability-campaign.md) | shipped | #520 | $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional | `trader500k-campaign-trader-500k-reliability-campaign.md` |
 
-## Verification & realism (51)
+## Verification & realism (52)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
 | [audit-data-engine](audit-data-engine-phase-1-data-engine-audit-discovery.md) | in-flight |  | Reusable data+engine audit pass — 13 ranked findings; data spine sound, frontier-pinned probe clean (480/511 produced, 0 silent drops); 3 HIGH (conditional IV /100 heuristic in-trio, dateless fundamentals/credit lookahead, OHLCV-only fingerprint blind-spot) | `audit-data-engine-phase-1-data-engine-audit-discovery.md` |
 | [brain-audit-2026-06-11](brain-audit-2026-06-11-overnight-brain-audit-8-dimension-probe-backed-s.md) | in-flight |  | 8/8 dimensions SOUND_WITH_CAVEATS, zero new HIGH/CRITICAL; EV integral exact to <5e-9; §2 verified fresh (560 launch-blocker tests); suite 3,126 green; 4 new MEDIUMs dispositioned. | `brain-audit-2026-06-11-overnight-brain-audit-8-dimension-probe-backed-s.md` |
+| [card3a](card3a-desktop-card-3a-the-proof-for-the-hand-trash-d37.md) | in-flight |  | The proof is made: swe-local-only, SmartWheelData and smart-wheel-engine each read "clear to trash by hand: yes" with 0 blockers; proof sha256 0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9; the root unchanged and the manifest 144/0/0. | `card3a-desktop-card-3a-the-proof-for-the-hand-trash-d37.md` |
 | [d31-step6](d31-step6-d31-step-6-the-four-data-branches-on-github.md) | merged | #559 | The four data branches deleted from GitHub in one atomic push with a lease on each; main and refs/pull/507/head untouched, and exactly four of the remote's 532 refs went. | `d31-step6-d31-step-6-the-four-data-branches-on-github.md` |
 | [d33-card1-2026-09-25](d33-card1-2026-09-25-desktop-card-1-prove-and-plan-d33.md) | merged | #538 | morning-pull task exported and retired; tool 190 passed/12 skipped on Windows; main merged into round 3 removing only the 87 checkout copies (87/87 byte-identical to the root's manifest, 0 gone and 0 changed among 235 untracked files); 20 staging CSVs (7,152,880 B) swept home; the 1.7 GB bundle restores with fsck clean and all four tips; Drive census 7 areas / 332,772 objects all equal to rclone size, plan bytechecked with 120,139 files (10,716,801,880 B) to copy home; root 144/0/0 at the start and at the end; nothing on Drive changed and nothing was deleted from the root or Drive | `d33-card1-2026-09-25-desktop-card-1-prove-and-plan-d33.md` |
 | [d33-card2a-i](d33-card2a-i-desktop-card-2a-i-drive-only-bloomberg-and-theta.md) | merged | #546 | 2,223 Drive-only files (1,078,864,189 B) came home into data_archive/drive-legacy/SmartWheelData/ across c0-bloomberg, c1-index_reference and c2-option_history_delisted; c3-option_history_deep365 deferred to 2a-ii; end check "no finding", manifest 144/0/0. | `d33-card2a-i-desktop-card-2a-i-drive-only-bloomberg-and-theta.md` |

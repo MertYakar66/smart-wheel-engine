@@ -14,6 +14,86 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-15 — card 3's code run: census owners, `swe-data/` by id, `trashlist` and `recount` (desktop; #576, campaign #544)
+
+**Added** — `scripts/drive_consolidate.py`, for D37, the middle route (the Operator's choice of
+2026-10-15). Nothing in it deletes, moves, trashes or uploads on Drive, and this run read no
+Drive at all.
+- The census records each object's owner (`owned`), from `backend query` with
+  `--drive-auth-owner-only`, which no other command gets (rclone v1.74.4 only adds the
+  owners field there; `lsjson` and `size` would drop objects). `SCHEMA` is 5: documents of an
+  older schema are refused.
+- The `census` command reads `swe-data/` by its id, `13h0HIy_kLjsN431YJFRewJ8FAZGjxe3b`, in
+  OptionsEngine_Project, never by its name, and stops if it is missing, trashed or not a
+  folder. It records the chain My Drive › The_Works › Projects › OptionsEngine_Project, and
+  the sharing of each link, of `swe-data/` and of each area folder (`backend query -M`), with
+  no name or email address. The re-census of `copy` and `bytecheck` reads none of it. The
+  plan's "a top-level swe-data already exists" warning is gone; the plan says where
+  `swe-data/` is.
+- `DEFAULT_AREAS` puts `swe-local-only` and `smart-wheel-engine-git` in OptionsEngine_Project,
+  as `docs/DATA_INVENTORY.md` §C.3's rows 1 and 3 now record.
+- `trashlist`: every object of the three consolidate areas, and each area folder, is
+  `listed`, `folder` or `blocker`; the proof `trashlist.json` (canonical JSON; its sha256 is
+  of its exact bytes), `trashlist.csv`, `kept.csv`, `sharing.json` and a summary with a
+  "clear to trash by hand" verdict per area, all in a new folder under the root's `_logs/`.
+- `recount`: on the day of the trash, whether anything in the areas checked changed since the
+  proof, the desktop twins hashed again and the `swe-data/` twins read again. It reads only.
+- `recount` also holds to the proof's own root, and the census records each area folder's name
+  as Drive lists it (both from the fresh-context review of #576).
+- Fix round 1 (the pen's five-lens review of #576):
+  - a verdict is "yes" only when every row of the area, its folder's own among them, is `listed`
+    or `folder`; `recount` fails closed the same way;
+  - `recount` takes a census from the 24 hours before it, and prints and records its time;
+  - (its one-folder-per-query census, withdrawn in fix round 2, below);
+  - the fake rclone records every call of the session, which is checked against the allowlist,
+    and a source scan checks every `run_cmd(` and process call;
+  - `sharing.json` names each area folder as Drive does.
+- Fix round 2 (the pen's three-lens re-check):
+  - each area of a census is checked against rclone's own listing, `lsjson -R --disable
+    ListR`, one folder per query: the count and bytes of its files with an MD5, and the ids of
+    its files, Google-format files and folders; any difference stops the census and names the
+    ids. It replaces the `rclone size` check, and the one-folder-per-query walk, which would
+    have cost about 150,000 rclone calls a pass. `trashlist` refuses a census without the
+    record, and `recount` says no for one. rclone's verbs are now `version`, `backend query`,
+    `lsjson` and `backend copyid`;
+  - the census records `started`; `recount` counts the 24 hours, and the later-than-the-proof
+    rule, from it, and prints the start and the end;
+  - `census --preset card2b|consolidate|swe-data` names card 3's area sets, refused with
+    `--areas`;
+  - tests pin recount's "no row for its folder", `kept.csv`, the session's verb check run
+    alone, a sentinel for `dc.RCLONE` outside the fake, and the scan of `shell=` and a joined
+    `RCLONE`.
+- Fix round 3 (the pen's final check, one blocking gap):
+  - same-name sibling folders: rclone's walk goes by path and its directory cache keeps the last
+    folder listed for a path, so it lists one twin twice and never the other's contents. The
+    cross-check now stops when rclone's listing gives one path to two folder ids; the census
+    records each area's same-name sibling folders; `trashlist` blocks each of them and all
+    they hold; `recount` says no for an area holding one;
+  - `INCOMPLETE` on `lsjson`'s stderr fails the listing; `trashlist` refuses a `--swe-census`
+    without its cross-check; recount's "finished before its start" is pinned; the docstring's
+    card 3 sequence has `bytecheck`; `census --only <area>` keeps named areas of a set.
+- Fix round 4 (the pen's check of round 3, nothing blocking):
+  - the census records the other folders named like each area folder in its parent
+    (`same_name_siblings`); `trashlist` names them in a WARNING beside the area's verdict,
+    "trash by the id link only", and the verdict does not change (D37: by id);
+  - any line rclone logs at ERROR or above fails `lsjson`'s listing, an entry it drops
+    ("Entry doesn't belong in directory") among them; rclone runs without the variables
+    that would move or hide those lines (`RCLONE_LOG_FILE`, `RCLONE_LOG_LEVEL` and five more);
+  - the docstring: one area takes `--only` on the census and `--area` on recount; recount
+    reads the proof from trashlist's `--out` folder; the one-path check on rclone's listing
+    is the guard that decides, since rclone's path comes from ToStandardName.
+- Fix round 5 (the pen's check of round 4, nothing blocking):
+  - rclone also runs without `RCLONE_PROGRESS`, which sends its log to stdout, and without
+    its filter variables (`RCLONE_EXCLUDE*`, `RCLONE_INCLUDE*`, `RCLONE_FILTER*`,
+    `RCLONE_FILES_FROM*`, `RCLONE_METADATA_*`, the size, age and depth limits, and the Drive
+    options that narrow a listing), which would leave entries out silently;
+  - `recount` names, beside its verdict, the folders its fresh census finds named like a
+    checked area folder: trash by the id link only; the verdict does not change;
+  - a test pins that a non-zero exit fails `lsjson`'s listing.
+- `tests/test_drive_trashlist.py`, new (218 tests); the fake rclone keeps owners, permissions
+  and a trash, and lists by path, as rclone does; a folder reached by a second path only
+  with `FAKE_SIZE_BY_PATH`.
+
 ## 2026-10-15 — D38: the Portfolio Manager / Risk Engineer above the engine (desktop; #580, `e042f5b`)
 
 **Docs** — PM1 Part 5 from the `Risk_Management` branch, on the Operator's "1. yes 2. yes 3. yes 4.

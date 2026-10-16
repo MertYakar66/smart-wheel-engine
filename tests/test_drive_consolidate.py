@@ -3,7 +3,8 @@
 Pins:
 - the census lists every object by parent id, verifies each area root, never
   follows a shortcut, recovers when Drive answers a query over several parents
-  with nothing, and stops when its totals differ from ``rclone size``;
+  with nothing, and stops when its totals or ids differ from rclone's own listing
+  (``lsjson``, one folder per query);
 - the plan classifies each case:
   - redundant only when size, MD5 and SHA-256 all equal a root file (an empty file
     only when an empty file sits at its destination);
@@ -85,11 +86,83 @@ dc = importlib.util.module_from_spec(_SPEC)
 assert _SPEC.loader is not None
 _SPEC.loader.exec_module(dc)
 
+# Every invocation the fake rclone receives, in any test of this session, is recorded here,
+# one new file per call, so calls made in parallel lose none (an append is not atomic on
+# Windows). The folder is written into each copy of the fake. A session fixture checks the
+# calls against the allowlist: the only verbs the tool may give rclone (D33: nothing that
+# writes to Drive).
+VERB_DIR = Path(tempfile.gettempdir()) / f"swe-fake-rclone-calls-{os.getpid()}"
+ALLOWED_VERBS = frozenset({"version", "backend query", "lsjson", "backend copyid"})
+_CHECKS_OPEN = [0]  # session fixtures still open: the last one to close removes VERB_DIR
+
+
+def fake_calls() -> list[list[str]]:
+    """Every invocation the fake rclone has recorded in this session so far, in order."""
+    if not VERB_DIR.is_dir():
+        return []
+    return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(VERB_DIR.iterdir())]
+
+
+def verb_of(call: list[str]) -> str:
+    if not call:
+        return ""
+    return " ".join(call[:2]) if call[0] == "backend" else call[0]
+
+
+class _NoRealRclone(list):
+    """What dc.RCLONE is outside the fake: any use of it fails the test that made it."""
+
+    def __init__(self):
+        super().__init__(["rclone"])
+        self.used = False
+
+    def __iter__(self):
+        self.used = True
+        raise AssertionError("dc.RCLONE used outside the fake rclone")
+
+
+@pytest.fixture(autouse=True)
+def no_rclone_outside_the_fake(monkeypatch):
+    """Every test starts with dc.RCLONE a sentinel: only the fake, set by the test, may run."""
+    sentinel = _NoRealRclone()
+    monkeypatch.setattr(dc, "RCLONE", sentinel)
+    yield sentinel
+    assert not sentinel.used, "a test reached rclone outside the fake"
+
+
+@pytest.fixture(scope="session", autouse=True)
+def every_fake_rclone_call_is_allowed():
+    """At the end of the session: every verb the fake received was an allowed one."""
+    _CHECKS_OPEN[0] += 1
+    start = len(fake_calls())
+    yield
+    bad = [c for c in fake_calls()[start:] if verb_of(c) not in ALLOWED_VERBS]
+    _CHECKS_OPEN[0] -= 1
+    if _CHECKS_OPEN[0] == 0:
+        shutil.rmtree(VERB_DIR, ignore_errors=True)  # this session's own record of calls
+    assert not bad, f"rclone given a verb outside the allowlist: {bad[:5]}"
+
+
 FAKE_RCLONE = r"""
-import hashlib, json, os, re, sys
+import hashlib, json, os, re, sys, time
+args = sys.argv[1:]
+os.makedirs(VERB_DIR, exist_ok=True)  # every invocation, one new file each: the session's check
+_mine = f"{time.time_ns():020d}-{os.getpid()}-{os.urandom(4).hex()}.json"
+with open(os.path.join(VERB_DIR, _mine), "x", encoding="utf-8") as fh:
+    fh.write(json.dumps(args))
 state = json.load(open(os.environ["FAKE_DRIVE"], encoding="utf-8"))
 objs = state["objects"]
-args = sys.argv[1:]
+by_id = {o["id"]: o for o in objs}
+
+def trashed(o, seen=()):
+    # Drive reads an item as trashed when it, or a folder above it, is in the trash.
+    if o.get("trashed"):
+        return True
+    for p in o.get("parents", []):
+        up = by_id.get(p)
+        if up is not None and p not in seen and trashed(up, (*seen, p)):
+            return True
+    return False
 
 def edit_in_place(oid):
     new = bytes.fromhex(state["content"][oid]) + b"edited on Drive\n"
@@ -103,61 +176,120 @@ def edit_in_place(oid):
     with open(os.environ["FAKE_DRIVE"], "w", encoding="utf-8") as fh:
         json.dump(state, fh)
 
-def wire(o):
+def wire(o, flags=()):
     o = dict(o)
     if o.get("size") == "0":
         del o["size"]  # rclone's JSON omits a zero size (size,omitempty)
+    # Drive returns owners only when asked: --drive-auth-owner-only, or -M (metadataFields).
+    if "--drive-auth-owner-only" not in flags and "-M" not in flags:
+        o.pop("owners", None)
+    if "-M" not in flags:  # permissions come only with -M (metadataFields)
+        o.pop("permissions", None)
+    if trashed(o):
+        o["trashed"] = True  # also when only a folder above it is trashed
+    else:
+        o.pop("trashed", None)  # omitempty
     return o
 
+def mine(o):
+    return any(u.get("me") for u in o.get("owners", []))
+
+if os.environ.get("FAKE_CALLS"):
+    with open(os.environ["FAKE_CALLS"], "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(args) + "\n")
 if args[:1] == ["version"]:
     print("rclone v1.68.2")
     sys.exit(0)
 if args[:2] == ["backend", "query"]:
-    q = args[3]
+    flags = {a for a in args[2:] if a.startswith("-")}
+    q = [a for a in args[2:] if not a.startswith("-")][1]
     parents = set(re.findall(r"'([^']+)' in parents", q))
+    if "root" in parents and state.get("root_id"):
+        parents.add(state["root_id"])  # Drive's alias for My Drive's root
     name = re.search(r"name = '([^']*)'", q)
-    if os.environ.get("FAKE_MULTI_EMPTY") and len(parents) > 1:
+    live = "trashed = false" in q
+    if os.environ.get("FAKE_MULTI_EMPTY") and len(parents - {"root"}) > 1:
         print("null")  # Google issue 149522397
         sys.exit(0)
-    out = [wire(o) for o in objs if parents & set(o.get("parents", []))
-           and (name is None or o["name"] == name.group(1))]
+    # Drive's name = '...' ignores case.
+    out = [wire(o, flags) for o in objs if parents & set(o.get("parents", []))
+           and (name is None or o["name"].casefold() == name.group(1).casefold())
+           and not (live and trashed(o))]
+    drop = set(filter(None, os.environ.get("FAKE_DROP_IN_OR", "").split(",")))
+    if drop and len(parents - {"root"}) > 1:  # a short, not empty, answer to an OR of parents
+        out = [o for o in out if o["id"] not in drop]
     if os.environ.get("FAKE_INCOMPLETE"):
         sys.stderr.write("ERROR : search result INCOMPLETE\n")
     print(json.dumps(out or None))
     sys.exit(0)
-if args[:1] == ["size"]:
-    if "--disable" not in args or args[args.index("--disable") + 1] != "ListR":
-        sys.stderr.write("fake: the check must list one folder at a time (--disable ListR)\n")
+if args[:1] == ["lsjson"]:
+    # rclone lsjson -R as rclone v1.74.4 lists Drive: folder by folder, by path.
+    if "--disable" not in args or args[args.index("--disable") + 1] != "ListR" or "-R" not in args:
+        sys.stderr.write("fake: the check must list one folder at a time (--disable ListR, -R)\n")
         sys.exit(3)
+    if "--drive-auth-owner-only" in args:  # rclone's listing drops what the account does not own
+        objs = [o for o in objs if o["mimeType"].endswith(".folder") or mine(o)]
+    objs = [o for o in objs if not trashed(o)]
     top = args[args.index("--drive-root-folder-id") + 1]
-    folders, frontier = {top}, [top]
-    while frontier:
-        f = frontier.pop()
+    hashes = "--hash" in args or "--hash-type" in args
+    all_gdocs = "--drive-show-all-gdocs" in args
+    exportable = {"document", "spreadsheet", "presentation", "drawing"}
+    # rclone's walk goes by path: one job per folder entry, keyed by its path, and each job
+    # lists the folder its directory cache holds for that path, the last one listed under
+    # that name (lib/dircache Put overwrites). So of two same-name sibling folders, one is
+    # listed twice and the other's contents never. A folder reached by a second, different
+    # path is listed again only with FAKE_SIZE_BY_PATH (rclone always does; the tests of what
+    # a plan does with such a folder keep it off).
+    by_path = os.environ.get("FAKE_SIZE_BY_PATH")
+    folder_mime = "application/vnd.google-apps.folder"
+    cache, jobs, first_path, out = {"": top}, [""], {}, []
+    while jobs:
+        path = jobs.pop(0)
+        fid = cache[path]
+        if (first_path.setdefault(fid, path) != path and not by_path) or path.count("/") > 60:
+            continue
         for o in objs:
-            if (f in o.get("parents", []) and o["mimeType"] == "application/vnd.google-apps.folder"
-                    and o["id"] not in folders):
-                folders.add(o["id"])
-                frontier.append(o["id"])
-    count = size = 0
-    by_path = os.environ.get("FAKE_SIZE_BY_PATH")  # rclone's walk: a folder once per parent
-    paths = {top: 1}
-
-    def npaths(f, depth=0):
-        if f not in paths:
-            obj = next(o for o in objs if o["id"] == f)
-            ups = [p for p in obj.get("parents", []) if p in folders]
-            paths[f] = sum(npaths(p, depth + 1) for p in ups) if depth < 50 else 1
-        return paths[f]
-
-    for o in objs:
-        if o["mimeType"].startswith("application/vnd.google-apps.") or not o.get("md5Checksum"):
-            continue  # rclone skips a non-Google file without an MD5, as it skips Google files
-        ups = [p for p in o.get("parents", []) if p in folders]
-        k = sum(npaths(p) for p in ups) if by_path else len(ups)
-        count += k
-        size += k * int(o.get("size", "0"))
-    count += int(os.environ.get("FAKE_SIZE_OFFSET", "0"))
-    print(json.dumps({"count": count, "bytes": size, "sizeless": 0}))
+            if fid not in o.get("parents", []) or o["id"] == top:
+                continue
+            mt = o["mimeType"]
+            if mt == "application/vnd.google-apps.shortcut" and "--drive-skip-shortcuts" in args:
+                continue  # left out, never followed
+            md5 = o.get("md5Checksum")
+            google = mt.startswith("application/vnd.google-apps.") and mt != "application/vnd.google-apps.shortcut"
+            if mt != folder_mime and not md5:
+                # rclone shows a file without an MD5 only as a document: all of them with
+                # --drive-show-all-gdocs, else only the Google types it can export
+                if not all_gdocs and not (google and mt.rsplit(".", 1)[-1] in exportable):
+                    continue
+            if o["name"] == "":
+                # path.Join(dir, "") is dir itself (drive.go:2012): a folder is put in the
+                # cache under it, then filterDir drops the entry with an ERROR line and
+                # carries on, exit 0 (fs/list/list.go:139-144); its subtree is never listed.
+                if mt == folder_mime:
+                    cache[path] = o["id"]
+                why = "same as directory" if path == "" else "too short"
+                obj = f"{path}: " if path else ""
+                sys.stderr.write(
+                    f"2026/10/15 00:00:00 ERROR : {obj}Entry doesn't belong in directory "
+                    f'"{path}" ({why}) - ignoring\n'
+                )
+                continue
+            here = f"{path}/{o['name']}" if path else o["name"]
+            e = {"Path": here, "Name": o["name"], "MimeType": mt, "ID": o["id"],
+                 "IsDir": mt == folder_mime, "Size": int(o.get("size", "0")) if md5 else -1}
+            if hashes and md5:
+                e["Hashes"] = {"md5": md5}
+            out.append(e)
+            if mt == folder_mime:
+                cache[here] = o["id"]
+                jobs.append(here)
+    if os.environ.get("FAKE_LSJSON_INCOMPLETE"):
+        sys.stderr.write("ERROR : search result INCOMPLETE")
+    extra = int(os.environ.get("FAKE_SIZE_OFFSET", "0"))
+    first = next((e for e in out if e.get("Hashes")), None)
+    if extra and first:  # the same file listed again, under another path
+        out.extend(dict(first) for _ in range(extra))
+    print(json.dumps(out))
     sys.exit(0)
 if args[:2] == ["backend", "copyid"]:
     pairs = args[3:]
@@ -218,25 +350,73 @@ sys.exit(2)
 """
 
 
+# My Drive's root as Drive names it: the API never returns the alias "root" as a parent.
+MY_DRIVE_ROOT = "0AFakeMyDriveRootFolderUk9PVA"
+OWNER = [{"kind": "drive#user", "me": True, "displayName": "The Owner"}]
+SOMEONE_ELSE = [{"kind": "drive#user", "displayName": "Someone Else"}]
+# The permissions Drive lists for an owner's own object; the census keeps no name or email.
+OWNER_ONLY_PERMS = [
+    {
+        "kind": "drive#permission",
+        "id": "perm-owner",
+        "type": "user",
+        "role": "owner",
+        "emailAddress": "owner@example.invalid",
+        "displayName": "The Owner",
+    }
+]
+
+
 class FakeDrive:
+    """A fake Drive. It always holds D36's chain, My Drive › The_Works › Projects ›
+    OptionsEngine_Project (the pinned id), and swe-data/ in it (the pinned id): the
+    ``census`` command reads both every time."""
+
     def __init__(self) -> None:
         self.objects: list[dict] = []
         self.content: dict[str, str] = {}
         self.n = 0
+        self.folder("The_Works", MY_DRIVE_ROOT, "chain-the-works")
+        self.folder("Projects", "chain-the-works", "chain-projects")
+        self.folder("OptionsEngine_Project", "chain-projects", dc.PROJECT_FOLDER_ID)
+        self.folder("swe-data", dc.PROJECT_FOLDER_ID, dc.SWE_DATA["id"])
 
     def _id(self) -> str:
         self.n += 1
         return f"id{self.n:04d}"
 
-    def folder(self, name: str, parent: str, oid: str | None = None, parents=None) -> str:
+    def obj(self, oid: str) -> dict:
+        return next(o for o in self.objects if o["id"] == oid)
+
+    def folder(
+        self, name: str, parent: str, oid: str | None = None, parents=None, owned=True
+    ) -> str:
         oid = oid or self._id()
         self.objects.append(
-            {"id": oid, "name": name, "mimeType": dc.FOLDER, "parents": parents or [parent]}
+            {
+                "id": oid,
+                "name": name,
+                "mimeType": dc.FOLDER,
+                "parents": parents or [parent],
+                "modifiedTime": "2026-07-03T00:00:00Z",
+                "owners": OWNER if owned else SOMEONE_ELSE,
+                "permissions": OWNER_ONLY_PERMS,
+            }
         )
         return oid
 
     def file(
-        self, name, parent, data: bytes, *, sha=True, md5=None, sha256=None, parents=None, oid=None
+        self,
+        name,
+        parent,
+        data: bytes,
+        *,
+        sha=True,
+        md5=None,
+        sha256=None,
+        parents=None,
+        oid=None,
+        owned=True,
     ):
         oid = oid or self._id()
         obj = {
@@ -248,6 +428,8 @@ class FakeDrive:
             "md5Checksum": md5 or hashlib.md5(data).hexdigest(),
             "createdTime": "2026-07-01T00:00:00Z",
             "modifiedTime": "2026-07-02T00:00:00Z",
+            "owners": OWNER if owned else SOMEONE_ELSE,
+            "permissions": OWNER_ONLY_PERMS,
         }
         if md5 == "":
             del obj["md5Checksum"]  # Drive lists no MD5 for it
@@ -260,13 +442,24 @@ class FakeDrive:
     def special(self, name, parent, mime, **extra) -> str:
         oid = self._id()
         self.objects.append(
-            {"id": oid, "name": name, "mimeType": mime, "parents": [parent], **extra}
+            {
+                "id": oid,
+                "name": name,
+                "mimeType": mime,
+                "parents": [parent],
+                "owners": OWNER,
+                "permissions": OWNER_ONLY_PERMS,
+                **extra,
+            }
         )
         return oid
 
     def save(self, path: Path) -> None:
         path.write_text(
-            json.dumps({"objects": self.objects, "content": self.content}), encoding="utf-8"
+            json.dumps(
+                {"objects": self.objects, "content": self.content, "root_id": MY_DRIVE_ROOT}
+            ),
+            encoding="utf-8",
         )
 
 
@@ -283,7 +476,7 @@ def _env(tmp_path, monkeypatch, drive: FakeDrive, areas: list[dict], files: dict
     state = tmp_path / "drive.json"
     drive.save(state)
     script = tmp_path / "fake_rclone.py"
-    script.write_bytes(FAKE_RCLONE.encode())
+    script.write_bytes((f"VERB_DIR = {str(VERB_DIR)!r}\n" + FAKE_RCLONE).encode())
     log = tmp_path / "copyid.log"
     log.write_bytes(b"")
     monkeypatch.setenv("FAKE_DRIVE", str(state))
@@ -447,7 +640,13 @@ def test_census_lists_every_object_and_never_follows_a_shortcut(world):
     names = {o["name"] for a in doc["areas"] for o in a["objects"]}
     assert "private.txt" not in names and "personal" not in names  # behind the shortcut
     assert {"link", "notes", "flex_credentials.json"} <= names
-    assert doc["swe_data"] == []
+    # swe-data/ is recorded where it is, by its id (D36), not looked for by name.
+    swe = doc["swe_data"]
+    assert (swe["id"], swe["parents"], swe["trashed"]) == (
+        dc.SWE_DATA["id"],
+        [dc.PROJECT_FOLDER_ID],
+        False,
+    )
     a = next(a for a in doc["areas"] if a["name"] == "A")
     link = next(o for o in a["objects"] if o["name"] == "link")
     assert link["mime"] == dc.SHORTCUT and link["target_mime"] == dc.FOLDER
@@ -866,10 +1065,10 @@ def test_the_census_stops_on_an_object_that_changed_while_it_ran(tmp_path, monke
         b = {"name": "B", "id": "areaB", "parent": "root", "folder": "B", "mode": "consolidate"}
         oid = d.file("prices.csv", "areaA", old)
     w = _env(tmp_path, monkeypatch, d, [a, b], {"data/prices.csv": old})
-    real_size = dc.rclone_size
+    real_listing = dc.rclone_listing
 
-    def size_then_change(remote, folder_id):
-        out = real_size(remote, folder_id)
+    def list_then_change(remote, folder_id):
+        out = real_listing(remote, folder_id)
         if folder_id == "areaA":  # A is listed and checked; then the file changes on Drive
             o = next(o for o in d.objects if o["id"] == oid)
             o["size"] = str(len(new))
@@ -881,7 +1080,7 @@ def test_the_census_stops_on_an_object_that_changed_while_it_ran(tmp_path, monke
             d.save(tmp_path / "drive.json")
         return out
 
-    monkeypatch.setattr(dc, "rclone_size", size_then_change)
+    monkeypatch.setattr(dc, "rclone_listing", list_then_change)
     assert _census(w) == 2
     assert not (w["tmp"] / "c.json").exists()
 

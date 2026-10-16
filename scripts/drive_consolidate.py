@@ -16,16 +16,58 @@ object by object, what those areas hold that the root lacks, and copies it home:
     python scripts/drive_consolidate.py sums      --root C:\\swe-data
     python scripts/drive_consolidate.py filters   > exclude.txt   # rclone --exclude-from, with --ignore-case
 
+Card 3 (D37): the proof, then, on the day of the trash, the recount::
+
+    python scripts/drive_consolidate.py census    --remote gdrive: --preset card2b --out census6.json
+    python scripts/drive_consolidate.py census    --remote gdrive: --preset swe-data --out swe.json
+    python scripts/drive_consolidate.py inventory --root C:\\swe-data --out root.json
+    python scripts/drive_consolidate.py plan      --census census6.json --inventory root.json --out plan.json
+    python scripts/drive_consolidate.py bytecheck --plan plan.json --inventory root.json --root C:\\swe-data --remote gdrive:   # whenever byte checks are pending
+    python scripts/drive_consolidate.py trashlist --plan plan.json --census census6.json --swe-census swe.json --root C:\\swe-data --out C:\\swe-data\\_logs\\card3a\\list
+    python scripts/drive_consolidate.py census    --remote gdrive: --preset consolidate --out fresh.json   # one area: add --only <area> to the census and --area <area> to recount
+    python scripts/drive_consolidate.py recount   --proof C:\\swe-data\\_logs\\card3a\\list\\trashlist.json --summary C:\\swe-data\\_logs\\card3a\\list\\trashlist_summary.json --expect-sha256 <sha256> --census fresh.json --root C:\\swe-data --remote gdrive:
+
 ``census`` lists every object in each area through raw Drive queries by parent id
 (``rclone backend query``), so a shortcut is recorded as a shortcut and never
 followed, and a Google-format file, a duplicate name or a second parent stays
 visible. Each area's root folder is verified by its parent and name first. Drive
 sometimes answers an OR of several parents with nothing (Google issue 149522397;
 rclone works around it the same way), so an empty answer is asked again one parent
-at a time. Last, each area's file count and bytes must equal ``rclone size`` run
-with ``--disable ListR``, which lists one folder at a time: any difference stops the
-run. A file Drive lists without an MD5 is listed but not counted, as rclone can
-neither count nor download it.
+at a time; and it may answer one with fewer objects than it holds. So, last, each area
+is checked against rclone's own listing, ``rclone lsjson -R --disable ListR``, which
+asks about one folder per query: the count and bytes of its files with an MD5, and the
+ids of its files (with and without an MD5), Google-format files and folders, must all
+be the census's. Any difference stops the run and names the ids; shortcuts are left out
+on purpose, since trashing one deletes no bytes. rclone walks by path, so of two sibling
+folders at one path it lists one twice and never the other's contents: one path given to
+two folder ids also stops the run. That check is the guard that decides, since rclone's
+path is the name after ToStandardName (drive.go:1132), which can merge two different
+names. Any line rclone logs at ERROR or above stops it too (``INCOMPLETE``, or an entry
+its listing drops); rclone runs without the variables that would move or hide those
+lines (``LOG_ENV``), and without its filter variables, which would leave entries out
+silently (``FILTER_ENV``). The census records each area's same-name sibling folders, exact
+names (``same_name_folders``), and ``trashlist`` blocks each of them and all they hold.
+It also records the other folders named like each area folder in its parent
+(``same_name_siblings``; ``name =`` ignores case); ``trashlist`` names them in a
+warning beside the area's verdict, and ``recount`` those its fresh census finds: trash by
+the id link only. The census records ``started``, the
+time before its first query, and that this cross-check passed (``cross_checked``). A
+file Drive lists without an MD5 is listed but not counted, as rclone can neither count
+nor download it. Every ``backend query`` carries
+``--drive-auth-owner-only``, which there only adds each object's owners, so the census
+records whether the account owns each object (``owned``); no other command gets it,
+since ``lsjson`` would drop what the account does not own. ``--preset`` names card 3's
+area sets (``card2b``, ``consolidate``, ``swe-data``) instead of ``--areas``, and
+``--only <area>`` (repeatable) keeps only those areas of the set. The ``census``
+command then records where it stands (D36), with queries that have no trashed clause:
+the chain My Drive › The_Works › Projects › OptionsEngine_Project, each link read by
+name and the last by its pinned id; ``swe-data/``, read by its recorded id in its
+recorded parent, never by its name (missing, trashed or not a folder stops it); and the
+sharing of each link, of ``swe-data/`` and of each area folder, read with
+``backend query -M``, which returns the permissions Drive lists. Of each permission the
+record keeps who is reached and how (its id, type, role and domain, and a few flags),
+and on purpose no email address and no name. None of that runs in the re-census
+``copy`` and ``bytecheck`` make.
 
 ``plan`` gives every Drive object one class, written to the ledger
 (``plan.json`` and ``plan_ledger.csv``):
@@ -79,6 +121,39 @@ and ``copy``, ``sweep`` and ``verify`` refuse a destination with one on its path
 matched to: one changed or removed since the inventory fails the check, because
 its Drive twin is the only copy again.
 
+``trashlist`` (card 3a, D37) accounts for every object the census lists
+in the three consolidate areas, and for each area folder: each gets one class.
+``listed`` is a file proven twice: every plan row naming it is ``deletable``; Drive
+lists its size, MD5 and SHA-256, and it has one parent, is owned by the account, is
+untrashed, and is neither a Google-format file nor a shortcut; its root or archive
+twin, hashed again now, matches; ``swe-data/``'s census holds a file at exactly that
+path, with one parent and another id, listing the same size, MD5 and SHA-256; and its
+name has no credential shape. ``folder`` is a folder with one parent, owned, untrashed,
+whose whole subtree holds only ``listed`` files and such folders. Everything else is a
+``blocker``, with one reason; so is an object a read-only area also shows. What counts
+comes from the census, never from the plan's rows, and a hash learned from a download
+never counts. Its inputs are a plan over exactly card 2b's six areas, with no byte
+check pending, the census it was made from (cross-checked against rclone's listing),
+and a census of ``swe-data/`` alone; its
+outputs go into a new folder under the root's ``_logs/``: ``trashlist.json`` (the
+proof), ``trashlist.csv``, ``kept.csv`` (the blockers), ``sharing.json`` and
+``trashlist_summary.json``. **The proof's sha256 is the sha256 of ``trashlist.json``'s
+exact bytes**: canonical JSON (keys sorted, no spaces, UTF-8, rows in area, path and id
+order, one newline at the end), with no time of its making in it. The Operator's yes
+names that sha256. An area is "clear to trash by hand" only when every one of its rows,
+its own folder's row among them, is ``listed`` or ``folder``: anything else fails closed.
+
+``recount``, on the day of the trash, reads only. Given the approved sha256 and a
+cross-checked census that started after the proof was made and within the 24 hours
+before the recount, it says "unchanged: yes" for the areas checked only when the
+proof and its summary are the approved ones (for the same root), every row of each area
+is ``listed`` or ``folder``, the
+census lists the same ids with the same kind, MIME type, parents, owner, name, size,
+hashes and modified time, every listed file's desktop twin hashed again still matches,
+and every ``swe-data/`` twin, read again in its folder, has the same id, bytes and
+place and is untrashed. It writes its verdict to a new file under the root's
+``_logs/``, and prints it with the census's start, its age and its end.
+
 Nothing here deletes or moves a Drive object or a root file. The only files the
 tool removes or replaces are its own: temporary downloads outside the root, the
 staging names of files once published, the unfinished file a failed copy has just
@@ -86,7 +161,7 @@ created (exclusive creation proves it is its own), and its own output files, whi
 never go inside the root except under ``_logs/``. Deletion is a separate step with
 the Operator's yes (D33, card 3).
 
-Exit codes: 0 ok · 1 verify found a difference · 2 configuration or safety error,
+Exit codes: 0 ok · 1 verify or recount found a difference · 2 configuration or safety error,
 or an unexpected one · 3 a destination holds other bytes, a download does not
 match Drive, or Drive changed since the plan · 4 a copy or file operation failed (a
 rerun resumes) · 5 not enough free space. Standard library only; the
@@ -115,7 +190,7 @@ from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-SCHEMA = 4  # 4: one verdict per Drive id; config names; the plan records where areas are
+SCHEMA = 5  # 5: owners; swe-data/ by its id; the chain and sharing; trashlist and recount
 LEGACY = "data_archive/drive-legacy"
 FOLDER = "application/vnd.google-apps.folder"
 SHORTCUT = "application/vnd.google-apps.shortcut"
@@ -136,6 +211,40 @@ STAGING_SUFFIX = ".d33-staging"
 
 RCLONE: list[str] = ["rclone"]  # the command; tests substitute a fake
 
+# Passed to ``backend query`` and to no other command. There it only adds each object's
+# owners to what Drive returns (rclone v1.74.4 getFileFields); lsjson and size would drop
+# every object the account does not own, and the census must stay complete.
+OWNER_ONLY = "--drive-auth-owner-only"
+# rclone's global --metadata. With ``backend query`` it adds Drive's permissions to what
+# is returned (getFileFields with metadataFields): the sharing read, and only that read.
+SHARING_FLAG = "-M"
+# What the census keeps of each permission Drive lists: who is reached and how, never a
+# name or an email address.
+SHARING_KEYS = (
+    "id",
+    "type",
+    "role",
+    "domain",
+    "allowFileDiscovery",
+    "deleted",
+    "expirationTime",
+    "pendingOwner",
+    "view",
+)
+
+# Where the project's folders sit since 2026-10-12 (D36): My Drive › The_Works › Projects ›
+# OptionsEngine_Project, found by name from My Drive's root, the last by its pinned id.
+CHAIN = ("The_Works", "Projects", "OptionsEngine_Project")
+PROJECT_FOLDER_ID = "1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4"  # OptionsEngine_Project
+# swe-data/, D33's second copy, read by its id in its recorded parent, never by its name.
+SWE_DATA: dict = {
+    "name": "swe-data",
+    "id": "13h0HIy_kLjsN431YJFRewJ8FAZGjxe3b",
+    "parent": PROJECT_FOLDER_ID,
+    "folder": "swe-data",
+    "mode": "read-only",
+}
+
 # The Drive areas of docs/DATA_INVENTORY.md §C.3 (D33). ``name`` is the folder under
 # data_archive/drive-legacy/; ``parent`` and ``folder`` verify the id before a census;
 # ``read-only`` areas belong to another project: copied from, never cleaned.
@@ -143,7 +252,7 @@ DEFAULT_AREAS: tuple[dict, ...] = (
     {
         "name": "swe-local-only",
         "id": "1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn",
-        "parent": "root",
+        "parent": PROJECT_FOLDER_ID,
         "folder": "swe-local-only",
         "mode": "consolidate",
     },
@@ -157,7 +266,7 @@ DEFAULT_AREAS: tuple[dict, ...] = (
     {
         "name": "smart-wheel-engine-git",
         "id": "1dA_fq1MorvsqUWeVxqR0aAaJ9XMwEjUY",
-        "parent": "root",
+        "parent": PROJECT_FOLDER_ID,
         "folder": "smart-wheel-engine",
         "mode": "consolidate",
     },
@@ -190,6 +299,17 @@ DEFAULT_AREAS: tuple[dict, ...] = (
         "mode": "read-only",
     },
 )
+# Card 2b's six areas: the areas above without the day-bot's own data_raw (D34 point 3).
+# trashlist takes a plan over exactly these.
+CARD2B_AREAS: tuple[dict, ...] = tuple(
+    a for a in DEFAULT_AREAS if a["name"] != "day-bot-local-archive/data_raw"
+)
+# ``census --preset``: the area sets card 3 uses, by name, so none is typed by hand.
+PRESETS: dict[str, tuple[dict, ...]] = {
+    "card2b": CARD2B_AREAS,  # trashlist's --census
+    "consolidate": tuple(a for a in DEFAULT_AREAS if a["mode"] == "consolidate"),  # recount's
+    "swe-data": (SWE_DATA,),  # trashlist's --swe-census
+}
 
 # A path with any component matching one of these (case-insensitive) is never read,
 # copied, mirrored or listed in SHA256SUMS: it stays where it is (D33 exclusions).
@@ -520,17 +640,83 @@ def _check_areas(areas: list[dict]) -> None:
 # ---------------------------------------------------------------- rclone
 
 
+# Variables that would take rclone's ERROR lines away from the stderr this tool reads, or
+# change their spelling: a log file (stderr redirected to it), a level that hides ERROR, a
+# JSON or level-less format, syslog or systemd (fs/log/log.go InitLogging), or progress,
+# which sends the log to stdout (cmd/progress.go startProgress). Every global option takes
+# its default from RCLONE_<NAME> (fs/config/flags/flags.go installFlag).
+LOG_ENV = (
+    "RCLONE_LOG_FILE",
+    "RCLONE_LOG_LEVEL",
+    "RCLONE_USE_JSON_LOG",
+    "RCLONE_STATS_LOG_LEVEL",
+    "RCLONE_LOG_FORMAT",
+    "RCLONE_SYSLOG",
+    "RCLONE_LOG_SYSTEMD",
+    "RCLONE_PROGRESS",
+)
+# Variables that would make a listing leave entries out silently, exit 0 and no ERROR
+# line: rclone's filters (fs/filter/filter.go OptionsInfo, and max_depth in fs/config.go),
+# by prefix, and the Drive options that narrow a listing (backend/drive/drive.go).
+FILTER_ENV_PREFIXES = (
+    "RCLONE_EXCLUDE",  # exclude, exclude_from, exclude_if_present
+    "RCLONE_INCLUDE",  # include, include_from
+    "RCLONE_FILTER",  # filter, filter_from
+    "RCLONE_FILES_FROM",  # files_from, files_from_raw
+    "RCLONE_METADATA_",  # metadata_filter, _exclude, _include and their _from
+)
+FILTER_ENV = (
+    "RCLONE_MIN_SIZE",
+    "RCLONE_MAX_SIZE",
+    "RCLONE_MIN_AGE",
+    "RCLONE_MAX_AGE",
+    "RCLONE_MAX_DEPTH",
+    "RCLONE_EXCLUDE_IF_PRESENT",
+    "RCLONE_IGNORE_CASE",
+    "RCLONE_HASH_FILTER",
+    "RCLONE_DRIVE_TRASHED_ONLY",
+    "RCLONE_DRIVE_SHARED_WITH_ME",
+    "RCLONE_DRIVE_STARRED_ONLY",
+    "RCLONE_DRIVE_SKIP_GDOCS",
+    "RCLONE_DRIVE_AUTH_OWNER_ONLY",
+)
+
+
+def _kept_from_rclone(name: str) -> bool:
+    n = name.upper()  # Windows names ignore case
+    return n in LOG_ENV or n in FILTER_ENV or n.startswith(FILTER_ENV_PREFIXES)
+
+
+def rclone_env() -> dict[str, str]:
+    """This process's environment without LOG_ENV and the filter variables, so ERROR lines
+    reach the captured stderr and no listing leaves an entry out silently."""
+    return {k: v for k, v in os.environ.items() if not _kept_from_rclone(k)}
+
+
 def run_cmd(cmd: list[str], stdin: str | None = None) -> subprocess.CompletedProcess:
+    # Text mode: an encoding implies it (subprocess.run).
     return subprocess.run(
-        cmd, input=stdin, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        cmd, input=stdin, capture_output=True, encoding="utf-8", errors="replace", env=rclone_env()
     )
+
+
+# rclone writes each log line as "<date> <time> LEVEL : <object>: <text>", the level padded
+# to six (fs/log/slog.go formatStdLogHeader, "%-6s: "): "ERROR : …", "CRITICAL: …".
+RCLONE_ERROR_LINE = re.compile(r"(?:^|\s)(?:EMERGENCY|ALERT|CRITICAL|ERROR)\s*:")
+
+
+def rclone_errors(stderr: str | None) -> list[str]:
+    """The lines rclone logged at ERROR or above. fs.Errorf only logs and the command still
+    exits 0: Drive's "search result INCOMPLETE" and a listing's "Entry doesn't belong in
+    directory" drop are both such lines (drive.go:1128-1129, fs/list/list.go:139-147)."""
+    return [line for line in (stderr or "").splitlines() if RCLONE_ERROR_LINE.search(line)]
 
 
 def rclone_version() -> tuple[int, int, int]:
     cp = run_cmd([*RCLONE, "version"])
     m = re.search(r"rclone v(\d+)\.(\d+)\.(\d+)", cp.stdout or "")
     if cp.returncode != 0 or not m:
-        raise ToolError(f"cannot run rclone ({' '.join(RCLONE)}): {cp.stderr.strip()[:300]}")
+        raise ToolError(f"cannot run rclone: {cp.stderr.strip()[:300]}")
     return tuple(int(x) for x in m.groups())  # type: ignore[return-value]
 
 
@@ -548,11 +734,16 @@ def q_quote(value: str) -> str:
     return "'" + value.replace("\\", "\\\\").replace("'", "\\'") + "'"
 
 
-def drive_query(remote: str, query: str, tries: int = 3) -> list[dict]:
-    """Raw Drive objects matching a query; retried, and INCOMPLETE is an error."""
+def drive_query(remote: str, query: str, tries: int = 3, sharing: bool = False) -> list[dict]:
+    """Raw Drive objects matching a query; retried, and INCOMPLETE is an error.
+
+    Every query carries OWNER_ONLY, so each object comes with its owners. ``sharing``
+    adds SHARING_FLAG, so each comes with the permissions Drive lists too.
+    """
+    flags = [OWNER_ONLY, SHARING_FLAG] if sharing else [OWNER_ONLY]
     last = ""
     for attempt in range(tries):
-        cp = run_cmd([*RCLONE, "backend", "query", remote, query])
+        cp = run_cmd([*RCLONE, "backend", "query", *flags, remote, query])
         if cp.returncode == 0 and "INCOMPLETE" not in (cp.stderr or ""):
             return json.loads(cp.stdout or "null") or []
         last = (cp.stderr or "").strip()[-400:]
@@ -573,31 +764,132 @@ def _children(remote: str, ids: list[str]) -> list[dict]:
     return out
 
 
-def rclone_size(remote: str, folder_id: str) -> dict:
-    """File count and bytes under a folder, from rclone's own walk.
+def rclone_listing(remote: str, folder_id: str) -> list[dict]:
+    """Every object under a folder, from rclone's own walk (``lsjson``), read only.
 
-    ``--disable ListR`` makes rclone list one folder at a time. Its default listing
-    asks about many parents in one OR query, the query Google issue 149522397
-    affects, so it would not be an independent check of the census.
+    The census's independent check (rclone v1.74.4):
+    - ``--disable ListR`` makes lsjson walk one folder at a time (walk.ListR falls back to
+      Walk), and Drive's ListP lists each folder with a query of that one parent: never
+      the OR of several parents that Google issue 149522397 affects;
+    - ``--drive-show-all-gdocs`` keeps every Google-format file in the listing, one it
+      cannot export too (a Form, say), and with it a file Drive lists without an MD5;
+    - ``--drive-skip-shortcuts`` leaves shortcuts out, never followed: trashing one
+      deletes no bytes;
+    - ``--hash-type MD5`` gives each file's stored MD5, read from the listing itself; a
+      Google-format file, or one without an MD5, has none.
+    It gets no ``--drive-auth-owner-only``, which would drop what the account does not own.
+    Any line rclone logs at ERROR or above fails the listing (``rclone_errors``): it
+    exits 0 after "search result INCOMPLETE", and after dropping an entry it cannot place
+    ("Entry doesn't belong in directory", a folder with an empty name), whose whole
+    subtree it then never lists.
     """
     cp = run_cmd(
         [
             *RCLONE,
-            "size",
+            "lsjson",
+            "-R",
             "--disable",
             "ListR",
-            "--json",
             "--drive-root-folder-id",
             folder_id,
-            "--drive-skip-gdocs",
             "--drive-skip-shortcuts",
+            "--drive-show-all-gdocs",
+            "--hash-type",
+            "MD5",
             remote,
         ]
     )
-    if cp.returncode != 0:
-        raise ToolError(f"rclone size failed for {folder_id}: {cp.stderr.strip()[-300:]}")
-    d = json.loads(cp.stdout)
-    return {"count": int(d["count"]), "bytes": int(d["bytes"])}
+    errors = rclone_errors(cp.stderr)
+    if cp.returncode != 0 or "INCOMPLETE" in (cp.stderr or "") or errors:
+        why = "; ".join(errors[:5]) if errors else (cp.stderr or "").strip()[-300:]
+        raise ToolError(f"rclone lsjson failed for {folder_id}: {why[:600]}")
+    entries = json.loads(cp.stdout or "[]") or []
+    if any(not e.get("ID") for e in entries):
+        raise ToolError(f"rclone lsjson listed an object with no id under {folder_id}")
+    return entries
+
+
+ID_KINDS = ("files with an MD5", "files without an MD5", "Google-format files", "folders")
+
+
+def same_name_folders(objects: list[dict]) -> list[dict]:
+    """Sibling folders that share a parent and the very same name: a second line of defence.
+
+    rclone walks Drive by path, and its directory cache maps each path to one folder id,
+    the last one listed (lib/dircache Put overwrites; the map's key is the exact path, case
+    and all). So of two folders at one path it lists one twice and never the other's
+    contents: neither can be proven by its listing. rclone's path is not always the Drive
+    name, though: each name goes through ToStandardName first (drive.go:1132), which can
+    turn two different names into one. So the guard that decides is the census's check
+    that rclone's listing gives no path to two folder ids (``one_path_two_folders``); this
+    one, on exact names, also lets ``trashlist`` and ``recount`` block what it finds.
+    """
+    groups: dict[tuple[str, str], list[str]] = defaultdict(list)
+    for o in objects:
+        if o["mime"] == FOLDER:
+            for parent in o["parents"]:
+                groups[(parent, o["name"])].append(o["id"])
+    return [
+        {"parent": parent, "name": name, "ids": sorted(ids)}
+        for (parent, name), ids in sorted(groups.items())
+        if len(ids) > 1
+    ]
+
+
+def one_path_two_folders(entries: list[dict]) -> list[str]:
+    """Paths rclone's listing gives to more than one folder id: same-name sibling folders."""
+    by_path: dict[str, set] = defaultdict(set)
+    for e in entries:
+        if e.get("IsDir"):
+            by_path[str(e.get("Path"))].add(e["ID"])
+    return [
+        f"{path} ({', '.join(sorted(ids))})"
+        for path, ids in sorted(by_path.items())
+        if len(ids) > 1
+    ]
+
+
+def _listing_md5(entry: dict) -> str | None:
+    hashes = entry.get("Hashes") or {}
+    return next((v for k, v in hashes.items() if k.lower() == "md5" and v), None)
+
+
+def listing_kinds(entries: list[dict]) -> tuple[dict, dict[str, set]]:
+    """From rclone's listing: (count and bytes of its files with an MD5, ids by kind).
+
+    The count is per listing, so a file reached by two paths counts twice, as rclone's
+    walk by path sees it (census_totals counts the census the same way).
+    """
+    files = [e for e in entries if not e.get("IsDir") and _listing_md5(e)]
+    totals = {"count": len(files), "bytes": sum(int(e.get("Size") or 0) for e in files)}
+    ids: dict[str, set] = {k: set() for k in ID_KINDS}
+    for e in entries:
+        if e.get("IsDir"):
+            ids["folders"].add(e["ID"])
+        elif _listing_md5(e):
+            ids["files with an MD5"].add(e["ID"])
+        elif str(e.get("MimeType") or "").startswith(GOOGLE):
+            ids["Google-format files"].add(e["ID"])
+        else:
+            ids["files without an MD5"].add(e["ID"])
+    return totals, ids
+
+
+def census_kinds(objects: list[dict]) -> dict[str, set]:
+    """The census's ids by the same kinds (shortcuts are left out, as rclone leaves them)."""
+    ids: dict[str, set] = {k: set() for k in ID_KINDS}
+    for o in objects:
+        if o["mime"] == FOLDER:
+            ids["folders"].add(o["id"])
+        elif o["mime"] == SHORTCUT:
+            continue
+        elif o["mime"].startswith(GOOGLE):
+            ids["Google-format files"].add(o["id"])
+        elif o["md5"]:  # "withheld" too: Drive lists an MD5 for it
+            ids["files with an MD5"].add(o["id"])
+        else:
+            ids["files without an MD5"].add(o["id"])
+    return ids
 
 
 def slim(obj: dict) -> dict:
@@ -620,17 +912,57 @@ def slim(obj: dict) -> dict:
         "modified": obj.get("modifiedTime"),
         "target": sc.get("targetId"),
         "target_mime": sc.get("targetMimeType"),
+        "owned": owned_by_me(obj),
+        "trashed": bool(obj.get("trashed")),
     }
+
+
+def owned_by_me(obj: dict) -> bool | None:
+    """True when one of the object's owners is the signed-in account (Drive's ``me``).
+
+    None when Drive returned no owners at all: the query lacked OWNER_ONLY, so ownership is
+    not known, and unknown never counts as owned.
+    """
+    owners = obj.get("owners")
+    if owners is None:
+        return None
+    return any(bool(u.get("me")) for u in owners if isinstance(u, dict))
+
+
+def sharing_of(obj: dict) -> list[dict] | None:
+    """The permissions Drive lists for an object, each cut to SHARING_KEYS; None if none listed."""
+    perms = obj.get("permissions")
+    if perms is None:
+        return None
+    kept = [{k: p[k] for k in SHARING_KEYS if k in p} for p in perms if isinstance(p, dict)]
+    return sorted(kept, key=lambda p: json.dumps(p, sort_keys=True))
+
+
+def sharing_flags(perms: list[dict] | None) -> list[str]:
+    """Every permission other than the owner's, in words; and a missing list is flagged too."""
+    if perms is None:
+        return ["Drive listed no permissions: its sharing is not known"]
+    return [
+        f"{p.get('type', '?')} {p.get('role', '?')}"
+        + (f" ({p['domain']})" if p.get("domain") else "")
+        + (f" [permission {p['id']}]" if p.get("id") else "")
+        for p in perms
+        if p.get("role") != "owner"
+    ]
 
 
 def is_file(o: dict) -> bool:
     return o["mime"] not in (FOLDER, SHORTCUT) and not o["mime"].startswith(GOOGLE)
 
 
+# What a census records once every area matched rclone's listing (census, above).
+CROSS_CHECK = "count, bytes and ids equal to rclone lsjson, one folder per query"
+
+
 def census_totals(objects: list[dict], top: str) -> dict:
     """File count and bytes as rclone's walk sees them: once per parent folder, and only
-    files with an MD5. rclone neither lists nor downloads a non-Google file without one
-    (``newObjectWithExportInfo`` in its Drive backend skips it)."""
+    files with an MD5, the only ones its listing gives an MD5 (a non-Google file without
+    one it lists only with ``--drive-show-all-gdocs``, and never downloads)."""
     folders = {top} | {o["id"] for o in objects if o["mime"] == FOLDER}
     count = size = 0
     for o in objects:
@@ -645,7 +977,16 @@ def census_totals(objects: list[dict], top: str) -> dict:
 
 
 def census(remote: str, areas: list[dict]) -> dict:
+    """Every object in each area, by raw queries of its folders' children, in batches.
+
+    Drive can answer an OR of several parents with fewer objects than it holds (Google
+    issue 149522397), and only a wholly empty answer is asked again. So each area is then
+    checked against rclone's own listing, one folder per query (``rclone_listing``): the
+    count and bytes of its files with an MD5, and the ids of its files, Google-format files
+    and folders, must all be the census's. ``started`` is the time before the first query.
+    """
     _check_areas(areas)
+    started = utc_now()
     out = []
     for area in areas:
         where = (
@@ -662,6 +1003,10 @@ def census(remote: str, areas: list[dict]) -> dict:
                 f"area {area['name']}: no folder {area['folder']!r} with id {area['id']} under "
                 f"{area['parent']} (found {ids})"
             )
+        # Other folders named like the area folder in its parent (``name =`` ignores case):
+        # rclone is not misled, as it starts at the area's id, but a hand in Drive's web
+        # page sees two folders where the proof names one.
+        named_alike = sorted(i for i in ids if i != area["id"])
         top = next(h for h in hits if h["id"] == area["id"])
         root_parents = list(top.get("parents") or [])
         seen, objects, queue = {area["id"]}, [], [area["id"]]
@@ -676,30 +1021,60 @@ def census(remote: str, areas: list[dict]) -> dict:
                     queue.append(obj["id"])
         objects.sort(key=lambda o: o["id"])
         mine = census_totals(objects, area["id"])
-        walk = rclone_size(remote, area["id"])
+        entries = rclone_listing(remote, area["id"])
+        walk, listed = listing_kinds(entries)
+        siblings = same_name_folders(objects)
+        twins = sorted({s["name"] for s in siblings})
+        forks = sorted(o["name"] for o in objects if o["mime"] == FOLDER and len(o["parents"]) > 1)
+        why = (
+            "A listing is incomplete, or the area holds folders rclone's walk by path sees "
+            "differently: two folders that share a name under one parent"
+            + (f" (here: {', '.join(twins[:5])})" if twins else "")
+            + ", or a folder with two parents"
+            + (f" (here: {', '.join(forks[:5])})" if forks else "")
+            + "; nothing is planned from it"
+        )
+        mine_ids = census_kinds(objects)
+        differ = []
+        for kind in ID_KINDS:
+            only_rclone = sorted(listed[kind] - mine_ids[kind])
+            only_census = sorted(mine_ids[kind] - listed[kind])
+            if only_rclone:
+                differ.append(f"{kind} only rclone lists: {', '.join(only_rclone[:10])}")
+            if only_census:
+                differ.append(f"{kind} only the census lists: {', '.join(only_census[:10])}")
+        clash = one_path_two_folders(entries)
+        if clash:
+            differ.append(f"one path for two folders in rclone's listing: {'; '.join(clash[:10])}")
+        if differ:
+            raise ToolError(
+                f"area {area['name']}: the census and rclone's own listing, one folder per "
+                f"query, differ: {'; '.join(differ)}. {why}"
+            )
         if mine != walk:
-            names = Counter(
-                (p, o["name"]) for o in objects if o["mime"] == FOLDER for p in o["parents"]
-            )
-            twins = sorted({n for (_p, n), k in names.items() if k > 1})
-            forks = sorted(
-                o["name"] for o in objects if o["mime"] == FOLDER and len(o["parents"]) > 1
-            )
             raise ToolError(
                 f"area {area['name']}: the census found {mine['count']} files, {mine['bytes']:,} B, "
-                f"but rclone size finds {walk['count']} files, {walk['bytes']:,} B. A listing is "
-                "incomplete, or the area holds folders rclone's walk by path counts differently: "
-                "two folders that share a name under one parent"
-                + (f" (here: {', '.join(twins[:5])})" if twins else "")
-                + ", or a folder with two parents"
-                + (f" (here: {', '.join(forks[:5])})" if forks else "")
-                + "; nothing is planned from it"
+                f"but rclone's listing finds {walk['count']} files, {walk['bytes']:,} B. {why}"
             )
         nomd5 = sum(1 for o in objects if is_file(o) and not o["md5"])
-        out.append({**area, "root_parents": root_parents, "objects": objects, "check": walk})
+        root = slim(top)
+        out.append(
+            {
+                **area,
+                "root_parents": root_parents,
+                "root_name": root["name"],  # as Drive spells it: name = '…' ignores case
+                "root_owned": root["owned"],
+                "root_modified": root["modified"],
+                "objects": objects,
+                "check": walk,
+                "cross_check": {k: len(listed[k]) for k in ID_KINDS},
+                "same_name_folders": siblings,
+                "same_name_siblings": named_alike,
+            }
+        )
         print(
             f"census: {area['name']}: {len(objects)} objects; {walk['count']} files, "
-            f"{walk['bytes']:,} B, equal to rclone size"
+            f"{walk['bytes']:,} B, and every id, equal to rclone's own listing"
             + (f"; {nomd5} file(s) without an MD5, which rclone cannot download" if nomd5 else ""),
             file=sys.stderr,
         )
@@ -722,15 +1097,112 @@ def census(remote: str, areas: list[dict]) -> dict:
             if o["id"] in bad:
                 o["md5"] = "withheld" if o["md5"] else None
                 o["sha256"] = None
-    swe = drive_query(remote, "'root' in parents and name = 'swe-data' and trashed = false")
     return {
         "schema": SCHEMA,
         "kind": "census",
+        "started": started,
         "generated": utc_now(),
         "remote": remote,
+        "cross_checked": CROSS_CHECK,
         "areas": out,
-        "swe_data": [slim(o) for o in swe],
     }
+
+
+def _folder_record(obj: dict) -> dict:
+    """A folder the census records by id: where it is, whose it is, and its sharing."""
+    s = slim(obj)
+    return {
+        "id": s["id"],
+        "name": s["name"],
+        "mime": s["mime"],
+        "parents": s["parents"],
+        "owned": s["owned"],
+        "trashed": s["trashed"],
+        "modified": s["modified"],
+        "sharing": sharing_of(obj),
+    }
+
+
+def _where(parent: str) -> str:
+    return "'root' in parents" if parent == "root" else f"{q_quote(parent)} in parents"
+
+
+def read_chain(remote: str) -> list[dict]:
+    """The folders from My Drive's root down to OptionsEngine_Project, each read by name.
+
+    Three queries with no trashed clause, so a trashed or second folder of the name is
+    seen: each must return exactly one object, an untrashed folder, and the last must be
+    OptionsEngine_Project's pinned id. Any other result stops the census.
+    """
+    links, parent = [], "root"
+    for name in CHAIN:
+        hits = drive_query(remote, f"{_where(parent)} and name = {q_quote(name)}", sharing=True)
+        if len(hits) != 1:
+            raise ToolError(
+                f"the chain: {len(hits)} objects named {name!r} in {parent}, not exactly one: "
+                f"{sorted(h.get('id', '?') for h in hits)}; nothing is recorded"
+            )
+        hit = hits[0]
+        if hit.get("mimeType") != FOLDER:
+            raise ToolError(f"the chain: {name!r} ({hit['id']}) in {parent} is not a folder")
+        if hit.get("trashed"):
+            raise ToolError(f"the chain: {name!r} ({hit['id']}) in {parent} is in Drive's trash")
+        links.append(_folder_record(hit))
+        parent = hit["id"]
+    if links[-1]["id"] != PROJECT_FOLDER_ID:
+        raise ToolError(
+            f"the chain: OptionsEngine_Project is {links[-1]['id']}, not the pinned "
+            f"{PROJECT_FOLDER_ID}; nothing is recorded"
+        )
+    if len(links[0]["parents"]) != 1:
+        raise ToolError(
+            f"the chain: The_Works has parents {links[0]['parents']}, not My Drive's root alone"
+        )
+    return links
+
+
+def read_by_id(remote: str, spec: dict) -> dict:
+    """A folder read by its recorded id, in its recorded parent (design v6 §3).
+
+    One query of the parent with no trashed clause: exactly one child carries the id,
+    and it must be an untrashed folder. Its name plays no part.
+    """
+    hits = drive_query(remote, _where(spec["parent"]), sharing=True)
+    mine = [h for h in hits if h.get("id") == spec["id"]]
+    label = f"{spec['name']}/ (id {spec['id']})"
+    if not mine:
+        raise ToolError(
+            f"{label} is missing from its recorded parent {spec['parent']}: moved, deleted "
+            "or not visible; nothing is recorded"
+        )
+    if len(mine) > 1:
+        raise ToolError(f"{label} is listed {len(mine)} times in {spec['parent']}")
+    hit = mine[0]
+    if hit.get("trashed"):
+        raise ToolError(f"{label} is in Drive's trash; nothing is recorded")
+    if hit.get("mimeType") != FOLDER:
+        raise ToolError(f"{label} is not a folder ({hit.get('mimeType')}); nothing is recorded")
+    return _folder_record(hit)
+
+
+def locate(remote: str, doc: dict) -> None:
+    """Record where the census stands: the chain, swe-data/ by its id, and each area's sharing.
+
+    Run by the ``census`` command only, never inside census(), so the re-census that copy
+    and bytecheck make (``_drifted``) never reads swe-data/ or the chain.
+    """
+    chain = read_chain(remote)
+    doc["chain"] = chain
+    doc["my_drive_root"] = chain[0]["parents"][0]  # the API never returns the alias 'root'
+    doc["swe_data"] = read_by_id(remote, SWE_DATA)
+    for a in doc["areas"]:
+        hits = drive_query(
+            remote, f"{_where(a['parent'])} and name = {q_quote(a['folder'])}", sharing=True
+        )
+        mine = [h for h in hits if h.get("id") == a["id"]]
+        if len(mine) != 1:
+            raise ToolError(f"area {a['name']}: its folder {a['id']} could not be read again")
+        a["sharing"] = sharing_of(mine[0])
 
 
 # ---------------------------------------------------------------- inventory
@@ -1044,7 +1516,7 @@ def build_plan(census_doc: dict, inv: dict) -> dict:
             {k: a.get(k) for k in ("name", "id", "parent", "folder", "mode")}
             for a in census_doc["areas"]
         ],
-        "swe_data": census_doc.get("swe_data", []),
+        "swe_data": census_doc.get("swe_data"),
         "root_bytes": sum(f["size"] for f in usable),
         "root_files": len(usable),
         "excluded": [f["path"] for f in root_files if f.get("excluded")],
@@ -1200,10 +1672,9 @@ def summarize(plan: dict, about: dict | None = None, limit: int = 40) -> list[st
         lines.append(f"Drive free: {free:,} B" if isinstance(free, int) else "Drive free: unknown")
         if isinstance(free, int):
             lines.append(f"Drive margin after swe-data: {free - need:,} B")
-    if plan.get("swe_data"):
-        lines.append(
-            f"WARNING: a top-level swe-data already exists on Drive ({len(plan['swe_data'])})"
-        )
+    swe = plan.get("swe_data")
+    if isinstance(swe, dict):
+        lines.append(f"swe-data/: id {swe['id']}, in {', '.join(swe['parents']) or '?'}")
     if plan.get("excluded"):
         lines.append(f"root files excluded as credential-shaped: {len(plan['excluded'])}")
         lines.extend(f"  excluded  {p}" for p in plan["excluded"][:limit])
@@ -1773,6 +2244,826 @@ def verify(plan: dict, root: Path) -> int:
     return 0 if missing == bad == twin_bad == len(pending) == 0 else 1
 
 
+# ---------------------------------------------------------------- trashlist and recount
+
+# One row per object of the three consolidate areas, and per area folder (card 3, D37).
+TRASHLIST_FIELDS = (
+    "area",
+    "path",
+    "id",
+    "class",
+    "reason",
+    "kind",
+    "mime",
+    "name",
+    "parents",
+    "owned",
+    "size",
+    "md5",
+    "sha256",
+    "modified",
+    "twin",
+    "twin_size",
+    "twin_modified",
+    "swe_twin_id",
+    "swe_twin_parent",
+)
+# What recount compares, object by object, between the proof and a fresh census.
+COMPARED = ("kind", "mime", "parents", "owned", "name", "size", "md5", "sha256", "modified")
+PROOF = "trashlist.json"
+PROOF_SUMMARY = "trashlist_summary.json"
+KIND_COUNTS = (
+    "files with an MD5",
+    "files without an MD5",
+    "Google-format files",
+    "shortcuts",
+    "folders",
+)
+
+
+def kind_of(mime: str) -> str:
+    if mime == FOLDER:
+        return "folder"
+    if mime == SHORTCUT:
+        return "shortcut"
+    if mime.startswith(GOOGLE):
+        return "google"
+    return "file"
+
+
+def _kind_count(row: dict) -> str:
+    if row["kind"] == "file":
+        return "files with an MD5" if row["md5"] else "files without an MD5"
+    return {"google": "Google-format files", "shortcut": "shortcuts", "folder": "folders"}[
+        row["kind"]
+    ]
+
+
+def _area_objects(area: dict) -> list[tuple[str, dict]]:
+    """(path, object) for every object the census lists in an area, its own folder first.
+
+    The folder is built from the census's area record: its id, its name as Drive lists it
+    (``root_name``), the parents its root was found with (``root_parents``), whether the
+    account owns it, and its
+    modified time. trashlist and recount both build it here, so their id sets can match.
+    """
+    paths = _area_tree(area)[0]
+    top = {
+        "id": area["id"],
+        "name": area["root_name"],
+        "mime": FOLDER,
+        "size": None,
+        "md5": None,
+        "sha256": None,
+        "parents": list(area.get("root_parents") or []),
+        "owned": area.get("root_owned"),
+        "trashed": False,  # the census found it with "trashed = false"
+        "modified": area.get("root_modified"),
+    }
+    return [("", top)] + [(paths[o["id"]], o) for o in area["objects"]]
+
+
+def _proof_row(area_name: str, path: str, o: dict) -> dict:
+    row = dict.fromkeys(TRASHLIST_FIELDS)
+    row.update(
+        {
+            "area": area_name,
+            "path": path,
+            "id": o["id"],
+            "reason": "",
+            "kind": kind_of(o["mime"]),
+            "mime": o["mime"],
+            "name": o["name"],
+            "parents": list(o["parents"]),
+            "owned": o.get("owned"),
+            "size": o["size"],
+            "md5": o["md5"],
+            "sha256": o["sha256"],
+            "modified": o.get("modified"),
+        }
+    )
+    return row
+
+
+def _disk_time(ns: int) -> str:
+    sec, frac = divmod(ns, 10**9)
+    return dt.datetime.fromtimestamp(sec, dt.UTC).strftime("%Y-%m-%dT%H:%M:%S") + f".{frac:09d}Z"
+
+
+def _differ(want: tuple, got: tuple) -> list[str]:
+    """Which of size, MD5 and SHA-256 differ: a missing value never matches."""
+    return [
+        n
+        for n, a, b in zip(("size", "MD5", "SHA-256"), want, got, strict=True)
+        if a is None or b is None or a != b
+    ]
+
+
+class _Twins:
+    """Desktop twins hashed now, each path once: why not, or (size, MD5, SHA-256, modified)."""
+
+    def __init__(self, root: Path):
+        self.root = root
+        self.seen: dict[str, tuple[str, tuple | None]] = {}
+
+    def get(self, rel: str) -> tuple[str, tuple | None]:
+        if rel not in self.seen:
+            self.seen[rel] = self._read(rel)
+        return self.seen[rel]
+
+    def _read(self, rel: str) -> tuple[str, tuple | None]:
+        parts = rel.split("/")
+        if not rel or "\\" in rel or ":" in rel or any(p in ("", ".", "..") for p in parts):
+            return "not a plain path under the root", None
+        if _fold(parts[0]) == _fold(LOGS):
+            return f"under the root's {LOGS}/", None
+        if credential_shaped(rel):
+            return "a credential-shaped name, never read", None
+        link = _link_on_path(self.root, rel)
+        if link:
+            return f"a link or junction on its path ({link})", None
+        full = self.root / rel
+        if not os.path.isfile(native(full)):
+            return "missing", None
+        st = os.stat(native(full))
+        size, md5, sha = hash_file(full)
+        return "", (size, md5, sha, _disk_time(st.st_mtime_ns))
+
+
+def _cross_checked(doc: dict) -> bool:
+    """Did every area of this census match rclone's own listing (``census``)?"""
+    areas = doc.get("areas") or []
+    return doc.get("cross_checked") == CROSS_CHECK and all("cross_check" in a for a in areas)
+
+
+def _my_drive_roots(doc: dict) -> set[str]:
+    return {"root"} | ({doc["my_drive_root"]} if doc.get("my_drive_root") else set())
+
+
+def _check_trashlist_inputs(plan: dict, census_doc: dict, swe_doc: dict, root: Path) -> None:
+    """Refuse, before any work, inputs the proof must not be made from."""
+    if not same_path(plan["root"], str(root)):
+        raise ToolError(f"the plan was made for root {plan['root']}, not {root}")
+    pending = [r for r in plan["rows"] if r["class"] == "needs-byte-check"]
+    if pending:
+        raise ToolError(f"{len(pending)} object(s) of the plan still need a byte check")
+    six = sorted((a["id"], a["mode"]) for a in CARD2B_AREAS)
+    if sorted((a.get("id"), a.get("mode")) for a in plan["areas"]) != six:
+        raise ToolError("the plan's areas are not exactly card 2b's six, by id and mode")
+    if census_doc.get("generated") != plan.get("census_generated"):
+        raise ToolError("this census is not the one the plan was made from")
+    if not _cross_checked(census_doc):
+        raise ToolError("the census records no cross-check against rclone's listing; make it again")
+    if not _cross_checked(swe_doc):
+        raise ToolError(
+            "the swe-data/ census records no cross-check against rclone's listing; make it again"
+        )
+    if sorted((a.get("id"), a.get("mode")) for a in census_doc["areas"]) != six:
+        raise ToolError("the census's areas are not exactly card 2b's six, by id and mode")
+    if [{k: a.get(k) for k in SWE_DATA} for a in swe_doc["areas"]] != [SWE_DATA]:
+        raise ToolError(
+            f"--swe-census must be a census of swe-data/ alone, made with the one area "
+            f"{json.dumps(SWE_DATA)}"
+        )
+    for doc, label in ((census_doc, "the census"), (swe_doc, "the swe-data/ census")):
+        swe = doc.get("swe_data")
+        if not doc.get("chain") or not doc.get("my_drive_root") or not isinstance(swe, dict):
+            raise ToolError(f"{label} records no chain or swe-data/; make it with `census`")
+        if swe.get("id") != SWE_DATA["id"]:
+            raise ToolError(f"{label} records swe-data/ as {swe.get('id')}, not {SWE_DATA['id']}")
+        if any("sharing" not in x for x in [*doc["chain"], swe, *doc["areas"]]):
+            raise ToolError(f"{label} records no sharing for a folder; make it with `census`")
+        tops = _my_drive_roots(doc)
+        if tops & set(swe.get("parents") or []):
+            raise ToolError(f"{label}: swe-data/ has My Drive's root as its parent")
+        for a in doc["areas"]:
+            if a["mode"] == "consolidate" or a["id"] == SWE_DATA["id"]:
+                if tops & set(a.get("root_parents") or []):
+                    raise ToolError(
+                        f"{label}: area {a['name']}'s folder has My Drive's root as its parent"
+                    )
+
+
+def _common_block(o: dict, read_only: dict[str, str], places: dict[str, list[str]]) -> str:
+    """Why an object of a consolidate area, file or folder, cannot go: '' when nothing blocks."""
+    if o["id"] in read_only:
+        return f"also seen in the read-only area {read_only[o['id']]}"
+    if len(places[o["id"]]) > 1:
+        return f"seen {len(places[o['id']])} times in the consolidate areas"
+    if len(o["parents"]) != 1:
+        return f"{len(o['parents'])} parents, not one"
+    if o.get("owned") is not True:
+        return "not owned by the account" if o.get("owned") is False else "owner not recorded"
+    if o.get("trashed"):
+        return "in Drive's trash"
+    return ""
+
+
+def _judge_file(
+    area: str,
+    path: str,
+    o: dict,
+    read_only: dict[str, str],
+    places: dict[str, list[str]],
+    plan_rows: dict[str, list[dict]],
+    swe: dict[str, list[dict]],
+    twins: _Twins,
+) -> tuple[str, str, dict]:
+    """(class, reason, the twin fields) for one object that is not a folder."""
+    kind = kind_of(o["mime"])
+    if kind == "shortcut":
+        return "blocker", "a shortcut: never followed, never listed", {}
+    if kind == "google":
+        return "blocker", "a Google-format file: no bytes to compare", {}
+    why = _common_block(o, read_only, places)
+    if why:
+        return "blocker", why, {}
+    if o["md5"] == "withheld":
+        return "blocker", "hashes withheld by the census: a path the tool must not read", {}
+    for key, label in (("size", "size"), ("md5", "MD5"), ("sha256", "SHA-256")):
+        if o[key] is None:
+            return "blocker", f"Drive lists no {label}", {}
+    if credential_shaped(path) or credential_shaped(o["name"]):
+        return "blocker", "a credential-shaped name", {}
+    rows = plan_rows.get(o["id"], [])
+    if not any(r["area"] == area for r in rows):
+        return "blocker", "not in the plan", {}
+    bad = next((r for r in rows if not r.get("deletable")), None)
+    if bad is not None:
+        why = f"{bad['class']}: {bad['reason']}" if bad.get("reason") else bad["class"]
+        return "blocker", f"not deletable in the plan ({bad['area']}, {why})", {}
+    if any(r["area"] == area and r["path"] != path for r in rows):
+        return "blocker", "the plan lists it at another path", {}
+    if any("download" in (r.get("reason") or "") for r in rows):
+        return "blocker", "its hashes in the plan came from a download, which never counts", {}
+    want = (o["size"], o["md5"], o["sha256"])
+    if any((r["size"], r["md5"], r["sha256"]) != want for r in rows):
+        return "blocker", "the plan's size or hashes differ from the census's listed ones", {}
+    named = {r.get("twin") or "" for r in rows}
+    if len(named) != 1 or "" in named:
+        return "blocker", "the plan names no single root twin", {}
+    twin = named.pop()
+    why, got = twins.get(twin)
+    if why or got is None:
+        return "blocker", f"root twin {twin}: {why}", {}
+    differ = _differ(want, got[:3])
+    if differ:
+        return "blocker", f"root twin {twin}: its {', '.join(differ)} differ from Drive's", {}
+    there = swe.get(twin, [])
+    if len(there) != 1:
+        return "blocker", f"swe-data/ holds {len(there)} objects at {twin}, not one file", {}
+    s = there[0]
+    if not is_file(s):
+        return "blocker", f"swe-data/'s object at {twin} is not a file", {}
+    if len(s["parents"]) != 1:
+        return "blocker", f"swe-data/'s copy at {twin} has {len(s['parents'])} parents", {}
+    if s["id"] == o["id"]:
+        return "blocker", f"swe-data/'s copy at {twin} is this same Drive object", {}
+    differ = _differ(want, (s["size"], s["md5"], s["sha256"]))
+    if differ:
+        return "blocker", f"swe-data/'s copy at {twin}: its {', '.join(differ)} differ", {}
+    return (
+        "listed",
+        "",
+        {
+            "twin": twin,
+            "twin_size": got[0],
+            "twin_modified": got[3],
+            "swe_twin_id": s["id"],
+            "swe_twin_parent": s["parents"][0],
+        },
+    )
+
+
+def _swe_index(swe_doc: dict) -> dict[str, list[dict]]:
+    """swe-data/'s objects by their path under it."""
+    area = swe_doc["areas"][0]
+    paths = _area_tree(area)[0]
+    out: dict[str, list[dict]] = defaultdict(list)
+    for o in area["objects"]:
+        out[paths[o["id"]]].append(o)
+    return out
+
+
+def trashlist(plan: dict, census_doc: dict, swe_doc: dict, root: Path) -> tuple[list, list]:
+    """Account for every object of the three consolidate areas: (proof rows, area summaries).
+
+    Every object the census lists there, and each area folder, gets exactly one class:
+    ``listed`` (a file proven twice: by its desktop twin, hashed now, and by its swe-data/
+    twin), ``folder`` (one parent, owned, untrashed, holding only listed files and such
+    folders), or ``blocker``, with one reason. What counts comes from the census, never from
+    the plan's rows; the plan only says which ids are deletable and names each one's twin.
+    An object a read-only area shows is never classed there, and blocks here.
+    """
+    _check_trashlist_inputs(plan, census_doc, swe_doc, root)
+    read_only: dict[str, str] = {}
+    for a in census_doc["areas"]:
+        if a["mode"] == "read-only":
+            read_only.setdefault(a["id"], a["name"])
+            for o in a["objects"]:
+                read_only.setdefault(o["id"], a["name"])
+    cons = [a for a in census_doc["areas"] if a["mode"] == "consolidate"]
+    places: dict[str, list[str]] = defaultdict(list)
+    for a in cons:
+        for _path, o in _area_objects(a):
+            places[o["id"]].append(a["name"])
+    plan_rows: dict[str, list[dict]] = defaultdict(list)
+    for r in plan["rows"]:
+        plan_rows[r["id"]].append(r)
+    swe = _swe_index(swe_doc)
+    twins = _Twins(root)
+    rows: list[dict] = []
+    summaries: list[dict] = []
+    for a in cons:
+        area_rows = _classify_area(a, read_only, places, plan_rows, swe, twins)
+        rows.extend(area_rows)
+        summaries.append(_area_summary(a, area_rows))
+    rows.sort(key=lambda r: (r["area"], r["path"], r["id"]))
+    return rows, summaries
+
+
+SAME_NAME = "same-name sibling folder: rclone cannot list both"
+SHADOWED = "inside a same-name sibling folder: rclone cannot list both"
+
+
+def _classify_area(
+    a: dict,
+    read_only: dict[str, str],
+    places: dict[str, list[str]],
+    plan_rows: dict[str, list[dict]],
+    swe: dict[str, list[dict]],
+    twins: _Twins,
+) -> list[dict]:
+    """One consolidate area's proof rows: its files judged first, then its folders bottom-up."""
+    objs = _area_objects(a)
+    own = {o["id"]: (path, o) for path, o in objs}
+    out = {o["id"]: _proof_row(a["name"], path, o) for path, o in objs}
+    children: dict[str, list[str]] = defaultdict(list)
+    for _path, o in objs:
+        for p in o["parents"]:
+            if p in own and p != o["id"]:
+                children[p].append(o["id"])
+    # rclone's walk lists one of two same-name sibling folders, twice: nothing in either,
+    # nor below, is proven by a listing, whatever the census holds.
+    twin_ids = {i for s in same_name_folders([o for _p, o in objs]) for i in s["ids"]}
+    shadowed: set[str] = set()
+    frontier = list(twin_ids)
+    while frontier:
+        for cid in children[frontier.pop()]:
+            if cid not in shadowed and cid not in twin_ids:
+                shadowed.add(cid)
+                frontier.append(cid)
+    for path, o in objs:
+        if kind_of(o["mime"]) != "folder":
+            cls, why, extra = _judge_file(
+                a["name"], path, o, read_only, places, plan_rows, swe, twins
+            )
+            if o["id"] in shadowed:
+                cls, why, extra = "blocker", SHADOWED, {}
+            out[o["id"]].update({"class": cls, "reason": why, **extra})
+    memo: dict[str, tuple[str, str]] = {}
+
+    def folder_class(oid: str, stack: frozenset) -> tuple[str, str]:
+        if oid in memo:
+            return memo[oid]
+        _p, o = own[oid]
+        if oid in twin_ids or oid in shadowed:
+            memo[oid] = ("blocker", SAME_NAME if oid in twin_ids else SHADOWED)
+            return memo[oid]
+        why = _common_block(o, read_only, places)
+        if not why and oid in stack:
+            why = "a loop of folders"
+        if not why:
+            for cid in sorted(children[oid], key=lambda c: (own[c][0], c)):
+                if kind_of(own[cid][1]["mime"]) == "folder":
+                    cls = folder_class(cid, stack | {oid})[0]
+                else:
+                    cls = out[cid]["class"]
+                if cls == "blocker":
+                    why = f"holds a blocker: {own[cid][0]}"
+                    break
+        memo[oid] = ("blocker", why) if why else ("folder", "")
+        return memo[oid]
+
+    for _path, o in objs:
+        if kind_of(o["mime"]) == "folder":
+            cls, why = folder_class(o["id"], frozenset())
+            out[o["id"]].update({"class": cls, "reason": why})
+    return sorted(out.values(), key=lambda r: (r["path"], r["id"]))
+
+
+CLEARED = ("listed", "folder")
+
+
+def _clear(area_id: str, rows: list[dict]) -> bool:
+    """Clear to trash by hand: every row listed or a folder, and the area folder's own row there.
+
+    It fails closed: a row of any other class, or none for the folder, makes it "no".
+    """
+    has_top = any(r["path"] == "" and r["id"] == area_id for r in rows)
+    return has_top and all(r["class"] in CLEARED for r in rows)
+
+
+def _named_alike_warning(area: dict) -> str | None:
+    """A warning when other folders are named like the area folder in its parent, or when
+    the census did not look. It never changes the verdict: the Operator trashes from the
+    links the pen gives by id (D37), and this says so beside the verdict."""
+    alike = area.get("same_name_siblings")
+    if alike is None:
+        return (
+            f"WARNING: the census does not record the other folders named like "
+            f"{area['folder']!r} in its parent: trash by the id link only ({area['id']})"
+        )
+    if not alike:
+        return None
+    return (
+        f"WARNING: {len(alike)} other folder(s) named like {area['folder']!r} in its parent: "
+        f"{', '.join(alike)}: trash by the id link only ({area['id']})"
+    )
+
+
+def _area_summary(area: dict, rows: list[dict]) -> dict:
+    cls = Counter(r["class"] for r in rows)
+    kinds = Counter(_kind_count(r) for r in rows)
+    blockers = sum(1 for r in rows if r["class"] not in CLEARED)
+    return {
+        "name": area["name"],
+        "folder_id": area["id"],
+        "folder": area["folder"],
+        "parents": list(area.get("root_parents") or []),
+        "rows": len(rows),
+        "classes": {k: cls.get(k, 0) for k in ("listed", "folder", "blocker")},
+        "kinds": {k: kinds.get(k, 0) for k in KIND_COUNTS},
+        "listed_bytes": sum(r["size"] or 0 for r in rows if r["class"] == "listed"),
+        "sharing": area.get("sharing"),
+        "sharing_flags": sharing_flags(area.get("sharing")),
+        "clear_to_trash_by_hand": "yes" if _clear(area["id"], rows) else "no",
+        "blockers": blockers,
+        "same_name_siblings": area.get("same_name_siblings"),
+        "warning": _named_alike_warning(area),
+    }
+
+
+def proof_text(rows: list[dict]) -> str:
+    """The proof as canonical JSON: keys sorted, no spaces, UTF-8, one newline at the end.
+
+    Its sha256 is the sha256 of these exact bytes (``.encode("utf-8")``), and nothing like a
+    timestamp of its making is in it.
+    """
+    doc = {"kind": "trashlist", "schema": SCHEMA, "rows": rows}
+    return json.dumps(doc, sort_keys=True, separators=(",", ":"), ensure_ascii=False) + "\n"
+
+
+def _cell(v) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, list):
+        return ";".join(map(str, v))
+    return str(v)
+
+
+def rows_csv(rows: list[dict]) -> str:
+    from io import StringIO
+
+    buf = StringIO()
+    w = csv.DictWriter(buf, fieldnames=TRASHLIST_FIELDS, lineterminator="\n")
+    w.writeheader()
+    for r in rows:
+        w.writerow({k: _cell(r[k]) for k in TRASHLIST_FIELDS})
+    return buf.getvalue()
+
+
+def sharing_record(doc: dict) -> dict:
+    """The census's sharing records: the chain, swe-data/ and each area folder, with flags."""
+
+    def one(x: dict, sharing) -> dict:
+        return {
+            "id": x["id"],
+            "name": x.get("name") or x.get("folder"),
+            "parents": x.get("parents") or x.get("root_parents") or [],
+            "owned": x.get("owned", x.get("root_owned")),
+            "sharing": sharing,
+            "flags": sharing_flags(sharing),
+        }
+
+    return {
+        "census_generated": doc.get("generated"),
+        "chain": [one(x, x.get("sharing")) for x in doc.get("chain") or []],
+        "swe_data": one(doc["swe_data"], doc["swe_data"].get("sharing")),
+        "areas": [
+            {**one(a, a.get("sharing")), "name": a.get("root_name"), "area": a["name"]}
+            for a in doc["areas"]
+        ],
+    }
+
+
+def _new_logs_folder(out: Path, root: Path) -> Path:
+    """A folder under the root's _logs/ that does not exist yet: a list is never replaced."""
+    out = guard_out(out, root)
+    logs = root / LOGS
+    if not _inside(out, logs) or _file_key(out) == _file_key(logs):
+        raise ToolError(f"--out {out}: trashlist writes only into a new folder under {logs}")
+    if os.path.lexists(native(out)):
+        raise ToolError(f"--out {out} exists already; a list is never replaced")
+    return out
+
+
+def _sha_file(path: Path) -> str:
+    with open(native(path), "rb") as fh:
+        return hashlib.sha256(fh.read()).hexdigest()
+
+
+def write_trashlist(
+    out: Path, rows: list[dict], areas: list[dict], census_doc: dict, inputs: dict
+) -> dict:
+    """Write the five outputs into ``out``, a new folder made now; return the summary."""
+    text = proof_text(rows)
+    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    summary = {
+        "kind": "trashlist_summary",
+        "schema": SCHEMA,
+        "ran": utc_now(),
+        "inputs": inputs,
+        "areas": areas,
+        "chain": [{"name": x["name"], "id": x["id"]} for x in census_doc["chain"]],
+        "swe_data": {
+            "id": census_doc["swe_data"]["id"],
+            "parents": census_doc["swe_data"]["parents"],
+        },
+        "proof": PROOF,
+        "sha256": sha,
+    }
+    os.makedirs(native(out.parent), exist_ok=True)
+    try:
+        os.mkdir(native(out))
+    except FileExistsError:
+        raise ToolError(f"--out {out} exists already; a list is never replaced") from None
+    kept = [r for r in rows if r["class"] not in CLEARED]
+    write_outputs(
+        [
+            (out / PROOF, text),
+            (out / "trashlist.csv", rows_csv(rows)),
+            (out / "kept.csv", rows_csv(kept)),
+            (out / "sharing.json", json_text(sharing_record(census_doc))),
+            (out / PROOF_SUMMARY, json_text(summary)),
+        ]
+    )
+    if _sha_file(out / PROOF) != sha:
+        raise ToolError(f"{out / PROOF} does not hold the bytes just written")
+    return summary
+
+
+def trashlist_lines(summary: dict, out: Path) -> list[str]:
+    ins = summary["inputs"]
+    lines = [f"trashlist: ran {summary['ran']}, root {ins['root']}"]
+    for key in ("plan", "census", "swe_census"):
+        lines.append(
+            f"  --{key.replace('_', '-')} {ins[key]['file']} (made {ins[key]['generated']})"
+        )
+    for a in summary["areas"]:
+        c, k = a["classes"], a["kinds"]
+        lines.append(
+            f"trashlist: {a['name']} (folder {a['folder_id']}, in {', '.join(a['parents'])}): "
+            f"listed {c['listed']} ({a['listed_bytes']:,} B), folder {c['folder']}, "
+            f"blocker {c['blocker']}"
+        )
+        lines.append("  kinds: " + ", ".join(f"{n} {k[n]}" for n in KIND_COUNTS))
+        flags = a["sharing_flags"]
+        lines.append("  sharing: " + ("; ".join(flags) if flags else "the owner alone"))
+        verdict = a["clear_to_trash_by_hand"]
+        extra = f" ({a['blockers']} blocker(s); see kept.csv)" if verdict == "no" else ""
+        lines.append(f"  clear to trash by hand: {verdict}{extra}")
+        if a.get("warning"):
+            lines.append(f"  {a['warning']}")
+    lines.append(f"trashlist: proof {out / PROOF}")
+    lines.append(f"trashlist: sha256 {summary['sha256']}")
+    return lines
+
+
+MAX_CENSUS_AGE = 24 * 3600  # seconds: recount takes a census made within a day of it
+
+
+def _age(now, then) -> float | None:
+    """Seconds from ``then`` to ``now``, two ISO times; None when either cannot be read."""
+    try:
+        return (dt.datetime.fromisoformat(now) - dt.datetime.fromisoformat(then)).total_seconds()
+    except (TypeError, ValueError):
+        return None
+
+
+def _later(a, b) -> bool:
+    try:
+        return dt.datetime.fromisoformat(a) > dt.datetime.fromisoformat(b)
+    except (TypeError, ValueError):
+        return False
+
+
+def _children_any(remote: str, ids: list[str]) -> list[dict]:
+    """Everything in these folders, trashed or not (no trashed clause)."""
+    parents = " or ".join(f"{q_quote(i)} in parents" for i in ids)
+    found = drive_query(remote, f"({parents})")
+    if found or len(ids) == 1:
+        return found
+    out: list[dict] = []  # Google issue 149522397, as in _children
+    for i in ids:
+        out.extend(drive_query(remote, f"{q_quote(i)} in parents"))
+    return out
+
+
+def _recheck_swe(remote: str, listed: list[dict]) -> list[str]:
+    """Each listed row's swe-data/ twin, read again in its folder: same id, bytes and place."""
+    parents = sorted({r["swe_twin_parent"] for r in listed})
+    found: dict[str, list[dict]] = defaultdict(list)
+    for i in range(0, len(parents), QUERY_BATCH):
+        for obj in _children_any(remote, parents[i : i + QUERY_BATCH]):
+            found[obj["id"]].append(obj)
+    diffs = []
+    for r in listed:
+        label = f"{r['area']}/{r['path']}: its swe-data/ twin {r['twin']} ({r['swe_twin_id']})"
+        seen = {json.dumps(o, sort_keys=True) for o in found.get(r["swe_twin_id"], [])}
+        if not seen:
+            diffs.append(f"{label} is gone from its folder {r['swe_twin_parent']}")
+            continue
+        if len(seen) > 1:
+            diffs.append(f"{label} was listed twice, differently")
+            continue
+        s = slim(found[r["swe_twin_id"]][0])
+        if s["trashed"]:
+            diffs.append(f"{label} is in Drive's trash")
+            continue
+        bad = [] if s["parents"] == [r["swe_twin_parent"]] else ["parents"]
+        if s["name"] != r["twin"].rsplit("/", 1)[-1]:
+            bad.append("name")
+        bad += _differ((r["size"], r["md5"], r["sha256"]), (s["size"], s["md5"], s["sha256"]))
+        if bad:
+            diffs.append(f"{label}: its {', '.join(bad)} changed")
+    return diffs
+
+
+def _norm(key: str, value):
+    return sorted(value) if key == "parents" and isinstance(value, list) else value
+
+
+def _place_of(r: dict) -> str:
+    return f"{r['area']}/{r['path']}" if r["path"] else f"{r['area']} (the area folder)"
+
+
+def recount(
+    proof_path: Path,
+    summary_path: Path,
+    expect: str,
+    census_doc: dict,
+    names: list[str],
+    root: Path,
+    remote: str,
+) -> dict:
+    """On the day of the trash: has anything in the checked areas changed since the proof?
+
+    It reads only. "unchanged: yes" needs every check to hold; the record names each
+    difference otherwise. Inputs that do not hold are differences too, and then nothing
+    more is compared.
+    """
+    consolidate = {a["name"]: a for a in DEFAULT_AREAS if a["mode"] == "consolidate"}
+    unknown = sorted(set(names) - set(consolidate))
+    if unknown:
+        raise ToolError(f"--area {unknown}: not one of the consolidate areas {sorted(consolidate)}")
+    names = [n for n in consolidate if n in names]
+    data = Path(proof_path).read_bytes()
+    sha = hashlib.sha256(data).hexdigest()
+    try:
+        proof = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ToolError(f"{proof_path} is not a trashlist proof") from None
+    if not isinstance(proof, dict) or proof.get("kind") != "trashlist":
+        raise ToolError(f"{proof_path} is not a trashlist proof")
+    if proof.get("schema") != SCHEMA:
+        raise ToolError(f"{proof_path} is not a proof of schema {SCHEMA}; make it again")
+    summary = load_json(summary_path)
+    if not isinstance(summary, dict) or summary.get("kind") != "trashlist_summary":
+        raise ToolError(f"{summary_path} is not a trashlist summary")
+    now = utc_now()
+    record = {
+        "kind": "recount",
+        "schema": SCHEMA,
+        "ran": now,
+        "proof_sha256": sha,
+        "expected_sha256": expect,
+        "proof_made": summary.get("ran"),
+        "census_started": census_doc.get("started"),
+        "census_generated": census_doc.get("generated"),
+        "census_age_seconds": _age(now, census_doc.get("started")),  # from its start
+        "areas": names,
+    }
+    # Beside the verdict, never part of it (D37: the Operator trashes by id): the other
+    # folders the fresh census found named like each checked area folder in its parent.
+    by_folder = {a.get("id"): a for a in census_doc["areas"]}
+    record["warnings"] = [
+        w
+        for w in (
+            _named_alike_warning(by_folder[consolidate[n]["id"]])
+            for n in names
+            if consolidate[n]["id"] in by_folder
+        )
+        if w
+    ]
+    diffs: list[str] = []
+    if sha != expect.strip().lower():
+        diffs.append(f"the proof's sha256 is {sha}, not the approved {expect}")
+    if summary.get("sha256") != sha:
+        diffs.append(f"the summary is not this proof's: it names sha256 {summary.get('sha256')}")
+    want = sorted((consolidate[n]["id"], consolidate[n]["mode"]) for n in names)
+    if sorted((a.get("id"), a.get("mode")) for a in census_doc["areas"]) != want:
+        diffs.append(f"the census's areas are not exactly the areas checked ({', '.join(names)})")
+    started, finished = census_doc.get("started"), census_doc.get("generated")
+    if not _later(started, summary.get("ran")):
+        diffs.append(
+            f"the census started at {started}, not after the proof was made ({summary.get('ran')})"
+        )
+    age = record["census_age_seconds"]
+    if age is None or age < 0 or age > MAX_CENSUS_AGE:
+        diffs.append(
+            f"the census started at {started}, not within the 24 hours before this recount ({now})"
+        )
+    done = _age(now, finished)
+    if done is None or done < 0 or _later(started, finished):
+        diffs.append(f"the census finished at {finished}, not between its start and this recount")
+    if not _cross_checked(census_doc):
+        diffs.append("the census records no cross-check against rclone's listing")
+    made_for = (summary.get("inputs") or {}).get("root")
+    if not made_for or not same_path(made_for, str(root)):
+        diffs.append(f"the proof was made for root {made_for}, not {root}")
+    # An area is known in the proof by its folder's row (path ""), whatever it was named.
+    named = {r["id"]: r["area"] for r in proof["rows"] if r["path"] == ""}
+    label = {n: named.get(consolidate[n]["id"], n) for n in names}
+    rows = [r for r in proof["rows"] if r["area"] in label.values()]
+    fresh_areas = {a.get("id"): a for a in census_doc["areas"]}
+    for n in names:
+        mine = [r for r in rows if r["area"] == label[n]]
+        nb = sum(1 for r in mine if r["class"] not in CLEARED)
+        fresh = fresh_areas.get(consolidate[n]["id"])
+        for s in same_name_folders(fresh["objects"]) if fresh else []:
+            diffs.append(
+                f"area {n}: same-name sibling folders {s['name']!r} in {s['parent']} "
+                f"({', '.join(s['ids'])}): rclone cannot list both"
+            )
+        if consolidate[n]["id"] not in named:
+            diffs.append(f"area {n}: the proof has no row for its folder")
+        if nb:
+            diffs.append(
+                f"area {n}: the proof has {nb} row(s) neither listed nor a folder: not clear "
+                "to trash by hand"
+            )
+    if diffs:
+        return {**record, "unchanged": "no", "differences": diffs}
+    by_id = {a["id"]: a for a in census_doc["areas"]}
+    for n in names:
+        fresh = {
+            o["id"]: _proof_row(label[n], path, o)
+            for path, o in _area_objects(by_id[consolidate[n]["id"]])
+        }
+        old = {r["id"]: r for r in rows if r["area"] == label[n]}
+        for oid in sorted(set(fresh) - set(old), key=lambda i: (fresh[i]["path"], i)):
+            r = fresh[oid]
+            diffs.append(f"new since the proof: {_place_of(r)} ({oid}, {r['kind']}, {r['mime']})")
+        for oid in sorted(set(old) - set(fresh), key=lambda i: (old[i]["path"], i)):
+            diffs.append(f"gone since the proof: {_place_of(old[oid])} ({oid})")
+        for oid in sorted(set(old) & set(fresh), key=lambda i: (old[i]["path"], i)):
+            changed = [k for k in COMPARED if _norm(k, old[oid][k]) != _norm(k, fresh[oid][k])]
+            if changed:
+                diffs.append(f"changed: {_place_of(old[oid])} ({oid}): its {', '.join(changed)}")
+    listed = [r for r in rows if r["class"] == "listed"]
+    twins = _Twins(root)
+    for r in listed:  # D37 point 4: the desktop copies hashed again
+        why, got = twins.get(r["twin"])
+        if why or got is None:
+            diffs.append(f"{r['area']}/{r['path']}: its desktop twin {r['twin']}: {why}")
+            continue
+        differ = _differ((r["size"], r["md5"], r["sha256"]), got[:3])
+        if differ:
+            diffs.append(
+                f"{r['area']}/{r['path']}: its desktop twin {r['twin']}: its "
+                f"{', '.join(differ)} changed"
+            )
+    if listed:
+        diffs.extend(_recheck_swe(remote, listed))
+    return {**record, "unchanged": "no" if diffs else "yes", "differences": diffs}
+
+
+def _write_new(path: Path, text: str) -> None:
+    """Write a file that must not exist yet (an exclusive create: never replaces one)."""
+    os.makedirs(native(path.parent), exist_ok=True)
+    try:
+        fd = os.open(
+            native(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+        )
+    except FileExistsError:
+        raise ToolError(f"{path} exists already; a recount never replaces a file") from None
+    with os.fdopen(fd, "wb") as fh:
+        fh.write(text.encode("utf-8"))
+
+
 # ---------------------------------------------------------------- sweep (a local folder)
 
 # What counts as a data file in a local folder, as scripts/data_manifest.py builds.
@@ -2002,6 +3293,17 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--areas", help="areas JSON (default: the §C.3 areas built in)")
     sp.add_argument("--out", required=True)
     sp.add_argument("--root", help="the data root, so --out never lands inside it")
+    sp.add_argument(
+        "--only",
+        action="append",
+        help="keep only this area of the set (by its name); may be repeated",
+    )
+    sp.add_argument(
+        "--preset",
+        choices=sorted(PRESETS),
+        help="the areas by name instead of --areas: card2b (card 2b's six), consolidate (the "
+        "three recount checks) or swe-data (swe-data/ alone)",
+    )
     sp = sub.add_parser("inventory", help="size, MD5 and SHA-256 of every root file")
     sp.add_argument("--root")
     sp.add_argument("--out", required=True)
@@ -2045,6 +3347,26 @@ def main(argv: list[str] | None = None) -> int:
     sp = sub.add_parser("sums", help="write SHA256SUMS for the root")
     sp.add_argument("--root")
     sub.add_parser("filters", help="print the rclone exclusion list")
+    sp = sub.add_parser(
+        "trashlist", help="account for every object of the consolidate areas; write the proof"
+    )
+    sp.add_argument("--plan", required=True, help="a whole-area plan over card 2b's six areas")
+    sp.add_argument("--census", required=True, help="the census that plan was made from")
+    sp.add_argument("--swe-census", required=True, help="a census of swe-data/ alone")
+    sp.add_argument("--root")
+    sp.add_argument("--out", required=True, help="a new folder under <root>/_logs/")
+    sp = sub.add_parser("recount", help="check nothing changed since the proof; reads only")
+    sp.add_argument("--proof", required=True, help="the trashlist.json the Operator approved")
+    sp.add_argument("--summary", required=True, help="its trashlist_summary.json")
+    sp.add_argument("--expect-sha256", required=True, help="the sha256 the Operator approved")
+    sp.add_argument("--census", required=True, help="a census of the checked areas, made now")
+    sp.add_argument(
+        "--area",
+        action="append",
+        help="a consolidate area to check; may be repeated (default: all three)",
+    )
+    sp.add_argument("--root")
+    sp.add_argument("--remote", required=True)
     args = ap.parse_args(argv)
     try:
         return _dispatch(args)
@@ -2064,15 +3386,28 @@ def _dispatch(args: argparse.Namespace) -> int:
         sys.stdout.write(filters_text())
         return 0
     if args.cmd == "census":
+        if args.preset and args.areas:
+            raise ToolError("give --preset or --areas, not both")
+        areas = [dict(a) for a in PRESETS[args.preset]] if args.preset else _areas(args.areas)
+        if args.only:
+            unknown = sorted(set(args.only) - {a["name"] for a in areas})
+            if unknown:
+                raise ToolError(f"--only {unknown}: not an area of this census's set")
+            areas = [a for a in areas if a["name"] in args.only]
         out = guard_out(Path(args.out), args.root)
         _not_an_input([out], [args.areas])
         version = require_rclone()
-        doc = census(args.remote, _areas(args.areas))
+        doc = census(args.remote, areas)
         doc["rclone"] = version
+        doc["preset"] = args.preset
+        doc["only"] = args.only
+        locate(args.remote, doc)
         write_outputs([(out, json_text(doc))])
         n = sum(len(a["objects"]) for a in doc["areas"])
+        swe = doc["swe_data"]
         print(
-            f"census: {len(doc['areas'])} areas, {n} objects; swe-data exists: {bool(doc['swe_data'])}"
+            f"census: {len(doc['areas'])} areas, {n} objects; swe-data/ is {swe['id']}, "
+            f"in {', '.join(swe['parents'])}"
         )
         return 0
     if args.cmd == "inventory":
@@ -2112,6 +3447,54 @@ def _dispatch(args: argparse.Namespace) -> int:
             args.dest,
             args.dry_run,
         )
+    if args.cmd == "trashlist":
+        out = _new_logs_folder(Path(args.out), root)
+        plan = _load_doc(Path(args.plan), "plan")
+        census_doc = _load_doc(Path(args.census), "census")
+        swe_doc = _load_doc(Path(args.swe_census), "census")
+        rows, areas = trashlist(plan, census_doc, swe_doc, root)
+        inputs = {
+            "root": str(root),
+            "plan": {"file": Path(args.plan).name, "generated": plan.get("generated")},
+            "census": {"file": Path(args.census).name, "generated": census_doc.get("generated")},
+            "swe_census": {
+                "file": Path(args.swe_census).name,
+                "generated": swe_doc.get("generated"),
+            },
+        }
+        summary = write_trashlist(out, rows, areas, census_doc, inputs)
+        print("\n".join(trashlist_lines(summary, out)))
+        return 0
+    if args.cmd == "recount":
+        stamp = dt.datetime.now(dt.UTC).strftime("%Y%m%dT%H%M%SZ")
+        log = guard_out(root / LOGS / f"recount-{stamp}-{os.urandom(3).hex()}.json", root)
+        census_doc = _load_doc(Path(args.census), "census")
+        names = args.area or [a["name"] for a in DEFAULT_AREAS if a["mode"] == "consolidate"]
+        require_rclone()
+        record = recount(
+            Path(args.proof),
+            Path(args.summary),
+            args.expect_sha256,
+            census_doc,
+            names,
+            root,
+            args.remote,
+        )
+        _write_new(log, json_text(record))
+        age = record["census_age_seconds"]
+        made = f"{age / 3600:.1f} h before this recount" if age is not None else "age unknown"
+        print(
+            f"recount: {', '.join(record['areas'])}: unchanged: {record['unchanged']} (census "
+            f"started {record['census_started']}, {made}; finished {record['census_generated']})"
+        )
+        for w in record["warnings"]:
+            print(f"  {w}")
+        for d in record["differences"][:200]:
+            print(f"  DIFFERENT  {d}")
+        if len(record["differences"]) > 200:
+            print(f"  … {len(record['differences']) - 200} more in {log}")
+        print(f"recount: verdict written to {log}")
+        return 0 if record["unchanged"] == "yes" else 1
     plan_path = Path(args.plan)
     plan = load_json(plan_path)
     if plan.get("kind") != "plan" or plan.get("schema") != SCHEMA:

@@ -82,7 +82,15 @@ Drive at all.
   - the docstring: one area takes `--only` on the census and `--area` on recount; recount
     reads the proof from trashlist's `--out` folder; the one-path check on rclone's listing
     is the guard that decides, since rclone's path comes from ToStandardName.
-- `tests/test_drive_trashlist.py`, new (215 tests); the fake rclone keeps owners, permissions
+- Fix round 5 (the pen's check of round 4, nothing blocking):
+  - rclone also runs without `RCLONE_PROGRESS`, which sends its log to stdout, and without
+    its filter variables (`RCLONE_EXCLUDE*`, `RCLONE_INCLUDE*`, `RCLONE_FILTER*`,
+    `RCLONE_FILES_FROM*`, `RCLONE_METADATA_*`, the size, age and depth limits, and the Drive
+    options that narrow a listing), which would leave entries out silently;
+  - `recount` names, beside its verdict, the folders its fresh census finds named like a
+    checked area folder: trash by the id link only; the verdict does not change;
+  - a test pins that a non-zero exit fails `lsjson`'s listing.
+- `tests/test_drive_trashlist.py`, new (218 tests); the fake rclone keeps owners, permissions
   and a trash, and lists by path, as rclone does; a folder reached by a second path only
   with `FAKE_SIZE_BY_PATH`.
 

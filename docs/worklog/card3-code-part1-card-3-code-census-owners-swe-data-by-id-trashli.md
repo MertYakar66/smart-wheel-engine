@@ -81,7 +81,7 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
 - `tests/test_drive_consolidate.py`: 263 passed, 3 skipped on `origin/main` (`ebc354a`), and
   the same on the branch; `tests/test_drive_trashlist.py`: 136 passed at the first Run
   Summary, 169 after fix round 1, 188 after fix round 2, 203 after fix round 3, 215 after
-  fix round 4.
+  fix round 4, 218 after fix round 5.
 - Load-bearing: each rule removed in a scratch copy of the tool; 83 single-rule mutants and
   one that removes both `--out` checks together, then each fix round's rules, each run against
   the test written for it. The PR's Run Summary and its "Fix round" comments have the
@@ -111,6 +111,11 @@ See the PR: `scripts/drive_consolidate.py` (census fields, `locate`, `trashlist`
   without the variables that would move or hide those lines; `trashlist` warns, beside the
   verdict, of any other folder named like an area folder in its parent: trash by the id
   link only.
+- Fix round 5, after the pen's check of round 4 (nothing blocking): rclone also runs without
+  `RCLONE_PROGRESS` (it sends the log to stdout) and without its filter variables, which
+  would leave entries out of a listing silently; `recount` gives the same namesake warning
+  from its fresh census, so a folder that appears beside an area after the proof is named
+  on the day of the trash.
 - Card 3a (desktop, read-only on Drive): `census --preset card2b`, `census --preset
   swe-data`, the inventory, the plan, `bytecheck` if any check is pending, then `trashlist`;
   on the day of the trash, `census --preset consolidate`, then `recount`. For one area, add

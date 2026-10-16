@@ -44,11 +44,13 @@ two folder ids also stops the run. That check is the guard that decides, since r
 path is the name after ToStandardName (drive.go:1132), which can merge two different
 names. Any line rclone logs at ERROR or above stops it too (``INCOMPLETE``, or an entry
 its listing drops); rclone runs without the variables that would move or hide those
-lines (``LOG_ENV``). The census records each area's same-name sibling folders, exact
+lines (``LOG_ENV``), and without its filter variables, which would leave entries out
+silently (``FILTER_ENV``). The census records each area's same-name sibling folders, exact
 names (``same_name_folders``), and ``trashlist`` blocks each of them and all they hold.
 It also records the other folders named like each area folder in its parent
 (``same_name_siblings``; ``name =`` ignores case); ``trashlist`` names them in a
-warning beside the area's verdict: trash by the id link only. The census records ``started``, the
+warning beside the area's verdict, and ``recount`` those its fresh census finds: trash by
+the id link only. The census records ``started``, the
 time before its first query, and that this cross-check passed (``cross_checked``). A
 file Drive lists without an MD5 is listed but not counted, as rclone can neither count
 nor download it. Every ``backend query`` carries
@@ -640,8 +642,9 @@ def _check_areas(areas: list[dict]) -> None:
 
 # Variables that would take rclone's ERROR lines away from the stderr this tool reads, or
 # change their spelling: a log file (stderr redirected to it), a level that hides ERROR, a
-# JSON or level-less format, syslog or systemd (fs/log/log.go InitLogging; every global
-# option takes its default from RCLONE_<NAME>).
+# JSON or level-less format, syslog or systemd (fs/log/log.go InitLogging), or progress,
+# which sends the log to stdout (cmd/progress.go startProgress). Every global option takes
+# its default from RCLONE_<NAME> (fs/config/flags/flags.go installFlag).
 LOG_ENV = (
     "RCLONE_LOG_FILE",
     "RCLONE_LOG_LEVEL",
@@ -650,12 +653,44 @@ LOG_ENV = (
     "RCLONE_LOG_FORMAT",
     "RCLONE_SYSLOG",
     "RCLONE_LOG_SYSTEMD",
+    "RCLONE_PROGRESS",
+)
+# Variables that would make a listing leave entries out silently, exit 0 and no ERROR
+# line: rclone's filters (fs/filter/filter.go OptionsInfo, and max_depth in fs/config.go),
+# by prefix, and the Drive options that narrow a listing (backend/drive/drive.go).
+FILTER_ENV_PREFIXES = (
+    "RCLONE_EXCLUDE",  # exclude, exclude_from, exclude_if_present
+    "RCLONE_INCLUDE",  # include, include_from
+    "RCLONE_FILTER",  # filter, filter_from
+    "RCLONE_FILES_FROM",  # files_from, files_from_raw
+    "RCLONE_METADATA_",  # metadata_filter, _exclude, _include and their _from
+)
+FILTER_ENV = (
+    "RCLONE_MIN_SIZE",
+    "RCLONE_MAX_SIZE",
+    "RCLONE_MIN_AGE",
+    "RCLONE_MAX_AGE",
+    "RCLONE_MAX_DEPTH",
+    "RCLONE_EXCLUDE_IF_PRESENT",
+    "RCLONE_IGNORE_CASE",
+    "RCLONE_HASH_FILTER",
+    "RCLONE_DRIVE_TRASHED_ONLY",
+    "RCLONE_DRIVE_SHARED_WITH_ME",
+    "RCLONE_DRIVE_STARRED_ONLY",
+    "RCLONE_DRIVE_SKIP_GDOCS",
+    "RCLONE_DRIVE_AUTH_OWNER_ONLY",
 )
 
 
+def _kept_from_rclone(name: str) -> bool:
+    n = name.upper()  # Windows names ignore case
+    return n in LOG_ENV or n in FILTER_ENV or n.startswith(FILTER_ENV_PREFIXES)
+
+
 def rclone_env() -> dict[str, str]:
-    """This process's environment without LOG_ENV, so ERROR lines reach the captured stderr."""
-    return {k: v for k, v in os.environ.items() if k.upper() not in LOG_ENV}
+    """This process's environment without LOG_ENV and the filter variables, so ERROR lines
+    reach the captured stderr and no listing leaves an entry out silently."""
+    return {k: v for k, v in os.environ.items() if not _kept_from_rclone(k)}
 
 
 def run_cmd(cmd: list[str], stdin: str | None = None) -> subprocess.CompletedProcess:
@@ -2921,6 +2956,18 @@ def recount(
         "census_age_seconds": _age(now, census_doc.get("started")),  # from its start
         "areas": names,
     }
+    # Beside the verdict, never part of it (D37: the Operator trashes by id): the other
+    # folders the fresh census found named like each checked area folder in its parent.
+    by_folder = {a.get("id"): a for a in census_doc["areas"]}
+    record["warnings"] = [
+        w
+        for w in (
+            _named_alike_warning(by_folder[consolidate[n]["id"]])
+            for n in names
+            if consolidate[n]["id"] in by_folder
+        )
+        if w
+    ]
     diffs: list[str] = []
     if sha != expect.strip().lower():
         diffs.append(f"the proof's sha256 is {sha}, not the approved {expect}")
@@ -3440,6 +3487,8 @@ def _dispatch(args: argparse.Namespace) -> int:
             f"recount: {', '.join(record['areas'])}: unchanged: {record['unchanged']} (census "
             f"started {record['census_started']}, {made}; finished {record['census_generated']})"
         )
+        for w in record["warnings"]:
+            print(f"  {w}")
         for d in record["differences"][:200]:
             print(f"  DIFFERENT  {d}")
         if len(record["differences"]) > 200:

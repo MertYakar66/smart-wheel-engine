@@ -2313,6 +2313,29 @@ def test_the_docstring_gives_card_3s_sequence_with_its_byte_check():
     assert recount[recount.index("--summary") + 1] == f"{out}\\{dc.PROOF_SUMMARY}"
 
 
+def test_recount_names_a_namesake_made_after_the_proof(live, capsys):
+    # After the proof, a folder named like swe-local-only's appears in its parent, holding
+    # bytes the desktop never had. The area is unchanged by id, so the verdict stays yes;
+    # recount names the namesake beside it, as trashlist does (Y).
+    a = AREA["swe-local-only"]
+    late = live.d.folder(a["folder"], a["parent"])
+    live.d.file("lost.csv", late, b"bytes the desktop never had\n")
+    live.save()
+    _census_now(live)
+    assert _area_of(_load(live.tmp / "now.json"), SLO)["same_name_siblings"] == [late]
+    capsys.readouterr()
+    rc, rec = _recount(live)
+    warning = (
+        f"WARNING: 1 other folder(s) named like {a['folder']!r} in its parent: {late}: "
+        f"trash by the id link only ({SLO})"
+    )
+    assert (rc, rec["unchanged"], rec["differences"]) == (0, "yes", [])
+    assert rec["warnings"] == [warning]
+    printed = capsys.readouterr().out.splitlines()
+    verdict = next(i for i, x in enumerate(printed) if "unchanged: yes" in x)
+    assert printed[verdict + 1] == "  " + warning
+
+
 # M. An INCOMPLETE listing is a failed one.
 
 
@@ -2343,11 +2366,14 @@ def test_an_incomplete_listing_stops_the_census(small, monkeypatch, capsys):
         ("2026/10/15 18:00:00 NOTICE: Google drive root '': a notice", False),
         ("2026/10/15 18:00:00 WARNING: a warning", False),
         ("", False),
+        ("panic: runtime error: invalid memory address", True),  # exit 1, no level (Z)
     ],
 )
 def test_rclone_listing_fails_on_any_error_line(monkeypatch, stderr, fails):
+    rc = 1 if stderr.startswith("panic:") else 0  # stdout is "[]" either way
+
     def fake_run(cmd, stdin=None):
-        return subprocess.CompletedProcess(cmd, 0, stdout="[]", stderr=stderr + "\n")
+        return subprocess.CompletedProcess(cmd, rc, stdout="[]", stderr=stderr + "\n")
 
     monkeypatch.setattr(dc, "run_cmd", fake_run)
     monkeypatch.setattr(dc, "RCLONE", ["rclone-never-run"])  # run_cmd is faked: nothing runs
@@ -2388,6 +2414,7 @@ def test_rclone_runs_without_the_variables_that_move_or_hide_its_error_lines(mon
         "RCLONE_LOG_FORMAT",
         "RCLONE_SYSLOG",
         "RCLONE_LOG_SYSTEMD",
+        "RCLONE_PROGRESS",  # W: progress sends the log to stdout (cmd/progress.go)
     }
     for name in dc.LOG_ENV:
         monkeypatch.setenv(name, "x")
@@ -2399,6 +2426,79 @@ def test_rclone_runs_without_the_variables_that_move_or_hide_its_error_lines(mon
     seen = json.loads(dc.run_cmd([sys.executable, "-c", probe]).stdout)
     assert not set(seen) & set(dc.LOG_ENV), seen
     assert "RCLONE_DRIVE_PACER_MIN_SLEEP" in seen
+
+
+# X. rclone runs without its filter variables, which would leave entries out silently.
+
+FILTER_NAMES = {  # rclone v1.74.4: fs/filter/filter.go, max_depth in fs/config.go, drive.go
+    "RCLONE_EXCLUDE",
+    "RCLONE_EXCLUDE_FROM",
+    "RCLONE_EXCLUDE_IF_PRESENT",
+    "RCLONE_INCLUDE",
+    "RCLONE_INCLUDE_FROM",
+    "RCLONE_FILTER",
+    "RCLONE_FILTER_FROM",
+    "RCLONE_FILES_FROM",
+    "RCLONE_FILES_FROM_RAW",
+    "RCLONE_MIN_SIZE",
+    "RCLONE_MAX_SIZE",
+    "RCLONE_MIN_AGE",
+    "RCLONE_MAX_AGE",
+    "RCLONE_MAX_DEPTH",
+    "RCLONE_IGNORE_CASE",
+    "RCLONE_HASH_FILTER",
+    "RCLONE_METADATA_FILTER",
+    "RCLONE_METADATA_FILTER_FROM",
+    "RCLONE_METADATA_EXCLUDE",
+    "RCLONE_METADATA_EXCLUDE_FROM",
+    "RCLONE_METADATA_INCLUDE",
+    "RCLONE_METADATA_INCLUDE_FROM",
+    "RCLONE_DRIVE_TRASHED_ONLY",
+    "RCLONE_DRIVE_SHARED_WITH_ME",
+    "RCLONE_DRIVE_STARRED_ONLY",
+    "RCLONE_DRIVE_SKIP_GDOCS",
+    "RCLONE_DRIVE_AUTH_OWNER_ONLY",
+}
+
+
+def test_rclone_runs_without_its_filter_variables(monkeypatch):
+    assert dc.FILTER_ENV_PREFIXES == (
+        "RCLONE_EXCLUDE",
+        "RCLONE_INCLUDE",
+        "RCLONE_FILTER",
+        "RCLONE_FILES_FROM",
+        "RCLONE_METADATA_",
+    )
+    assert set(dc.FILTER_ENV) == {
+        "RCLONE_MIN_SIZE",
+        "RCLONE_MAX_SIZE",
+        "RCLONE_MIN_AGE",
+        "RCLONE_MAX_AGE",
+        "RCLONE_MAX_DEPTH",
+        "RCLONE_EXCLUDE_IF_PRESENT",
+        "RCLONE_IGNORE_CASE",
+        "RCLONE_HASH_FILTER",
+        "RCLONE_DRIVE_TRASHED_ONLY",
+        "RCLONE_DRIVE_SHARED_WITH_ME",
+        "RCLONE_DRIVE_STARRED_ONLY",
+        "RCLONE_DRIVE_SKIP_GDOCS",
+        "RCLONE_DRIVE_AUTH_OWNER_ONLY",
+    }
+    for name in FILTER_NAMES:
+        monkeypatch.setenv(name, "x")
+    monkeypatch.setenv("rclone_max_depth", "1")  # any case: Windows names ignore it
+    kept = ("RCLONE_DRIVE_PACER_MIN_SLEEP", "RCLONE_DRIVE_CHUNK_SIZE", "RCLONE_METADATA")
+    for name in kept:
+        monkeypatch.setenv(name, "x")
+    probe = (
+        "import json, os; "
+        "print(json.dumps(sorted(k.upper() for k in os.environ if k.upper().startswith('RCLONE_'))))"
+    )
+    seen = json.loads(dc.run_cmd([sys.executable, "-c", probe]).stdout)
+    assert not set(seen) & FILTER_NAMES, sorted(set(seen) & FILTER_NAMES)
+    assert set(kept) <= set(seen)
+    # Case ignored on every platform, not only where the environment ignores it already.
+    assert dc._kept_from_rclone("rclone_exclude_from") and dc._kept_from_rclone("Rclone_Progress")
 
 
 # R. Other folders named like an area folder in its parent: a warning, never the verdict.

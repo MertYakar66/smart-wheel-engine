@@ -178,9 +178,9 @@ totals are below the table. Folders unrelated to this project are not recorded._
 into `OptionsEngine_Project` (The_Works › Projects), beside `SmartWheelData/`, so nothing of this
 project stays at the top of My Drive. Each kept its id: the pen read all three by id through its
 Drive connector, read-only, and a search of the top of My Drive by name found none of them. The
-day-bot's `_local_archive/` stays where it is. `scripts/drive_consolidate.py` still looks
-`swe-data/` up by name at the top of My Drive (line 725), so no tool run reads Drive until card
-3's code run makes it use the id (`docs/deadlines.md`).
+day-bot's `_local_archive/` stays where it is. Since #576 (merged 2026-10-16, `9cd074f`),
+`scripts/drive_consolidate.py` reads `swe-data/` by its id in `OptionsEngine_Project`; at the top
+of My Drive it looks up only `The_Works`, the first link of the chain it records.
 
 Card 1's census and plan, 2026-09-25 (`swe-data/_logs/d33-card1/` on the desktop). Every
 area's totals equal `rclone size`, and `swe-data exists: False`:

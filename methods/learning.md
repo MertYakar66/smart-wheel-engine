@@ -105,9 +105,9 @@
 | Topic (2027 name) | Weight | Order | Hours (about) |
 | --- | --- | --- | --- |
 | Ethical and Professional Standards | 10–15% | Weekly from week 1: all ten modules, not only Standards I–VII (also Ethics and Trust in the Investment Profession, the Code and Standards module with the Professional Conduct Program, and the application module); the seven Standards modules follow the Standards of Practice Handbook, 12th edition | 35 |
-| Quantitative Methods | 11–14% | First. It overlaps lessons 1.2 and 5.1–5.4, and its simulation module teaches the methods behind 1.5; VaR, expected shortfall, drawdown, stress tests and margin are not in Level I Quant, and the Level I outline names none of them | 35 |
+| Quantitative Methods | 11–14% | First. It overlaps lessons 1.2 and 5.1–5.4, and its simulation module teaches the historical and Monte Carlo methods behind 1.5; the Level I outline names none of VaR, expected shortfall, drawdown, stress tests or margin | 35 |
 | Portfolio Construction | 8–12% | Second. It overlaps M5, and also M1 and M2 through its "Introduction to Risk Management" module and lesson 2.5 through "Basics of Portfolio Planning and Construction" | 25 |
-| Derivatives and Risk Management | 6–9% | Third. It overlaps your options basics. The Level I outline names no Greeks and no implied volatility; Level II's "Valuation of Contingent Claims" teaches them in depth. Of the ten Level I Derivatives modules, three price forwards, futures and swaps, and three price options (option-value factors, put–call parity, a one-period binomial model) | 20 |
+| Derivatives and Risk Management | 6–9% | Third. It overlaps your options basics. The Level I outline names no Greeks and no implied volatility; Level II's "Valuation of Contingent Claims" covers them: each Greek, delta hedging, gamma risk and implied volatility. Of the ten Level I Derivatives modules, three price forwards, futures and swaps, and three price options (option-value factors, put–call parity, a one-period binomial model) | 20 |
 | Equities | 11–14% | | 35 |
 | Fixed Income | 11–14% | | 35 |
 | Financial Statement Analysis | 11–14% | | 40 |
@@ -118,7 +118,7 @@
 | Mock exams and final review, including the two official mocks (released about 60 days before your window) | | The last 4–6 weeks before the exam | 40 |
 | **Total** | | | **about 340** |
 
-**Level I items the topic blocks must not miss** (checked against the 2027 outline, 2026-10-17):
+**Level I items the topic blocks must not miss** (checked against the 2027 outline, the Level I exam page and the 2027 errata notice, 2026-10-17):
 - **Calculator practice** from week 1: the exam allows only the Texas Instruments BA II Plus or the HP 12C.
 - **Quantitative Methods:** the time value of money, statistical distributions (including Bayesian updating) and hypothesis testing. Track 1 does not cover the time value of money or the distributions module, and touches hypothesis testing only through the alpha t-statistic in 5.4.
 - **Equities:** the modules on financial statement forecasting, analyst research reports, company analysis, and the CAPM, market model and other factor-based models.
@@ -171,8 +171,8 @@ February is possible only at about 4.5+ h a day, seven days a week, with registr
 
 **Rules** (CFA Institute's policies, read 2026-10-17):
 - The exam may be taken at most twice a calendar year, not in consecutive windows and not in windows less than six months apart, with at most six attempts per level.
-- Fees are fully refundable only within 14 days of paying. From February 2027 there is no paid deferral: a missed exam forfeits the fee (narrow emergency deferrals remain).
-- One Practical Skills Module must be finished before results are released, or the result is voided. CFA Institute says results typically come 5–7 weeks after the exam (August 2026's came after about 4.5), so for August 2027 finish it by early September.
+- A first registration is fully refundable only within 14 days of paying. From February 2027 there is no paid deferral: a missed exam forfeits the fee (narrow emergency deferrals remain).
+- One Practical Skills Module must be finished before results are released, or the result is voided. CFA Institute says results typically come 5–7 weeks after the exam (August 2026's came on 24 September, about 4.5 weeks after the window closed), so for August 2027 finish it by early September.
 - All three levels cost USD 3,520–4,570 in exam fees. Local tax, where collected, is added at payment.
 
 ---

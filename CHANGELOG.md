@@ -14,6 +14,17 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-17 — D39: the day-bot's `data_raw` comes home, `swe-data/` keeps everything the desktop holds, card 3 parked (desktop)
+
+**Docs** — the Operator's "yes, adopt D39" (campaign #544).
+- `DECISIONS.md`: D39, with a line under D33 (point 8's routine), D34 (point 3 superseded) and D37
+  (parked).
+- `PROJECT_STATE.md`: the close after #586; card 3a's proof and its independent check; card 3 parked;
+  the next actions under D39.
+- `docs/deadlines.md`: the sign-in row records the sign-in of 2026-10-16, which ends about 2026-10-23.
+- Card 3a's fragment: "every file", not "every object", has both copies, and every folder is
+  accounted for (Codex's review of #586).
+
 ## 2026-10-16 — card 3a: the proof for the hand trash (desktop; #586, `9e5bca6`, campaign #544)
 
 the proof is made: sha256 0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9

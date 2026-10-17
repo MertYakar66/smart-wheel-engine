@@ -14,6 +14,25 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-16 — card 3a: the proof for the hand trash (desktop)
+
+the proof is made: sha256 0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9
+
+**Docs** — `docs/worklog/card3a-desktop-card-3a-the-proof-for-the-hand-trash-d37.md`, the record
+of D37 point 2 (campaign #544). One desktop run read Drive only and wrote only the root's new
+`_logs\card3a\`, with the tool at blob `6903c9c8…` (#576).
+- The census of `swe-data/` (279,862 objects; 147,811 files, 18,644,236,641 B) and of card 2b's six
+  areas (327,825 objects) each matched rclone's own listing, every id included. The plan left 0
+  files to copy home and 0 byte checks pending.
+- `trashlist`'s verdicts: `swe-local-only`, `SmartWheelData` and `smart-wheel-engine` each read
+  "clear to trash by hand: yes", with 0 blockers and sharing with the owner alone.
+- The end check: the root outside `_logs` unchanged (147,812 files), the proof's bytes hashing to
+  the sha256 above, and the manifest 144 ok, 0 missing, 0 mismatched by full hash.
+- At the Operator's word, the run paused after the census of `swe-data/` for a fresh Drive
+  sign-in, checked again before the census of the six areas.
+- Next (D37 point 3): a context that did not write the card checks the proof, then the Operator
+  says yes to its sha256. The writer pause stays until the check after the trash.
+
 ## 2026-10-15 — card 3's code run: census owners, `swe-data/` by id, `trashlist` and `recount` (desktop; #576, `9cd074f`, campaign #544)
 
 **Added** — `scripts/drive_consolidate.py`, for D37, the middle route (the Operator's choice of

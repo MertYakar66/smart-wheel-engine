@@ -230,3 +230,9 @@ The branch's allow-list already accepts both paths, so no new root file and no `
 **Confirmed by the Operator** on 2026-10-16: "yes to all your recommendations", for "'They' on this branch. Recommend: yes." and "Relayed approvals. Recommend: a prompt you approved word for word elsewhere counts as approved." Their word-for-word yes on the text followed.
 1. **"They" for the Operator.** As on `main` (D38, "4. they"), this branch's `CLAUDE.md` and `AGENTS.md` say "they" and "their" in place of "he" and "his".
 2. **Relayed approvals.** A prompt the Operator approved word for word in another chat, relayed with a note saying so, counts as approved under `CLAUDE.md` §3 point 5. It is not rewritten again.
+
+## PM7. A report line on every reply, and the relayed-approval ruling in §3 (2026-10-17)
+
+**Confirmed by the Operator** on 2026-10-17. It builds on their request "You should start your message/output by saying something like 'Report from the Portfolio Manager Assistant, Sir — …'" and their "approve part 5". Their word-for-word yes on the text followed.
+1. `CLAUDE.md` §2 gains a turn line for every reply after the first, modelled on the Assistant's line in `AGENTS.md`, and says that both lines are allowed in a first reply under §3.
+2. `CLAUDE.md` §3 now states PM6's relayed-approval ruling, following the automatic Codex review of #585 (advice only).

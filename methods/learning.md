@@ -107,7 +107,7 @@
 | Ethical and Professional Standards | 10–15% | Weekly from week 1: all ten modules, not only Standards I–VII (also Ethics and Trust in the Investment Profession, the Code and Standards module with the Professional Conduct Program, and the application module); the seven Standards modules follow the Standards of Practice Handbook, 12th edition | 35 |
 | Quantitative Methods | 11–14% | First. It overlaps lessons 1.2 and 5.1–5.4, and its simulation module teaches the methods behind 1.5; VaR, expected shortfall, drawdown, stress tests and margin are not in Level I Quant, and the Level I outline names none of them | 35 |
 | Portfolio Construction | 8–12% | Second. It overlaps M5, and also M1 and M2 through its "Introduction to Risk Management" module and lesson 2.5 through "Basics of Portfolio Planning and Construction" | 25 |
-| Derivatives and Risk Management | 6–9% | Third. It overlaps your options basics. The Level I outline names no Greeks and no implied volatility; Level II's "Valuation of Contingent Claims" teaches them in depth. Three of its ten modules price forwards, futures and swaps, and three price options (option-value factors, put–call parity, a one-period binomial model) | 20 |
+| Derivatives and Risk Management | 6–9% | Third. It overlaps your options basics. The Level I outline names no Greeks and no implied volatility; Level II's "Valuation of Contingent Claims" teaches them in depth. Of the ten Level I Derivatives modules, three price forwards, futures and swaps, and three price options (option-value factors, put–call parity, a one-period binomial model) | 20 |
 | Equities | 11–14% | | 35 |
 | Fixed Income | 11–14% | | 35 |
 | Financial Statement Analysis | 11–14% | | 40 |

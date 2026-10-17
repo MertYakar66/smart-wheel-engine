@@ -14,6 +14,26 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-17 — D39: the day-bot's data_raw home and into swe-data (desktop)
+
+data_raw is home and in swe-data: 1,725 files, 34,816,381 B
+
+**Docs** — `docs/worklog/d39-data-raw-desktop-card-for-d39-the-day-bot-s-data-raw-home.md`, the
+record of D39 point 1, and point 2 for its new subtree (campaign #544). One desktop run read the
+day-bot's Drive folder `_local_archive/data_raw`, added its files to the root under
+`data_archive/drive-legacy/day-bot-local-archive/data_raw/` and to the same path in `swe-data/`,
+by copies only, with no move, sync or delete, with the tool at blob `6903c9c8…` and rclone v1.74.4.
+- The census of `data_raw` (4,946 objects; 3,306 files, 35,125,927 B) matched rclone's own listing,
+  every id included, and card 1's census exactly. The plan matched card 1's (copy 1,725,
+  34,816,381 B; duplicate 1,581; folder 1,640) and left 0 byte checks pending.
+- The copy home: 1,725 copied and verified, 0 not; the verify: 1,725 ok, 0 missing, 0 mismatched.
+- The upload into `swe-data/`: 1,725 new, 0 errors. The check both ways by MD5: 1,725 the same,
+  0 on one side only, 0 differ.
+- The end check: the root outside `_logs` gained the plan's 1,725 copies and nothing else
+  (147,812 to 149,537 files), and the manifest read 144 ok, 0 missing, 0 mismatched by full hash.
+- Next: the pen checks the run, then writes D33 point 8's routine into `docs/DATA_INVENTORY.md` §C
+  and runs it once for the root's `_logs/`, which finishes D39 point 2.
+
 ## 2026-10-17 — D39: the day-bot's `data_raw` comes home, `swe-data/` keeps everything the desktop holds, card 3 parked (desktop)
 
 **Docs** — the Operator's "yes, adopt D39" (campaign #544).

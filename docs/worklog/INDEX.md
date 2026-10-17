@@ -9,7 +9,7 @@ scenarios — at a glance. Each row links to the full learning record
 records are per-task fragments under `docs/worklog/`; the dated backtest /
 verification reports are indexed in place. See `docs/worklog/README.md`.
 
-**204 records.**
+**205 records.**
 
 ## Features (23)
 
@@ -105,7 +105,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [sim200k](sim200k-sim-200k-eight-window-reliability-campaign-at-20.md) | done |  | 8 one-year $200k wheel campaigns from regime-diverse start dates: 7/8 positive (mean +14.3%, worst -3.2% in the 2022 bear where it beat EW B&H by +7.8pp); bear-alpha/bull-lag confirmed; top-bin over-confidence confirmed in all 8 windows | `sim200k-sim-200k-eight-window-reliability-campaign-at-20.md` |
 | [trader500k-campaign](trader500k-campaign-trader-500k-reliability-campaign.md) | shipped | #520 | $500k mechanical wheel over 11×18mo windows + 2 rail re-runs — 9/11 profitable, beats SPX only 2/11, prob_profit compressed with regime-dependent top-bin gap, EV rank-quality dispersion-conditional | `trader500k-campaign-trader-500k-reliability-campaign.md` |
 
-## Verification & realism (52)
+## Verification & realism (53)
 
 | ID | Status | PR | Headline | Record |
 |---|---|---|---|---|
@@ -120,6 +120,7 @@ verification reports are indexed in place. See `docs/worklog/README.md`.
 | [d33-card2b](d33-card2b-desktop-card-2b-the-rest-of-drive-and-the-covera.md) | merged | #552 | every Drive file in the six areas now has a byte-identical copy at home — 3,809 files and 47,691,144 B came home, exactly card 1's remainder, and the verify re-hashed all 178,216 non-folder Drive objects' home counterparts with 0 missing, 0 mismatched and 0 unresolved; one copy attempt was lost to a transient DNS failure and the driver's own retry carried it; end check "no finding" and manifest 144/0/0 by full hash. | `d33-card2b-desktop-card-2b-the-rest-of-drive-and-the-covera.md` |
 | [d33-card2c](d33-card2c-desktop-card-2c-swe-data-on-drive-checked-both-w.md) | merged | #554 | swe-data/ on Drive holds all 147,811 baseline files and 147,810 of them match the root by MD5, but a duplicate Drive folder left one file uncheckable, so the check stopped for the pen and the restore tests did not run. | `d33-card2c-desktop-card-2c-swe-data-on-drive-checked-both-w.md` |
 | [d33-card2d](d33-card2d-desktop-card-2d-the-duplicate-folder-and-card-2c.md) | merged | #556 | The duplicate Drive folder is cleared and swe-data/ is proven: 147,811 files the same both ways by MD5, 147,811 files and 18,644,236,641 B by count with no filter, and both restore tests pass — so D31 step 6's evidence now exists. | `d33-card2d-desktop-card-2d-the-duplicate-folder-and-card-2c.md` |
+| [d39-data-raw](d39-data-raw-desktop-card-for-d39-the-day-bot-s-data-raw-home.md) | in-flight |  | The day-bot's data_raw is home and in swe-data/ — 1,725 files and 34,816,381 B, exactly card 1's plan; the copy read 1,725 copied and verified, 0 not, the verify 1,725 ok, the upload 1,725 new with 0 errors, and the check both ways by MD5 1,725 the same with 0 on one side only; end check "no finding" and the manifest 144/0/0 by full hash. | `d39-data-raw-desktop-card-for-d39-the-day-bot-s-data-raw-home.md` |
 | [data-home-desktop-2026-09-18](data-home-desktop-2026-09-18-desktop-data-root-filled-and-verified-d31-steps.md) | completed | #527 | desktop root filled and proved 144 ok / 0 missing / 0 mismatched; fast lane 3196 passed / 0 failed with 0 requires_data skips; day-bot ticks backed up to Drive (0 differences, 15 files); both manifest gaps closed | `data-home-desktop-2026-09-18-desktop-data-root-filled-and-verified-d31-steps.md` |
 | [data-home-desktop-round3-2026-09-23](data-home-desktop-round3-2026-09-23-desktop-history-bundle-archive-on-drive-drive-on.md) | merged | #538 | bundle built and proved to hold all 5 manifest git_sources and 1,101,549,144 B of history-only blobs, but the coverage gate FIRED (main moved to #530 mid-run); 29,262 Drive files pulled home, 29,260 checksum-identical and 2 ibkr conflicts kept on both sides; swe-local-only's theta is only 13% of what the lost laptop held (card 1 then found a far fuller Theta upload in SmartWheelData, under review) | `data-home-desktop-round3-2026-09-23-desktop-history-bundle-archive-on-drive-drive-on.md` |
 | [data-phase2-tests](data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md) | in-flight |  | Phase-2 of the data audit — 2 real-CSV test suites (integrity + data→engine) turning the Phase-1 findings into strong assertions; confirmed defects tracked as xfail(strict)+issue; trio byte-identical | `data-phase2-tests-phase-2-data-integrity-data-to-engine-tests.md` |

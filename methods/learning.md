@@ -104,10 +104,10 @@
 
 | Topic (2027 name) | Weight | Order | Hours (about) |
 | --- | --- | --- | --- |
-| Ethical and Professional Standards | 10–15% | Weekly from week 1: all ten modules, not only Standards I–VII (also the Code of Ethics, the Professional Conduct Program and the application module), from the Standards of Practice Handbook, 12th edition | 35 |
-| Quantitative Methods | 11–14% | First. It overlaps lessons 1.2 and 5.1–5.4 only; VaR, expected shortfall, drawdown, stress tests and margin are not Level I Quant | 35 |
+| Ethical and Professional Standards | 10–15% | Weekly from week 1: all ten modules, not only Standards I–VII (also Ethics and Trust in the Investment Profession, the Code and Standards module with the Professional Conduct Program, and the application module), from the Standards of Practice Handbook, 12th edition | 35 |
+| Quantitative Methods | 11–14% | First. It overlaps lessons 1.2 and 5.1–5.4, and its simulation module teaches the methods behind 1.5; VaR, expected shortfall, drawdown, stress tests and margin themselves are not named at Level I | 35 |
 | Portfolio Construction | 8–12% | Second. It overlaps M5, and also M1 and M2 through its "Introduction to Risk Management" module and lesson 2.5 through "Basics of Portfolio Planning and Construction" | 25 |
-| Derivatives and Risk Management | 6–9% | Third. It overlaps your options basics. Level I names no Greeks and no implied volatility, which start at Level II; most Level I modules price forwards, futures and swaps | 20 |
+| Derivatives and Risk Management | 6–9% | Third. It overlaps your options basics. Level I names no Greeks and no implied volatility, which start at Level II; three of its ten modules price forwards, futures and swaps, and three price options (option-value factors, put–call parity, a one-period binomial model) | 20 |
 | Equities | 11–14% | | 35 |
 | Fixed Income | 11–14% | | 35 |
 | Financial Statement Analysis | 11–14% | | 40 |
@@ -120,10 +120,10 @@
 
 **Level I items the topic blocks must not miss** (checked against the 2027 outline, 2026-10-17):
 - **Calculator practice** from week 1: the exam allows only the Texas Instruments BA II Plus or the HP 12C.
-- **Quantitative Methods:** the time value of money, statistical distributions (including Bayesian updating) and hypothesis testing. Track 1 does not cover them.
+- **Quantitative Methods:** the time value of money, statistical distributions (including Bayesian updating) and hypothesis testing. Track 1 does not cover the time value of money or distributions, and touches hypothesis testing only through the alpha t-statistic in 5.4.
 - **Equities:** the modules on financial statement forecasting, analyst research reports, company analysis, and the CAPM, market model and other factor-based models.
 - **Financial Statement Analysis, Economics and Alternatives:** "Introduction to Financial Statement Modeling", "Introduction to Geopolitics" and "Introduction to Digital Assets" get time inside their blocks.
-- **Errata:** check CFA Institute's 2027 Level I errata notice (first issued September 2026) before each topic.
+- **Errata:** check CFA Institute's 2027 Level I errata notice (current issue dated September 2026) before each topic.
 
 **Weeks 1–3, before registration.** The official curriculum comes only with registration. Until then:
 - the free 2027 Level I topic outlines are the checklist;

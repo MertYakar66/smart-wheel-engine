@@ -15,10 +15,11 @@ the proof is made: sha256 0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051
 
 ## Goal
 
-Card 3a of D37 (point 2; campaign #544). Prove that every object in the three old Drive
+Card 3a of D37 (point 2; campaign #544). Prove that every file in the three old Drive
 folders, `swe-local-only`, `SmartWheelData` and `smart-wheel-engine` (the tool's area
 `smart-wheel-engine-git`), has both of its copies: its desktop twin in the data root and its
-twin in `swe-data/` on Drive. With that proof the Operator can later trash each clear folder by
+twin in `swe-data/` on Drive; every folder there is accounted for (one parent, owned, holding only
+such files and folders). With that proof the Operator can later trash each clear folder by
 hand. The run only read Drive, wrote only the new folder `_logs\card3a\` in the root, and ran
 `scripts/drive_consolidate.py` as `main` holds it after #576 (git blob `6903c9c8…`) through
 `trashlist`, one command per step. The pen's check of the proof, the Operator's yes to its

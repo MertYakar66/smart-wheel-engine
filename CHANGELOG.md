@@ -14,7 +14,7 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-16 — card 3a: the proof for the hand trash (desktop)
+## 2026-10-16 — card 3a: the proof for the hand trash (desktop; #586, `9e5bca6`, campaign #544)
 
 the proof is made: sha256 0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9
 

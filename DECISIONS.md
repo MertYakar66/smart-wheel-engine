@@ -1979,6 +1979,8 @@ source, and every deletion and restore gate.
 
 **PARTLY SUPERSEDED by D37 (2026-10-15):** in D36's line above, card 3 no longer moves files. It trashes up to three whole folders by hand, after proving every file in them. Every condition of point 5 stands.
 
+**Amended by D39 (2026-10-17):** point 8's routine, and point 3's named exclusions. After every data change in the root, the change is copied to `swe-data/`, reached by its id, and checked by checksum. Only the credential file stays off Drive (D39 point 2), so the root's `_logs/` goes to `swe-data/` too. Data leaves Drive only when it is unnecessary, as its own step with the Operator's yes.
+
 **Decision.** Confirmed by the Operator on 2026-09-24 ("yes"), after two reviews
 by the second opinion:
 
@@ -2087,6 +2089,8 @@ Codex reviewed the plan twice.
 - `docs/DATA_INVENTORY.md` §A (steps 6 and 7) and §C.3.
 
 ## D34. Theta is kept like Bloomberg; the Theta collection on Drive comes home; the day-bot's `data_raw` stays out (2026-09-26)
+
+**PARTLY SUPERSEDED by D39 (2026-10-17):** point 3. The day-bot's `_local_archive/data_raw` comes home, into the root under `data_archive/drive-legacy/day-bot-local-archive/data_raw/`, and with the root into `swe-data/`. On Drive it stays where it is. Everything else in D34 stands, except its rejected alternative "Copy the day-bot's `data_raw` home", which D39 now takes.
 
 **Decision.** Confirmed by the Operator on 2026-09-26: "1. yes 2. yes, will do both 3.
 yes, leave them out" to card 1's three findings, then "yes to both, go ahead with card
@@ -2268,6 +2272,8 @@ changes"):
 
 ## D37. Card 3 trashes the old Drive folders by hand, after card 3a proves every file in them; D36's scripted moves are dropped (2026-10-15)
 
+**PARKED by D39 (2026-10-17):** card 3 is parked. The three old folders stay as they are. Card 3a's proof (sha256 `0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9`, #586) stays as the record: a context that did not write the card checked it, and the Operator has not said yes to it. The writer pause ends. A later trash is a removal under D39 point 3, after a fresh proof and recount, as this entry says.
+
 **Decision.** Confirmed by the Operator on 2026-10-15 ("yes, adopt D37"), to the text below. On 2026-10-15 the Operator chose this route over D36's method ("yes, go with the middle route"), after the pen set out what it keeps and what it costs.
 
 1. **How card 3 deletes.** The Operator moves up to three folders to Drive's trash, by hand, in Drive's web page, from links the pen gives by id. All three sit in `OptionsEngine_Project`:
@@ -2370,6 +2376,31 @@ changes"):
 - **One Codex in both roles.** Two rule sets in one agent mix up who may write what.
 
 **Pinned by.** `CLAUDE.md`, `AGENTS.md` and the charter on the `Risk_Management` branch; `scripts/session_open.py` leaving the branch out of "other branches", with its test.
+
+## D39. The day-bot's `data_raw` comes home; `swe-data/` keeps everything the desktop holds; card 3 is parked (2026-10-17)
+
+**Decision.** Confirmed by the Operator on 2026-10-17 ("yes, adopt D39"), to points 1 to 5 below, as the pen put them. Before it, the Operator answered the pen's three questions on the existing data: "1 satys home, no there is not. we can remove data from dirve if it is unnecessary. but for sfaety reasons, whatever we have on the desktop must be on the drive as well." The Why, the rejected alternatives and the pins are the pen's record.
+
+1. The day-bot's `_local_archive/data_raw` comes home. A desktop card copies its files into the root under `data_archive/drive-legacy/day-bot-local-archive/data_raw/`, never over an existing file, and checks each one by its bytes. On Drive it stays where it is. This supersedes D34 point 3.
+2. Everything in the desktop root is also in `swe-data/`. After every data change in the root, the change is copied to `swe-data/`, reached by its id, and checked by checksum. Only the credential file stays off Drive (CLAUDE.md §7). This is D33 point 8's routine, with its open question answered.
+3. Data may be removed from Drive when it is unnecessary, as its own step with the Operator's yes. The routine copies; it never deletes.
+4. Card 3 is parked. The three old Drive folders stay as they are, and card 3a's proof stays as the record. The writer pause ends. Trashing them later is a removal under point 3, after a fresh proof and recount, as D37 says.
+5. Pulling new data starts only after points 1 and 2 are done and checked.
+
+**Why.**
+- The Operator, 2026-10-17: "I just want one thing, which is to gather all the data we have on the desktop, and start pulling more data from online sources", then "we will not start puilling new data until we make sure our own existing data is secure and on desktop".
+- The rest of the data is home and proven. Cards 2a and 2b (#546 to #552) brought every Drive-only file of card 2b's six areas home, and card 2b verified them all; card 2d (#556) proved `swe-data/` equal to the root; card 3a (#586) proved it again on 2026-10-16, file by file: each of the 178,129 files in the three old folders has a desktop copy, re-hashed, and a `swe-data/` copy. A context that did not write card 3a checked that proof and found 0 differences.
+- The day-bot's `data_raw` was the one part left on Drive only: 3,306 files and 35,125,927 B in card 1's census of 2026-09-25. D34 left it out as the day-bot's own data (its point 3, citing D33 point 5), and because a copy in `swe-data/` would be a second Drive copy that card 3 could never clean (its rejected alternatives). The Operator wants it home all the same: "whatever we have on the desktop must be on the drive as well". Its Drive original stays, so Drive holds it twice unless it is later removed under point 3.
+
+**Rejected alternatives.**
+- **Leave `data_raw` on Drive only.** The Operator wants every piece of the data home.
+- **A `sync` of the root to `swe-data/`.** It would delete on Drive with no decision; point 3 asks for one.
+- **Finish card 3 first.** The Operator: "I think we are wasting too much time on this."
+
+**Pinned by.**
+- the card that brings `data_raw` home and copies it into `swe-data/`, with its Run Summary;
+- `docs/DATA_INVENTORY.md` §C, where D33 point 8's routine is to be written;
+- `PROJECT_STATE.md` §0 B.
 
 ## How to add a decision
 

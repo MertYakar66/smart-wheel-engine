@@ -2,9 +2,9 @@
 id: card3a
 title: Desktop card 3a: the proof for the hand trash (D37)
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 586
 decisions: [D33, D37]
 date: 2026-10-16
 headline: The proof is made: swe-local-only, SmartWheelData and smart-wheel-engine each read "clear to trash by hand: yes" with 0 blockers; proof sha256 0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9; the root unchanged and the manifest 144/0/0.
@@ -15,10 +15,11 @@ the proof is made: sha256 0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051
 
 ## Goal
 
-Card 3a of D37 (point 2; campaign #544). Prove that every object in the three old Drive
+Card 3a of D37 (point 2; campaign #544). Prove that every file in the three old Drive
 folders, `swe-local-only`, `SmartWheelData` and `smart-wheel-engine` (the tool's area
 `smart-wheel-engine-git`), has both of its copies: its desktop twin in the data root and its
-twin in `swe-data/` on Drive. With that proof the Operator can later trash each clear folder by
+twin in `swe-data/` on Drive; every folder there is accounted for (one parent, owned, holding only
+such files and folders). With that proof the Operator can later trash each clear folder by
 hand. The run only read Drive, wrote only the new folder `_logs\card3a\` in the root, and ran
 `scripts/drive_consolidate.py` as `main` holds it after #576 (git blob `6903c9c8…`) through
 `trashlist`, one command per step. The pen's check of the proof, the Operator's yes to its
@@ -183,7 +184,7 @@ The report on #544 follows in step 11, after this record is pushed.
    files on the desktop, then brings the sha256
    `0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9` to the Operator for a yes.
    The trash, the recount and the rehearsal come after that (D37 point 4).
-2. **The writer pause stays** (D37 point 5) until the check after the trash.
+2. **The writer pause stays** (D37 point 5) until the check after the trash. (Ended by D39 point 4, 2026-10-17.)
 3. **For the pen, reading the numbers** (each computed from the step files):
    - `swe-data/`'s census reads 279,862 objects, 147,811 of them files, so 132,051 others. The card
      quotes card 2c's count of `swe-data/`'s folders as 132,053, two more. The census matched

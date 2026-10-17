@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-10-16 (close after #576, `main` at `9cd074f`: card 3's code run merged, after
+**Last updated:** 2026-10-17 (close after #586, `main` at `9e5bca6`: card 3a's proof made, all three
+old folders clear, and checked by a context that did not write it. D39 adopted ("yes, adopt D39"):
+the day-bot's `data_raw` comes home, `swe-data/` keeps everything the desktop holds, card 3 is
+parked, and new data waits. Earlier, 2026-10-16: close after #576, `main` at `9cd074f`: card 3's
+code run merged, after
 the pen's check and five fix rounds, each checked by a context that did not write it. Card 3a
 authorized: "authorize card 3a, but make sure all the claims above are actually accurate and
 right". Earlier, 2026-10-15: close after #580, `main` at `e042f5b`: D38 merged, the Portfolio
@@ -162,7 +166,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `9cd074f` (2026-10-16). Others on `origin`:
+**Branches:** `main` is at `9e5bca6` (2026-10-17). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -813,31 +817,54 @@ desktop's checkout still has the round 3 branch locally.
      comment 6065992701, which restores `hosts.bak-card2d`, and pasted its output,
      `pin removed`. Still to report: whether Defender's Protection history shows a
      `HostsFileHijack` entry from the run.
-  6. **D33 point 8, keeping `swe-data/` current.** Card 2's proof is complete, so the
-     routine is due. A draft is under "Proposed"; it waits for one answer from the
-     Operator. Until a routine is agreed, nothing refreshes `swe-data/`, which holds the
-     root as it stood at card 2c's baseline (2026-10-04, unchanged through card 2d's end
-     check on 2026-10-09).
+  6. **D33 point 8, keeping `swe-data/` current.** Answered by D39 (2026-10-17): the routine
+     copies and never deletes; data leaves Drive only when it is unnecessary, as its own step
+     with the Operator's yes; only the credential file stays off Drive. The routine is written
+     into `docs/DATA_INVENTORY.md` §C next (next action 1). Until then nothing refreshes
+     `swe-data/`, which matched the root on 2026-10-16 (card 3a), by path and by bytes.
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. Card 3 (Remains 3), in D37's order:
-     - the code run, PR #576: merged on 2026-10-16 as `9cd074f`, after the pen's check and five
+  1. D39 (2026-10-17), in order:
+     - a desktop card brings the day-bot's `_local_archive/data_raw` home (3,306 files and
+       35,125,927 B in card 1's census) into `data_archive/drive-legacy/day-bot-local-archive/data_raw/`,
+       copies it into `swe-data/`, reached by its id, and checks both by checksum. It reads Drive, so
+       it runs on the sign-in of 2026-10-16 (it ends between about 14:48 and 15:33 UTC on
+       2026-10-23; plan on 14:48) or a newer one;
+     - D33 point 8's routine, written into `docs/DATA_INVENTORY.md` §C: after every data change in
+       the root, copy it to `swe-data/` by its id and check it. Only the credential file stays off
+       Drive (D39 point 2), so the root's `_logs/` goes to `swe-data/` too, which D33 point 3 had left
+       out. Data leaves Drive only when it is unnecessary, as its own step with the Operator's yes;
+     - then the plan for pulling new data: the next-phase plan's questions, and a decision to
+       reopen the data track, parked on 2026-09-17.
+  2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old
+     folders "clear to trash by hand: yes", 0 blockers, the proof's sha256
+     `0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9`. A context that did not write the card checked
+     it: its own verifier rebuilt all 327,716 rows, re-hashed all 147,486 desktop twins and matched
+     every `swe-data/` twin, with 0 differences; the six areas' census equals card 2b's, id for id;
+     and the two counts the Executor flagged are two empty root folders (`data/features/_locks` and
+     `_stats`) and the 93-B credential file. The Operator has not said yes to the sha256. If card 3
+     resumes, first: a fresh card 3a and recount (D37); a wider undo-window row, since D37's
+     protects three folders while 24,213 of the proven files have their twins elsewhere
+     (`data/features/`, `data_processed/option_premium/`, `data_archive/git/`, some Bloomberg tick
+     and archive copies, IBKR records); and two small tool changes, recount's namesake warning
+     pinned for every area, and the `swe-data/` twin required to be owned by the account. D37's
+     steps, and where each stood when card 3 was parked:
+     - done: the code run, PR #576: merged on 2026-10-16 as `9cd074f`, after the pen's check and five
        fix rounds, each checked by a context that did not write it. Round 3 closed a blocking
        gap: rclone walks Drive by path, so of two same-name sibling folders it lists one twice
        and never the other; the census now stops on one path given to two folder ids. One test
        gap is left for a small change before the recount: recount's namesake warning is pinned
        for one area only;
-     - a fresh Drive sign-in (the one of 2026-10-09 ends about 2026-10-16 18:54 UTC), and the
-       writer pause from card 3a's census on;
-     - card 3a on the desktop, read-only (authorized 2026-10-16, below; its card is drafted and
-       under a fresh-context check), and a check of its output by a context that did not write it;
-     - the Operator's yes to the proof's sha256;
-     - the rehearsal by hand and the credential file's "Delete forever", both before the trash
-       baseline;
-     - the recount, the baseline, the trash by hand and the check, with no break; then the
-       undo-window row.
-  2. The next-phase plan (Proposed): five questions wait for the Operator.
-  3. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
+     - done: a fresh Drive sign-in (2026-10-16, during card 3a), and the writer pause from card 3a's
+       census on, which D39 point 4 ended;
+     - done: card 3a on the desktop, read-only (#586, `9e5bca6`), and the check of its output by a
+       context that did not write it;
+     - not done: the Operator's yes to the proof's sha256;
+     - not done: the rehearsal by hand and the credential file's "Delete forever";
+     - not done: the recount, the baseline, the trash by hand and the check; the undo-window row
+       never opened.
+  3. The next-phase plan (Proposed): five questions wait for the Operator.
+  4. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
      moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/` into
      `OptionsEngine_Project` (The_Works › Projects), beside `SmartWheelData/`. The pen read
@@ -848,17 +875,19 @@ desktop's checkout still has the round 3 branch locally.
      reads Drive (`docs/deadlines.md`). D36 (2026-10-15) records the new place,
      and marks D33 point 3 partly superseded.
 
-  The Dashboard's `update` may resume: card 2d has ended, and card 3 takes a fresh
-  census before it deletes anything.
+  The writer pause has ended (D39 point 4). The Dashboard's `update` pulls from IBKR and writes
+  `data_processed/ibkr/` in the root. Whether that counts as pulling new data under D39 point 5 is
+  the Operator's to say, so ask before the next `update`; whatever it writes then goes to
+  `swe-data/` under point 2. The Flex token is rotated first (`docs/deadlines.md`).
 
   Answered on 2026-10-13: the Google Cloud app behind rclone (project `rclone-backup`) is
   in "Testing". The pen read it in Google Cloud Console, read-only. The Operator signed in
   again on 2026-10-09, pasting `Success!` at 18:54 UTC, so that sign-in ends about
-  2026-10-16 at 18:54 UTC. Card 3's code run merged that morning (#576); card 3a, the next
-  card that reads Drive, starts on a fresh sign-in the Operator makes just before it. The
-  console's "Publish app" needs a home-page link and a privacy-policy link first. The Operator chose on 2026-10-15 to stay in Testing
+  2026-10-16 at 18:54 UTC. Card 3's code run merged that morning (#576). The Operator signed in
+  again during card 3a: made on 2026-10-16 after card 3a's step 3 ended (14:48:17 UTC) and before its step 4 began (15:33:10 UTC), so it ends between about 14:48 and 15:33 UTC on 2026-10-23; plan on 14:48
+  (#586's fragment and Run Summary). The console's "Publish app" needs a home-page link and a privacy-policy link first. The Operator chose on 2026-10-15 to stay in Testing
   ("stay in Testing", version 6's question 1): a fresh sign-in comes before each Drive card or
-  window that would cross the 7 days. The first attempt failed: Windows refused rclone's sign-in
+  window that would cross the 7 days. The 2026-10-09 sign-in's first attempt failed: Windows refused rclone's sign-in
   port, 127.0.0.1:53682, which lay inside a range the Windows NAT driver (WinNAT) had
   reserved (53671–53770). `net stop winnat`, the sign-in, then `net start winnat` fixed it.
   Still open from before: the Operator deletes the credential file forever from Drive's
@@ -866,7 +895,7 @@ desktop's checkout still has the round 3 branch locally.
   paste) is dropped. Drive's own 30-day emptying removes the credential file about
   2026-10-26, a month after the pen moved it to the trash on 2026-09-26; D37 point 4 wants it
   gone before the trash baseline. The Flex token is due before the Dashboard's next `update`,
-  which pulls Flex; the writer pause holds that `update` until the check after the trash.
+  which pulls Flex.
 - **Authorized.**
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
@@ -934,6 +963,10 @@ desktop's checkout still has the round 3 branch locally.
     about 20 if a census must start again; the writer pause runs until the check after the
     trash, likely days; a same-name folder pair stops the census hours in, not early; the
     sign-in needs the WinNAT steps only if Windows refuses rclone's port.
+  - D39 ("yes, adopt D39", 2026-10-17), to its five points as the pen put them: the day-bot's
+    `data_raw` comes home; `swe-data/` keeps everything the desktop holds; data leaves Drive only
+    when it is unnecessary, as its own step with the Operator's yes; card 3 is parked; new data waits until the first two
+    are done and checked.
   - The Portfolio Manager / Risk Engineer's change to `main` (2026-10-15): the Operator asked the pen to carry out
     PM1 Part 5 (on the orphan branch `Risk_Management`, commit `6c087a0`): "carry it out as one change run through
     your normal process, and ask me for the explicit yes your rules need for the §7 change, the D38 entry and the
@@ -965,15 +998,16 @@ desktop's checkout still has the round 3 branch locally.
     Operator: the data budget, the IBKR subscriptions and daily login, the capital and
     limits, which names, and the timing and evidence bar for the first trade. Reopening
     the data track (parked on 2026-09-17) needs a new decision.
-  - **D33 point 8, the refresh routine** (a draft). After a data change in the root, run
-    an `rclone copy`, never a `sync`, of the root to `swe-data/`, with the tool's
-    exclusions, reaching `swe-data/` by its id (`--drive-root-folder-id`), never by a path
+  - **D33 point 8, the refresh routine** (a draft; its question answered by D39, 2026-10-17).
+    After a data change in the root, run an `rclone copy`, never a `sync`, of the root to
+    `swe-data/`, leaving out only the credential file (D39 point 2: `_logs/` goes too),
+    reaching `swe-data/` by its id (`--drive-root-folder-id`), never by a path
     such as `gdrive:swe-data`, which would make a second folder at the top of My Drive.
     Then check both ways by checksum, and compare `rclone size` with the root's count, as
     card 2d's step 7 did.
-    - One question for the Operator first: when a file leaves the root, does it leave
-      `swe-data/` too? `copy` keeps it there, and the two-way check then reports it.
-      `sync` deletes it on Drive.
+    - The question, answered by D39: a file that leaves the root stays in `swe-data/`;
+      it leaves Drive only when it is unnecessary, as its own step with the Operator's yes.
+      The two-way check then reports it, by name.
     - Name resolution must hold for the whole run (see card 2d).
   - **For the next long cards:**
     - ship long blocks as files fetched from GitHub and checked by sha256, as the driver

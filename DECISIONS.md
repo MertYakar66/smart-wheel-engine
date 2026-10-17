@@ -1977,9 +1977,9 @@ source, and every deletion and restore gate.
 
 **PARTLY SUPERSEDED by D36 (2026-10-15):** two places. In point 3, "`swe-data/` at the top of My Drive": it sits in `OptionsEngine_Project` (My Drive › The_Works › Projects), found by its id. In the Why, "So the design copies, never moves": card 3 moves each approved file by its id into a holding folder, then trashes that folder once. Every condition of point 5 stands.
 
-**Amended by D39 (2026-10-17):** point 8's routine. After every data change in the root, the change is copied to `swe-data/`, reached by its id, and checked by checksum; data leaves Drive only as its own step with the Operator's yes.
-
 **PARTLY SUPERSEDED by D37 (2026-10-15):** in D36's line above, card 3 no longer moves files. It trashes up to three whole folders by hand, after proving every file in them. Every condition of point 5 stands.
+
+**Amended by D39 (2026-10-17):** point 8's routine, and point 3's named exclusions. After every data change in the root, the change is copied to `swe-data/`, reached by its id, and checked by checksum. Only the credential file stays off Drive (D39 point 2), so the root's `_logs/` goes to `swe-data/` too. Data leaves Drive only when it is unnecessary, as its own step with the Operator's yes.
 
 **Decision.** Confirmed by the Operator on 2026-09-24 ("yes"), after two reviews
 by the second opinion:
@@ -2090,7 +2090,7 @@ Codex reviewed the plan twice.
 
 ## D34. Theta is kept like Bloomberg; the Theta collection on Drive comes home; the day-bot's `data_raw` stays out (2026-09-26)
 
-**PARTLY SUPERSEDED by D39 (2026-10-17):** point 3. The day-bot's `_local_archive/data_raw` comes home, into the root under `data_archive/drive-legacy/day-bot-local-archive/data_raw/`, and with the root into `swe-data/`. On Drive it stays where it is. Everything else in D34 stands.
+**PARTLY SUPERSEDED by D39 (2026-10-17):** point 3. The day-bot's `_local_archive/data_raw` comes home, into the root under `data_archive/drive-legacy/day-bot-local-archive/data_raw/`, and with the root into `swe-data/`. On Drive it stays where it is. Everything else in D34 stands, except its rejected alternative "Copy the day-bot's `data_raw` home", which D39 now takes.
 
 **Decision.** Confirmed by the Operator on 2026-09-26: "1. yes 2. yes, will do both 3.
 yes, leave them out" to card 1's three findings, then "yes to both, go ahead with card
@@ -2389,8 +2389,8 @@ changes"):
 
 **Why.**
 - The Operator, 2026-10-17: "I just want one thing, which is to gather all the data we have on the desktop, and start pulling more data from online sources", then "we will not start puilling new data until we make sure our own existing data is secure and on desktop".
-- The rest of the data is home and proven. Card 2b (#552) brought every Drive-only file of its six areas home; card 2d (#556) proved `swe-data/` equal to the root; card 3a (#586) proved it again on 2026-10-16, file by file: each of the 178,129 files in the three old folders has a desktop copy, re-hashed, and a `swe-data/` copy. A context that did not write card 3a checked that proof and found 0 differences.
-- The day-bot's `data_raw` was the one part left on Drive only: 3,306 files and 35,125,927 B in card 1's census of 2026-09-25. D34 left it out because card 3 could not clean a second copy in `swe-data/`; with card 3 parked, that reason falls away.
+- The rest of the data is home and proven. Cards 2a and 2b (#546 to #552) brought every Drive-only file of card 2b's six areas home, and card 2b verified them all; card 2d (#556) proved `swe-data/` equal to the root; card 3a (#586) proved it again on 2026-10-16, file by file: each of the 178,129 files in the three old folders has a desktop copy, re-hashed, and a `swe-data/` copy. A context that did not write card 3a checked that proof and found 0 differences.
+- The day-bot's `data_raw` was the one part left on Drive only: 3,306 files and 35,125,927 B in card 1's census of 2026-09-25. D34 left it out as the day-bot's own data (its point 3, citing D33 point 5), and because a copy in `swe-data/` would be a second Drive copy that card 3 could never clean (its rejected alternatives). The Operator wants it home all the same: "whatever we have on the desktop must be on the drive as well". Its Drive original stays, so Drive holds it twice unless it is later removed under point 3.
 
 **Rejected alternatives.**
 - **Leave `data_raw` on Drive only.** The Operator wants every piece of the data home.
@@ -2399,7 +2399,7 @@ changes"):
 
 **Pinned by.**
 - the card that brings `data_raw` home and copies it into `swe-data/`, with its Run Summary;
-- `docs/DATA_INVENTORY.md` §C, where D33 point 8's routine is written down;
+- `docs/DATA_INVENTORY.md` §C, where D33 point 8's routine is to be written;
 - `PROJECT_STATE.md` §0 B.
 
 ## How to add a decision

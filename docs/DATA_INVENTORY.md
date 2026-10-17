@@ -251,10 +251,11 @@ the hosts file. The pin comes off after the run (`docs/deadlines.md`).
 
 After the consolidation (card 2), this project has one Drive folder, `swe-data/` (above),
 laid out exactly like the desktop root. Card 2's proof is now complete. The routine that
-keeps the folder current (D33 point 8) is drafted in `PROJECT_STATE.md` §0 B, under
-"Proposed". It waits for the Operator's answer to one question: when a file leaves the
-root, does it leave `swe-data/` too? It is recorded here once agreed. Until then nothing
-refreshes `swe-data/`.
+keeps the folder current (D33 point 8) is drafted in `PROJECT_STATE.md` §0 B. D39
+(2026-10-17) answered its one question: the routine copies and never deletes, and data
+leaves Drive only when it is unnecessary, as its own step with the Operator's yes. Only the
+credential file stays off Drive, so the root's `_logs/` goes to `swe-data/` too. The routine
+is recorded here once written. Until then nothing refreshes `swe-data/`.
 
 ---
 

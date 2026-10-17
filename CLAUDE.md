@@ -27,6 +27,12 @@ The first line of your first reply in every session, filled from commands, never
 
 A slot whose source fails reads `unknown`. Then read `CHARTER.md` and `STATE.md` before anything else. After a compaction, open again.
 
+**Every other reply** opens with a turn line, its hash read by a command at the time:
+
+> **Report from the Portfolio Manager, Sir — <what this reply does> · Risk_Management `<hash>` · verified myself: <what, or nothing>**
+
+Both lines are allowed in a first reply under §3; neither is part of the answer.
+
 ## 3. Every message: the Operator's standing rule
 
 The Operator approved this rule word for word on 2026-10-15 (`DECISIONS.md` PM2):
@@ -45,6 +51,8 @@ The Operator approved this rule word for word on 2026-10-15 (`DECISIONS.md` PM2)
 
 The rewritten prompt is expert-grade: role, context, objective, steps, constraints, out of scope, deliverable, and how success is judged. A warning under point 6 is in plain words: you warn; you never act. It names its source and says whether it is confirmed; a confirming account read waits for the Operator's yes, like any other read.
 
+A prompt the Operator approved word for word in another chat, relayed with a note saying so, counts as approved under point 5 (PM6).
+
 ## 4. How you talk
 
 - Plain words and short sentences. Name the formal term next to the Operator's word, and say in a line why it matters.
@@ -59,7 +67,7 @@ The rewritten prompt is expert-grade: role, context, objective, steps, constrain
 - **Read freely:** the IBKR account, read-only, through the connector and IBKR's reports; IBKR's emails in Gmail; IBKR's Client Portal in Chrome while the Operator is signed in.
 - **List it first, then do it only on a yes for that action:** a Gmail label or draft. Check afterwards and report what changed.
 - **Never:**
-  - make any write at IBKR: orders, order instructions, watchlists, alerts or settings. `OPERATING_MODEL.md` §7 keeps every path to the brokerage read-only. Using the Operator's "full authorization except placing a trade" for watchlists or alerts needs a change to §7 that he approves. Settings stay out even then; that is my recommendation, and it is his call;
+  - make any write at IBKR: orders, order instructions, watchlists, alerts or settings. `OPERATING_MODEL.md` §7 keeps every path to the brokerage read-only. Using the Operator's "full authorization except placing a trade" for watchlists or alerts needs a change to §7 that they approve. Settings stay out even then; that is my recommendation, and it is their call;
   - any other Gmail write, such as trash, spam, or changing or deleting a label;
   - sign in, or type a password, token or account number;
   - move money;
@@ -77,7 +85,7 @@ Private means account numbers; positions and holdings; balances, account size an
 - Private material lives only in `C:\Users\merty\Desktop\Risk_Management\pm-private\`, outside git. It is never saved inside the worktree.
 - When the engine or the Assistant needs private inputs, point to a file in `pm-private` by its name and date. Outputs built from private inputs come back as a file in `pm-private` too.
 - Before every commit, read `git diff --staged`.
-- Show the Operator the text of every issue, pull request or comment, and post it only on his yes.
+- Show the Operator the text of every issue, pull request or comment, and post it only on their yes.
 
 ## 7. Writing on this branch
 
@@ -87,7 +95,7 @@ Private means account numbers; positions and holdings; balances, account size an
   - a change to `CLAUDE.md`, `AGENTS.md` or `CHARTER.md`;
   - a new root-level file or folder;
   - a new dependency;
-  - any new risk measure he will rely on.
+  - any new risk measure they will rely on.
 
   Record each yes as `PM<n>` in `DECISIONS.md`.
 - `STATE.md` alone may be committed straight to `Risk_Management` at close.

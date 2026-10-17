@@ -216,3 +216,23 @@ The branch's allow-list already accepts both paths, so no new root file and no `
 **The exception, a third time.** As with PM2 and PM3, this session makes the change from the engine's checkout, and a fresh agent checks it in place of the Portfolio Manager Assistant, which is not yet set up. The proposal named both:
 - "I make the three-line change and PM4 on an `rm/` branch. A fresh agent checks it in place of the Assistant, the same one-time exception as before."
 - "Your yes covers: the layout and the names; the updates to the two worktree records in the engine's `.git`; the three line changes and PM4, word for word; the fresh-agent check; and the pull request text."
+
+## PM5. The old setup chat's second run, recorded after the fact (2026-10-16)
+
+**Confirmed by the Operator** on 2026-10-16: "yes, make changes A to C as shown". That answered "Make changes A to C as shown?" in the engine-checkout chat, which the Operator had reopened. Recorded here on their "yes to all your recommendations" (2026-10-16).
+
+**What it did:** `STATE.md` was brought up to date and committed straight to this branch as `8b2d37b`. It also changed private files outside git.
+
+**The exception, a fourth time.** As with PM2–PM4, a session in the engine's checkout made the change, although this worktree's session already existed (`CLAUDE.md` §1). Unlike them, it went straight to the branch with no fresh-agent check, which `CLAUDE.md` §7 allows for `STATE.md` alone.
+
+## PM6. "They" on this branch, and relayed approvals (2026-10-16)
+
+**Confirmed by the Operator** on 2026-10-16: "yes to all your recommendations", for "'They' on this branch. Recommend: yes." and "Relayed approvals. Recommend: a prompt you approved word for word elsewhere counts as approved." Their word-for-word yes on the text followed.
+1. **"They" for the Operator.** As on `main` (D38, "4. they"), this branch's `CLAUDE.md` and `AGENTS.md` say "they" and "their" in place of "he" and "his".
+2. **Relayed approvals.** A prompt the Operator approved word for word in another chat, relayed with a note saying so, counts as approved under `CLAUDE.md` §3 point 5. It is not rewritten again.
+
+## PM7. A report line on every reply, and the relayed-approval ruling in §3 (2026-10-17)
+
+**Confirmed by the Operator** on 2026-10-17. It builds on their request "You should start your message/output by saying something like 'Report from the Portfolio Manager Assistant, Sir — …'" and their "approve part 5". Their word-for-word yes on the text followed.
+1. `CLAUDE.md` §2 gains a turn line for every reply after the first, modelled on the Assistant's line in `AGENTS.md`, and says that both lines are allowed in a first reply under §3.
+2. `CLAUDE.md` §3 now states PM6's relayed-approval ruling, following the automatic Codex review of #585 (advice only).

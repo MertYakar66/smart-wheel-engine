@@ -14,7 +14,12 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-18 — the close after #587 and #588, and D39's amendment (desktop)
+## 2026-10-18 — the close after #590; D39's last card authorized (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `34b8053`; D39's last card ("yes, merge it and write the
+card") and the pen's merge of its PR while the Operator is away recorded under Authorized.
+
+## 2026-10-18 — the close after #587 and #588, and D39's amendment (desktop; #590, `34b8053`)
 
 **Docs** — the records after D39's card.
 - `PROJECT_STATE.md`: the close after #587 and #588; D39's card done and checked by a context

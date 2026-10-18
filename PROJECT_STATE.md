@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-10-18 (close after #587 and #588, `main` at `534fb04`: D39 written (#587,
+**Last updated:** 2026-10-18 (close after #590, `main` at `34b8053`: D39's amendment on `main`; D39's
+last card authorized, with the pen's merge of its PR while the Operator is away. Earlier the same
+day: close after #587 and #588, `main` at `534fb04`: D39 written (#587,
 `78a2116`); D39's card brought the day-bot's `data_raw` home and into `swe-data/` (#588), 1,725 files
 and 34,816,381 B, checked by a context that did not write it (PR #588 comment 6249441948); D39
 amended to bring the last 50 uncounted files of `_local_archive/` home too. Earlier, 2026-10-17:
@@ -170,7 +172,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `534fb04` (2026-10-18). Others on `origin`:
+**Branches:** `main` is at `34b8053` (2026-10-18). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -842,7 +844,9 @@ desktop's checkout still has the round 3 branch locally.
        the same ids) and the rest of the root unchanged (147,812 files), and the manifest 144/0/0.
        Nothing blocking. Drive now holds `data_raw` twice; removing the original is a point 3 step,
        with the Operator's yes, and only after `_logs/` (its ledger) is in `swe-data/`;
-     - next, one desktop card for the rest of points 1 and 2:
+     - next, D39's last card for the rest of points 1 and 2 (authorized 2026-10-18; the card is
+       `pen-drafts/d39-finish/d39-finish.md` on the desktop, checked by a context that did not
+       write it before it runs; branch `claude/d39-finish`, record `_logs/d39-finish/`):
        - the amendment's 50 files (`_local_archive/data_store/`'s 49 and a manifest text file;
          177,171 B): a census, then home under `data_archive/drive-legacy/day-bot-local-archive/`,
          each at its own path, as the amendment says, checked by its bytes. Only 28 of the 50
@@ -1003,7 +1007,18 @@ desktop's checkout still has the round 3 branch locally.
   - Bringing the 50 uncounted files of `_local_archive/` home ("Bring them home (Recommended)" to
     "The 50 uncounted day-bot files (177 KB): bring them home too, like data_raw?", 2026-10-18), and
     D39's amendment as the pen worded it ("Yes (Recommended)" to "Adopt this amendment to D39, as
-    worded above?", the same day): written into `DECISIONS.md` by this close.
+    worded above?", the same day): written into `DECISIONS.md` by #590 (`34b8053`).
+  - D39's last card ("yes, merge it and write the card", 2026-10-18), to the pen's restatement: one
+    desktop run brings the 50 files home, each at its own path, checked by its bytes; rebuilds the
+    root's `SHA256SUMS` and records its hash in git; copies the 50, the new `SHA256SUMS` (the one
+    file that replaces an existing one; Drive keeps the old version) and the root's `_logs/` into
+    `swe-data/`, by copies only, deleting nothing; checks the whole root against `swe-data/` both
+    ways by checksum; and writes the routine into `docs/DATA_INVENTORY.md`. The same words
+    authorized merging #590: done, `34b8053`.
+  - The pen's merge of that card's pull request, and of its close, while the Operator is away
+    ("Yes (Recommended)" to "While you're away, may I post the fresh check of the card's run on its
+    PR and #544 (public, as MertYakar66), merge that PR if the check is clean and CI green, then open
+    and merge its close?", 2026-10-18), under D35's conditions (`OPERATING_MODEL.md` §3.1).
   - The Portfolio Manager / Risk Engineer's change to `main` (2026-10-15): the Operator asked the pen to carry out
     PM1 Part 5 (on the orphan branch `Risk_Management`, commit `6c087a0`): "carry it out as one change run through
     your normal process, and ask me for the explicit yes your rules need for the §7 change, the D38 entry and the

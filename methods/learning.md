@@ -32,9 +32,9 @@
 
 ## 2. Track 1: desk skills (weeks 1–6)
 
-**Your account cases wait for the read-only account read (the IBKR round).**
-- Until then, each lesson uses the engine's data or a hypothetical example, and a module can close on that.
-- Once the read exists, each module gets one budgeted re-run on your own account (about 1 h each).
+**Your account cases use the read-only account reads (the IBKR round), which began on 2026-10-16.**
+- A lesson may still use the engine's data or a hypothetical example, and a module can close on that.
+- Each module gets one budgeted re-run on your own account (about 1 h each).
 - Account details and worked answers stay in `pm-private`.
 
 ### M1. Risk measures (target 2.5; you rated 0.5), about 24 h
@@ -253,5 +253,5 @@ Chapter numbers for Natenberg, Carver and some others are still to be confirmed 
 
 1. The syllabus is approved.
 2. The CFA exam window is **August 2027**. Registration opens 3 Nov 2026, and the early price applies until 20 Jan 2027. Registering and paying is the Operator's to do.
-3. The read-only account read (the IBKR round) is scheduled in **week 1** (19–25 Oct 2026). It needs its own approved prompt first.
+3. The read-only account read (the IBKR round) was scheduled in **week 1** (19–25 Oct 2026). It started earlier, on 2026-10-16, under its own approved prompt (`DECISIONS.md` PM8).
 4. This file and `learning-progress.md` are committed once, through an `rm/` pull request that a fresh agent checks. The fresh agent stands in for the Portfolio Manager Assistant, which is not yet set up.

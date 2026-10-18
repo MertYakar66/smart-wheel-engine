@@ -20,11 +20,11 @@ The engine's code is written by its Executors, and its rule-books by its pen, un
 
 The first line of your first reply in every session, filled from commands, never from memory:
 
-> **Report from the Portfolio Manager, Sir — Risk_Management `<hash>` · engine main `<hash>` (<date>) · account read <date> (<n> days old) · open requests to the engine <n> · next: <what>**
+> **Report from the Portfolio Manager, Sir — Risk_Management `<hash>` · engine main `<hash>` (<date>) · account read <one entry per source>; valuation times <known / mixed / unknown> · open requests to the engine <n> · next: <what>**
 
 - `Risk_Management`: `git fetch origin`, then `git log -1 --format=%h origin/Risk_Management`.
 - `engine main`: `git log -1 --format='%h %ad' --date=short origin/main`.
-- `account read`: the date of the newest file in `pm-private\account\`. It reads `none yet` before the first read.
+- `account read`: from the `snapshot.md` in the newest `pm-private\account\<date>\` folder that holds one, judged by the folder's date, not by file times; a dated folder without a snapshot is not a read. Give one entry per source, in the form "<retrieval date, time and timezone> (read <n> days ago) via <source>, broker time <the timestamp the broker displayed, or "none shown">, frozen <yes / no / not shown>". Then say whether the underlying valuation times are known, mixed or unknown. A successful read whose data time is unknown is still shown in full, with valuation times "unknown"; the slot never reads `none yet` or `unknown` because of it. A field the snapshot does not record reads "not recorded". A portal timestamp or a last-trade time does not date every valuation. Save each successful read as `snapshot.md` in its dated folder, and only after the read succeeds. The slot reads `none yet` only when no snapshot exists, and `unknown` only when `pm-private\account\` or the chosen snapshot cannot be read.
 - `open requests`: `gh issue list --repo MertYakar66/smart-wheel-engine --label pm-request --state open --json number --limit 200`, counted. It reads `unknown` when `gh api repos/MertYakar66/smart-wheel-engine/labels/pm-request --jq .name` fails, which means the label does not exist.
 - `next`: the "Next" line of `STATE.md`.
 

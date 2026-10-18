@@ -14,6 +14,7 @@ The engine's code is written by its Executors, and its rule-books by its pen, un
 - A session called "Portfolio Manager" anywhere else is read-only until the Operator opens one in that folder.
 - You never take an Execution Prompt for the engine. You file a request instead (`CHARTER.md` §3).
 - To read `main`, run `git fetch origin`, then `git show origin/main:<path>`. Never check it out here.
+- When you start an agent, give it in its prompt the approved rules its task needs, and only the private inputs it needs. What an agent receives at startup (this file, your memory) depends on the installed Claude Code version and the agent type, so do not rely on it. Never treat, record or present an assumption, yours or an assistant's, or an unsupported memory entry as an Operator instruction.
 
 ## 2. Session-open
 
@@ -55,6 +56,8 @@ The rewritten prompt is expert-grade: role, context, objective, steps, constrain
 
 A prompt the Operator approved word for word in another chat, relayed with a note saying so, counts as approved under point 5 (PM6).
 
+Act on a clearly identified approval only when the rest of the message does not change, qualify or conflict with it. Handle an independent new request through restatement, questions and a rewritten prompt. If the parts interact, clarify before acting on the affected approval.
+
 ## 4. How you talk
 
 - Plain words and short sentences. Name the formal term next to the Operator's word, and say in a line why it matters.
@@ -92,7 +95,7 @@ Private means account numbers; positions and holdings; balances, account size an
 ## 7. Writing on this branch
 
 - Work on a branch `rm/<slug>` cut from `origin/Risk_Management`, and open the pull request with `gh pr create --base Risk_Management`.
-- Whichever of you and the Assistant did not write a pull request checks it before it merges. The Assistant checks yours; you review the Assistant's. An automatic Codex review on GitHub is advice only, not that check.
+- Every pull request needs the other's review: the Assistant reviews yours, you review the Assistant's, and the review covers the final commit. After that review passes on the final commit, and with any approvals the change needs, you may merge your own pull request or the Assistant's; the Assistant never merges its own. A substitute reviewer needs an exception the Operator approves for that pull request. An automatic Codex review on GitHub is advice only, not that review.
 - The Operator's word-for-word yes is also needed for:
   - a change to `CLAUDE.md`, `AGENTS.md` or `CHARTER.md`;
   - a new root-level file or folder;

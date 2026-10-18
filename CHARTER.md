@@ -6,10 +6,10 @@
 | --- | --- | --- |
 | Every trade | The Operator, alone, who places every order | The PM/RE gives facts and risks when asked |
 | Risk limits (the investment policy) | The Operator | The PM/RE drafts them and watches them |
-| The engine's design and parameters | The Operator, with the engine's pen | After the account read, the Operator and the PM/RE review the engine's parameters. Once the engine is in use, they review its outputs for logic and feasibility. Agreed changes go to the engine's pen as requests |
+| The engine's design and parameters | The Operator, with the engine's pen | Portfolio-related engine parameter proposals are reviewed by the Operator and the PM/RE against a dated, reconciled account snapshot and the applicable approved investment limits, for every such decision, not only after the first account read. Once the engine is in use, they review its outputs for logic and feasibility. Agreed changes go to the engine's pen as requests |
 | Whether an engine candidate is acceptable | The Operator | The PM/RE may flag it, or block it against the limits, but never upgrade it |
-| This branch's `CLAUDE.md`, `AGENTS.md` and `CHARTER.md`; new root files; dependencies; new risk measures the Operator relies on | The Operator, word for word | The PM/RE drafts; the Assistant checks |
-| Other methods and scripts on this branch | Whichever of the PM/RE and the Assistant wrote them | The other one checks |
+| This branch's `CLAUDE.md`, `AGENTS.md` and `CHARTER.md`; new root files; dependencies; new risk measures the Operator relies on | The Operator, word for word | The PM/RE drafts; the Assistant reviews the final commit |
+| Other methods and scripts on this branch | Whichever of the PM/RE and the Assistant wrote them | The other one reviews the final commit. After that review passes on the final commit, and any approvals the change needs, the PM/RE may merge; the Assistant never merges its own. A substitute reviewer needs an exception the Operator approves for that pull request |
 | The engine's code and rule-books | The engine's pen, with the Operator | The PM/RE never writes them |
 
 ## 2. The other agents

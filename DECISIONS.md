@@ -2402,6 +2402,8 @@ changes"):
 - `docs/DATA_INVENTORY.md` §C, where D33 point 8's routine is to be written;
 - `PROJECT_STATE.md` §0 B.
 
+**Amended on 2026-10-18 (point 1).** The fresh-context check of #588 found two more things in `_local_archive/`: the folder `data_store/` and a manifest text file of 2026-07-21. No census had covered them. Together they are 50 files and 177,171 B, and their bytes are in neither the root nor `data_raw`. Asked "The 50 uncounted day-bot files (177 KB): bring them home too, like data_raw?", the Operator answered "Bring them home" (2026-10-18), then "yes" to this text. So point 1 covers them too. A desktop card censuses them and copies them home under `data_archive/drive-legacy/day-bot-local-archive/`, at their own paths and never over an existing file. It checks each one by its bytes, and they go into `swe-data/` under point 2. On Drive they stay where they are. In the Why, "the one part left on Drive only" holds for card 1's census, not for `_local_archive/` as a whole.
+
 ## How to add a decision
 
 1. Number it (`D11`, `D12`, …) sequentially. Don't reuse numbers.

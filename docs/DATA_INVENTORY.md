@@ -172,7 +172,7 @@ totals are below the table. Folders unrelated to this project are not recorded._
 | 1 | `swe-local-only/` (`1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`), at the top of My Drive until 2026-10-12, since then in The_Works › Projects › OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`) | the Tier-C backup of 2026-07-22 (§C.1); `ticks` (2026-09-23); `data_archive/` (`1hCmngYyGwSHvkCT_BmF-EC-t8fkUA7xi`), holding the 29-file branch archive, the full-history bundle and `drive-swe-local-only/` | consolidate: copy home anything unique, then remove the proven duplicates |
 | 2 | `SmartWheelData/` (`1wCFPBf0o9PJMy2f2vy34S316XFc1Sq3e`, created 2026-07-12), in The_Works › Projects › OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`) | `data/`, with the Tier-A `bloomberg` mirror (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`, its `deep` child `1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`) and `features/`. `data_processed/` (`1vsBgmmRX0W9au30MQeEl0ha9kQld2vo7`), with a second, older `theta` upload (`1tUUfH_Ogq1RL2rubTKf5rzUWDBKIKo3i`), `option_premium`, `ibkr`, `validation` and `trade_universe`. `data_raw/`. `archive/` (`186O38w7OD0_QjPcsjGRaCOKG-0DJGPVD`), with `bloomberg_snapshot_2026-03-20`. `swe-deep-history/` (`13b5QUa-KV0fsaf0_f8N5n7ykqZ6m1Jd-`, §5), whose `sp500_vol_iv_full__1994_2026_FULL.csv.gz` (58,316,365 B) no manifest row carries. `staging/`, three checksum lists and some code files. Card 1 found two more things here. `data_processed/theta` appears to hold the full Theta corpus (under review). `data_processed/ibkr/` holds a credential-shaped `flex_credentials.json` (674 B, on Drive since 2026-07-12), never opened and shared with nobody (its sharing settings, checked 2026-09-26). On the Operator's instruction the pen moved it to Drive's trash on 2026-09-26, unopened. It stays recoverable there until deleted forever, which, with the Flex token's rotation, is the Operator's to do | consolidate |
 | 3 | `smart-wheel-engine/` (`1dA_fq1MorvsqUWeVxqR0aAaJ9XMwEjUY`, 2026-04-23), at the top of My Drive until 2026-10-12, since then in The_Works › Projects › OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`) | a partial upload of the repository's `.git` folder | consolidate, like areas 1 and 2: its files come home under `data_archive/drive-legacy/`, and the old copies go only once proven byte-identical to files in `swe-data/`. A git object is not byte-identical to the bundle that holds it, so the bundle does not count as a copy |
-| 4 | `_local_archive/`, inside Projects › Day_Trading_Bot (`1BBSXZIZBF8xwqIvkybN9WK8GOSVDiwo0`, 2026-07-21) | `vendor_swe_data` (`1EewDv70haKPVzjmhTDvo27lLsMjlqyzY`), `vendor_swe_data_raw` (`1_u85pi25w-H5HynRH3-WvGv1tMd8MW71`), `vendor_swe_data_processed` (`1WXeonbDMTT_VsGDizQD32Rw0V14xLxHE`): copies of this project's data, with folder dates of 2026-06-02. `data_raw` (`1uHSbrEaZoyW_Tgn1BimSz02KOJ18e616`) is the day-bot's own data: card 1 found that it matches nothing in the root, and the Operator ruled on 2026-09-26 to leave it out | read only: copy home anything unique, and delete nothing, because the folder belongs to the day-bot project. `data_raw` is left out: nothing in it is copied home (2026-09-26) |
+| 4 | `_local_archive/`, inside Projects › Day_Trading_Bot (`1BBSXZIZBF8xwqIvkybN9WK8GOSVDiwo0`, 2026-07-21) | `vendor_swe_data` (`1EewDv70haKPVzjmhTDvo27lLsMjlqyzY`), `vendor_swe_data_raw` (`1_u85pi25w-H5HynRH3-WvGv1tMd8MW71`), `vendor_swe_data_processed` (`1WXeonbDMTT_VsGDizQD32Rw0V14xLxHE`): copies of this project's data, with folder dates of 2026-06-02. `data_raw` (`1uHSbrEaZoyW_Tgn1BimSz02KOJ18e616`) is the day-bot's own data: card 1 found that it matches nothing in the root, and the Operator ruled on 2026-09-26 to leave it out. Also `data_store/` (49 files, 174,577 B) and a manifest text file (2,594 B), which no census covered until the check of #588 found them | read only: copy home anything unique, and delete nothing, because the folder belongs to the day-bot project. `data_raw` was left out on 2026-09-26; D39 (2026-10-17) brings it home (done, #588), and D39's amendment (2026-10-18) the 49 files of `data_store/` and the text file, 50 in all |
 
 **2026-10-12:** the Operator moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/`
 into `OptionsEngine_Project` (The_Works › Projects), beside `SmartWheelData/`, so nothing of this
@@ -193,7 +193,8 @@ area's totals equal `rclone size`, and `swe-data exists: False`:
 - area 4, `_local_archive`, read only. `vendor_swe_data`: 73 files, 269,788,882 B.
   `vendor_swe_data_raw`: 12 files, 2,373,076 B. `vendor_swe_data_processed`: 2 files,
   166,352 B. `data_raw`: 3,306 files, 35,125,927 B, of which 1,725 copy and 1,581
-  duplicate; left out by the Operator's ruling (2026-09-26).
+  duplicate; left out by the Operator's ruling (2026-09-26), then brought home by D39
+  (#588, 2026-10-17).
 
 In all, card 1's plan lists 120,139 files (10,716,801,880 B) to copy home, into
 `data_archive/drive-legacy/<area>/`. Without `data_raw`'s 1,725 (34,816,381 B),
@@ -243,6 +244,15 @@ desktop), finished the proof.
 So `swe-data/` is proven complete for the root as it stood at card 2c's baseline
 (2026-10-04), which card 2d's end check found unchanged on 2026-10-09.
 
+D39's card, 2026-10-17 (#588; `swe-data/_logs/d39-data-raw/` on the desktop), brought the
+day-bot's `data_raw` home into `data_archive/drive-legacy/day-bot-local-archive/data_raw/`, and
+into the same path in `swe-data/`, by copies only: 1,725 files and 34,816,381 B, exactly card 1's
+plan. Its 1,581 duplicates came home once, at their twins' paths; the run's ledger maps them. The
+two-way check matched the subtree's 1,725 files by MD5. A context that did not write the run
+re-hashed them and found the Drive original untouched (PR #588 comment 6249441948). The root
+outside `_logs/` now holds 149,537 files. `swe-data/` holds the same less the credential file,
+but not yet the root's `_logs/`, and its `SHA256SUMS` still lists card 2c's 147,810 files only.
+
 One lesson for every long Drive listing. rclone v1.74.4 does not retry a failed name lookup
 (it ends at Go's `*net.DNSError`), though it retries a failed connection about 100 times. An
 80-second lapse in name resolution failed one four-hour count. Card 2d's last attempt ran
@@ -255,7 +265,9 @@ keeps the folder current (D33 point 8) is drafted in `PROJECT_STATE.md` §0 B. D
 (2026-10-17) answered its one question: the routine copies and never deletes, and data
 leaves Drive only when it is unnecessary, as its own step with the Operator's yes. Only the
 credential file stays off Drive, so the root's `_logs/` goes to `swe-data/` too. The routine
-is recorded here once written. Until then nothing refreshes `swe-data/`.
+is recorded here once written. Until then only a card's own upload refreshes `swe-data/`, as
+D39's did. The routine must also say how a changed root file, such as `SHA256SUMS`, is carried,
+since the cards' `--immutable` upload refuses to change a file already there.
 
 ---
 

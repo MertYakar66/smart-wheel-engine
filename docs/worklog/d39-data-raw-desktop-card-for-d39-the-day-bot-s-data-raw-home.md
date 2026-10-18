@@ -2,9 +2,9 @@
 id: d39-data-raw
 title: Desktop card for D39: the day-bot's data_raw home and into swe-data
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 588
 decisions: [D33, D34, D39]
 date: 2026-10-17
 headline: The day-bot's data_raw is home and in swe-data/ — 1,725 files and 34,816,381 B, exactly card 1's plan; the copy read 1,725 copied and verified, 0 not, the verify 1,725 ok, the upload 1,725 new with 0 errors, and the check both ways by MD5 1,725 the same with 0 on one side only; end check "no finding" and the manifest 144/0/0 by full hash.

@@ -14,6 +14,27 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-18 — D39's last card: the 50 files, SHA256SUMS, _logs and the whole-root check (desktop)
+
+D39 points 1 and 2 are done and checked: 150,121 files the same both ways
+
+**Docs** — `docs/worklog/d39-finish-desktop-card-for-d39-the-last-50-files-sha256sum.md`, the record
+of D39's last card (campaign #544), and `docs/DATA_INVENTORY.md` §C, where D33 point 8's routine is
+now written. One desktop run, with the tool at blob `6903c9c8…` (its `sums` and `filters`, and its
+`credential_shaped` check) and rclone v1.74.4. Into `swe-data/` it went by copies only, with no
+move, sync or delete there; on the desktop, the one move was step 4's rename of the 50 from the
+staging folder into the root, and the one removal its empty staging folders:
+- The 50 files of the day-bot's `_local_archive/` that no census had covered (`data_store/`'s 49
+  and a manifest text file; 177,171 B) are home under `data_archive/drive-legacy/day-bot-local-archive/`,
+  each at its own path: 50 of 50 with Drive's size, MD5 and SHA-256.
+- The root's `SHA256SUMS` now lists 149,585 files (sha256 `ff8362bb…`): card 2c's 147,810 lines
+  unchanged, and D39's 1,725 copies and the 50 added with the SHA-256 their source gave them.
+- Into `swe-data/`: the 50 (50 new), `SHA256SUMS` (replaced in place, the same Drive id), the root's
+  `_logs/` (535 new, 3.848 GiB) and this run's own folder (22 new, checked), with 0 errors.
+- The check of the whole root both ways by MD5: 150,121 the same, 0 on one side only, 0 differ. One
+  known 3-byte stray file in `swe-data/`, a checker's upload by mistake, is counted apart and waits
+  for the Operator's yes to remove. End check "no finding"; the manifest 144/0/0 by full hash.
+
 ## 2026-10-18 — the close after #590; D39's last card authorized (desktop)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `34b8053`; D39's last card ("yes, merge it and write the

@@ -172,7 +172,7 @@ totals are below the table. Folders unrelated to this project are not recorded._
 | 1 | `swe-local-only/` (`1JwPWszfyggUDT1vYaRjZ8nlHEDR3vEOn`), at the top of My Drive until 2026-10-12, since then in The_Works › Projects › OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`) | the Tier-C backup of 2026-07-22 (§C.1); `ticks` (2026-09-23); `data_archive/` (`1hCmngYyGwSHvkCT_BmF-EC-t8fkUA7xi`), holding the 29-file branch archive, the full-history bundle and `drive-swe-local-only/` | consolidate: copy home anything unique, then remove the proven duplicates |
 | 2 | `SmartWheelData/` (`1wCFPBf0o9PJMy2f2vy34S316XFc1Sq3e`, created 2026-07-12), in The_Works › Projects › OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`) | `data/`, with the Tier-A `bloomberg` mirror (`1xpRvaQglsmcUuTKgVKHR39_3H-vbdIFh`, its `deep` child `1m_9LQNtbHzQo7MG5t3OxAINCXiwkhkna`) and `features/`. `data_processed/` (`1vsBgmmRX0W9au30MQeEl0ha9kQld2vo7`), with a second, older `theta` upload (`1tUUfH_Ogq1RL2rubTKf5rzUWDBKIKo3i`), `option_premium`, `ibkr`, `validation` and `trade_universe`. `data_raw/`. `archive/` (`186O38w7OD0_QjPcsjGRaCOKG-0DJGPVD`), with `bloomberg_snapshot_2026-03-20`. `swe-deep-history/` (`13b5QUa-KV0fsaf0_f8N5n7ykqZ6m1Jd-`, §5), whose `sp500_vol_iv_full__1994_2026_FULL.csv.gz` (58,316,365 B) no manifest row carries. `staging/`, three checksum lists and some code files. Card 1 found two more things here. `data_processed/theta` appears to hold the full Theta corpus (under review). `data_processed/ibkr/` holds a credential-shaped `flex_credentials.json` (674 B, on Drive since 2026-07-12), never opened and shared with nobody (its sharing settings, checked 2026-09-26). On the Operator's instruction the pen moved it to Drive's trash on 2026-09-26, unopened. It stays recoverable there until deleted forever, which, with the Flex token's rotation, is the Operator's to do | consolidate |
 | 3 | `smart-wheel-engine/` (`1dA_fq1MorvsqUWeVxqR0aAaJ9XMwEjUY`, 2026-04-23), at the top of My Drive until 2026-10-12, since then in The_Works › Projects › OptionsEngine_Project (`1niufzSC5-C5fMJ0XZg8LSR53Tm1fp2-4`) | a partial upload of the repository's `.git` folder | consolidate, like areas 1 and 2: its files come home under `data_archive/drive-legacy/`, and the old copies go only once proven byte-identical to files in `swe-data/`. A git object is not byte-identical to the bundle that holds it, so the bundle does not count as a copy |
-| 4 | `_local_archive/`, inside Projects › Day_Trading_Bot (`1BBSXZIZBF8xwqIvkybN9WK8GOSVDiwo0`, 2026-07-21) | `vendor_swe_data` (`1EewDv70haKPVzjmhTDvo27lLsMjlqyzY`), `vendor_swe_data_raw` (`1_u85pi25w-H5HynRH3-WvGv1tMd8MW71`), `vendor_swe_data_processed` (`1WXeonbDMTT_VsGDizQD32Rw0V14xLxHE`): copies of this project's data, with folder dates of 2026-06-02. `data_raw` (`1uHSbrEaZoyW_Tgn1BimSz02KOJ18e616`) is the day-bot's own data: card 1 found that it matches nothing in the root, and the Operator ruled on 2026-09-26 to leave it out. Also `data_store/` (49 files, 174,577 B) and a manifest text file (2,594 B), which no census covered until the check of #588 found them | read only: copy home anything unique, and delete nothing, because the folder belongs to the day-bot project. `data_raw` was left out on 2026-09-26; D39 (2026-10-17) brings it home (done, #588), and D39's amendment (2026-10-18) the 49 files of `data_store/` and the text file, 50 in all |
+| 4 | `_local_archive/`, inside Projects › Day_Trading_Bot (`1BBSXZIZBF8xwqIvkybN9WK8GOSVDiwo0`, 2026-07-21) | `vendor_swe_data` (`1EewDv70haKPVzjmhTDvo27lLsMjlqyzY`), `vendor_swe_data_raw` (`1_u85pi25w-H5HynRH3-WvGv1tMd8MW71`), `vendor_swe_data_processed` (`1WXeonbDMTT_VsGDizQD32Rw0V14xLxHE`): copies of this project's data, with folder dates of 2026-06-02. `data_raw` (`1uHSbrEaZoyW_Tgn1BimSz02KOJ18e616`) is the day-bot's own data: card 1 found that it matches nothing in the root, and the Operator ruled on 2026-09-26 to leave it out. Also `data_store/` (49 files, 174,577 B) and a manifest text file (2,594 B), which no census covered until the check of #588 found them | read only: copy home anything unique, and delete nothing, because the folder belongs to the day-bot project. `data_raw` was left out on 2026-09-26; D39 (2026-10-17) brings it home (done, #588), and D39's amendment (2026-10-18) the 49 files of `data_store/` and the text file, 50 in all (done, D39's last card, 2026-10-18) |
 
 **2026-10-12:** the Operator moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/`
 into `OptionsEngine_Project` (The_Works › Projects), beside `SmartWheelData/`, so nothing of this
@@ -250,8 +250,8 @@ into the same path in `swe-data/`, by copies only: 1,725 files and 34,816,381 B,
 plan. Its 1,581 duplicates came home once, at their twins' paths; the run's ledger maps them. The
 two-way check matched the subtree's 1,725 files by MD5. A context that did not write the run
 re-hashed them and found the Drive original untouched (PR #588 comment 6249441948). The root
-outside `_logs/` now holds 149,537 files. `swe-data/` holds the same less the credential file,
-but not yet the root's `_logs/`, and its `SHA256SUMS` still lists card 2c's 147,810 files only.
+outside `_logs/` now holds 149,537 files. `swe-data/` holds the same less the credential file.
+D39's last card then added the 50 files, the root's `_logs/` and a fresh `SHA256SUMS` (below).
 
 One lesson for every long Drive listing. rclone v1.74.4 does not retry a failed name lookup
 (it ends at Go's `*net.DNSError`), though it retries a failed connection about 100 times. An
@@ -261,13 +261,55 @@ the hosts file. The pin comes off after the run (`docs/deadlines.md`).
 
 After the consolidation (card 2), this project has one Drive folder, `swe-data/` (above),
 laid out exactly like the desktop root. Card 2's proof is now complete. The routine that
-keeps the folder current (D33 point 8) is drafted in `PROJECT_STATE.md` §0 B. D39
+keeps the folder current (D33 point 8) was drafted in `PROJECT_STATE.md` §0 B. D39
 (2026-10-17) answered its one question: the routine copies and never deletes, and data
 leaves Drive only when it is unnecessary, as its own step with the Operator's yes. Only the
 credential file stays off Drive, so the root's `_logs/` goes to `swe-data/` too. The routine
-is recorded here once written. Until then only a card's own upload refreshes `swe-data/`, as
-D39's did. The routine must also say how a changed root file, such as `SHA256SUMS`, is carried,
-since the cards' `--immutable` upload refuses to change a file already there.
+follows.
+
+**The routine that keeps `swe-data/` current** (D33 point 8, with D39's answers; first run by D39's
+last card, `_logs/d39-finish/` on the desktop). After any change in the root, from the desktop:
+
+1. If a file outside `_logs/` was added, changed or removed, keep the old `SHA256SUMS` in the run's
+   `_logs/` folder and run `python scripts/drive_consolidate.py sums --root <root>`. Check the new
+   list against the old one line by line: each old line unchanged unless the run changed or removed
+   its file, and each new line a file the run added, with the SHA-256 its source gave it. Record
+   here the new list's count and its own sha256.
+2. Copy each new folder to the same path in `swe-data/`, reached by its id and never by a path
+   from the top of My Drive: `rclone copy <root>/<folder> gdrive:<folder> --drive-root-folder-id
+   13h0HIy_kLjsN431YJFRewJ8FAZGjxe3b --immutable --checksum --ignore-checksum --ignore-size
+   --no-update-dir-modtime --drive-use-trash=true --exclude-from <filters> --ignore-case`.
+   `<filters>` is the tool's `filters` list less its `/_logs/**` line, so only credential-shaped
+   names stay off Drive. `--immutable` stops rather than change a file already there. A new single
+   file goes by `rclone copy <root>/<its folder> gdrive:<its folder> --files-from-raw <a list
+   naming it>` with the folder command's other flags but not `--exclude-from`, which rclone refuses
+   beside `--files-from-raw`; first check that its name is not credential-shaped, since the filters
+   cannot apply. `rclone copy` of a file's own path makes a folder of that name, and for a single
+   file neither `copy` nor `copyto` honours `--immutable`.
+3. Copy a changed file, such as `SHA256SUMS`, with `rclone copyto <root>/<file> gdrive:<file>
+   --drive-root-folder-id <the same id> --checksum --no-update-dir-modtime --drive-use-trash=true`,
+   without `--immutable`, and only after its MD5 shows that `swe-data/` holds the old version and
+   the file at home is the one item 1 checked. Read it back after: the same Drive id, the new MD5.
+   Drive keeps the old version for a while as a revision, and the run's `_logs/` folder keeps it
+   for good.
+4. Copy the root's `_logs/` the same way, the run's own folder last.
+5. Check both ways by MD5: `rclone check <root>/<folder> gdrive:<folder> --drive-root-folder-id
+   <the same id> --checksum --disable ListR --exclude-from <filters> --ignore-case` over each
+   folder that changed (a single file is checked as `<root>/<file>` against `gdrive:<its
+   folder>`, without `--exclude-from`, which rclone refuses for a single file), and over the
+   whole root after a large change. The files the same both ways must be all the root's files
+   the check covers. A file only in `swe-data/` is reported by name, and stays.
+6. Never `sync`, `move`, `delete`, `purge` or `dedupe` in `swe-data/`. A file that leaves the root
+   stays in `swe-data/`. It leaves Drive only when it is unnecessary, as its own step with the
+   Operator's yes (D39 point 3).
+
+The last check of the whole root: 2026-10-18, by D39's last card, 150,121 files the same both ways,
+0 on one side only but one known stray file, 0 differ. The run's own `_logs/` folder was copied
+and checked after it. `SHA256SUMS` then listed 149,585 files; its own sha256 is
+`ff8362bb5bab9ce6fae5073fea96cd6a606280c5f56b6eb93cb73e3a8feae46e`.
+The stray file is 3 bytes that a checker of the card put in `swe-data/` by mistake on
+2026-10-18 (`data_archive/drive-legacy/day-bot-local-archive/fake-text-file.txt`); it waits for
+the Operator's yes to remove.
 
 ---
 

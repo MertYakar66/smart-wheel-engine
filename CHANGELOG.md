@@ -14,7 +14,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-17 — D39: the day-bot's data_raw home and into swe-data (desktop)
+## 2026-10-18 — the close after #587 and #588, and D39's amendment (desktop)
+
+**Docs** — the records after D39's card.
+- `PROJECT_STATE.md`: the close after #587 and #588; D39's card done and checked by a context
+  that did not write it (PR #588 comment 6249441948); what remains of D39 points 1 and 2.
+- `DECISIONS.md`: D39 amended (point 1). The check of #588 found 50 files in `_local_archive/`
+  (177,171 B) that no census had covered; the Operator: "Bring them home", then "yes" to the text.
+- `docs/DATA_INVENTORY.md` §C.3: `data_raw` home, the 50 files, and what `swe-data/` lacks.
+- `docs/deadlines.md`: the sign-in row names the next D39 card.
+- The D39 card's worklog fragment: merged, PR 588.
+
+## 2026-10-17 — D39: the day-bot's data_raw home and into swe-data (desktop; #588, `534fb04`, campaign #544)
 
 data_raw is home and in swe-data: 1,725 files, 34,816,381 B
 
@@ -34,7 +45,7 @@ by copies only, with no move, sync or delete, with the tool at blob `6903c9c8…
 - Next: the pen checks the run, then writes D33 point 8's routine into `docs/DATA_INVENTORY.md` §C
   and runs it once for the root's `_logs/`, which finishes D39 point 2.
 
-## 2026-10-17 — D39: the day-bot's `data_raw` comes home, `swe-data/` keeps everything the desktop holds, card 3 parked (desktop)
+## 2026-10-17 — D39: the day-bot's `data_raw` comes home, `swe-data/` keeps everything the desktop holds, card 3 parked (desktop; #587, `78a2116`)
 
 **Docs** — the Operator's "yes, adopt D39" (campaign #544).
 - `DECISIONS.md`: D39, with a line under D33 (point 8's routine), D34 (point 3 superseded) and D37

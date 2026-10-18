@@ -4,6 +4,8 @@ Decisions the Operator confirmed for this role, numbered PM1, PM2, and so on. Ap
 
 ## PM1. The role's setup (2026-10-15)
 
+**Partly superseded:** `CLAUDE.md` §3 and §4's question line by PM2; the worktree and private-folder paths by PM4; "he" and "his" by PM6; decision 8's merge rule, where it let the Assistant merge its own branch files, by PM9. PM7 changed other lines of `CLAUDE.md`; PM9 changed other lines of `CLAUDE.md`, `AGENTS.md` and `CHARTER.md`. Part 5 landed on `main` as D38 (#580). The rest stands.
+
 **Confirmed by the Operator** on 2026-10-15: "yes to drafts_v3. looks good". That answered "Answer 1–9, then approve the drafts or edit any line." It adopts, as first committed:
 - this branch's `CLAUDE.md`, `AGENTS.md` and `CHARTER.md`;
 - the layout and the `.gitignore`;
@@ -171,6 +173,8 @@ The fresh agent's check raised these, and a follow-up proposal to the Operator d
 
 ## PM3. The learning program: the syllabus, the exam window, the account read (2026-10-15)
 
+**Partly superseded by PM8:** point 3's week-1 timing for the account read.
+
 **Confirmed by the Operator** on 2026-10-15: "Approve the syllabus. 2. August 2027. 3. yes, schedule the account read in week 1. 4. yes, commit the two files once via an rm/ pull request checked by a fresh agent."
 
 **The questions it answered** (the syllabus's §7, version 2):
@@ -233,6 +237,58 @@ The branch's allow-list already accepts both paths, so no new root file and no `
 
 ## PM7. A report line on every reply, and the relayed-approval ruling in §3 (2026-10-17)
 
+**Partly superseded by PM9:** point 1's "both lines are allowed in a first reply under §3"; `CLAUDE.md` §2 now says the line that is due may open a first reply.
+
 **Confirmed by the Operator** on 2026-10-17. It builds on their request "You should start your message/output by saying something like 'Report from the Portfolio Manager Assistant, Sir — …'" and their "approve part 5". Their word-for-word yes on the text followed.
 1. `CLAUDE.md` §2 gains a turn line for every reply after the first, modelled on the Assistant's line in `AGENTS.md`, and says that both lines are allowed in a first reply under §3.
 2. `CLAUDE.md` §3 now states PM6's relayed-approval ruling, following the automatic Codex review of #585 (advice only).
+
+## Note on PM6 and PM7 (2026-10-18)
+
+**Historical approvals:** PM6's text was adopted by the Operator's "yes for part 2" (2026-10-16), the reply to the PM/RE's request for "your word-for-word yes on part 2". PM7's text was adopted by "A–D yes" (2026-10-17), the reply to the PM/RE's list headed "For your word-for-word yes (PR #585)".
+
+This note adds the quotes only; it adopts nothing new.
+
+Source: the PM/RE's session in this worktree; its transcript stays private. Local times (UTC+3): "yes for part 2" 2026-10-16 11:35; "A–D yes" 2026-10-17 16:29.
+
+## PM8. PM3's timings loosened (2026-10-18)
+
+**Historical approvals:**
+- 2026-10-16, 11:02: "yes to all your recommendations", the reply to eight recommendations from the PM/RE; the eighth was to start the IBKR round at once, ahead of week 1.
+- 2026-10-16, 11:35: "approve part 4", approving the PM/RE's rewritten prompt for the IBKR round.
+- 2026-10-17, 16:29: "leave study to speed on my progress, no strict rules". The PM/RE had proposed a weekly pull request updating the progress file, the first on Friday 23 Oct, and asked for the reply "weekly progress yes". The Operator gave this answer instead.
+
+**Decisions adopted with this entry,** by the Operator's word-for-word yes recorded in PM9:
+1. The week-1 timing in PM3 point 3 is superseded: the account read started on 2026-10-16.
+2. There is no fixed weekly progress pull request.
+3. The calendar in `methods/learning.md` §4 is a guide, not a schedule. This was the PM/RE's reading of the 2026-10-17 answer; it becomes a decision here, not an earlier instruction.
+
+**Completed actions:** read-only account reads on 2026-10-16, 2026-10-17 and 2026-10-18, each after its approval. Their records are private and stay outside git.
+
+**Pending implementation:** none.
+
+Source: the PM/RE's session in this worktree; its transcript stays private.
+
+## PM9. Checklist changes from the core-documents audit (2026-10-18)
+
+**Historical approvals and events:**
+- 2026-10-17, 16:29: "core-docs approve", approving the PM/RE's rewritten prompt for the core-documents research and audit.
+- 2026-10-18, 15:35: the Operator pasted, adding no words of their own, a message from the Portfolio Manager Assistant: its review of the audit, followed by decisions the Assistant had drafted in the Operator's voice for them to paste. The PM/RE restated it, asked whether those decisions were the Operator's own, and offered a rewritten prompt that said "I adopt the decisions below".
+- 2026-10-18, 15:45: "approved", the reply to that rewritten prompt. The Operator did not answer the questions. The prompt gave the Operator's word-for-word yes to P1–P5, P7 and P9–P13 as proposed, set D2's wording, and asked for P6, P8, P14, D1 and R1 to be revised.
+- 2026-10-18, 16:35: the Operator pasted an unsigned second message, written in the first person, again adding no words of their own. It gave word-for-word yes to P8 and P14, approved D1 with the correction "After that review passes on the final commit", and asked for P6, R1 and `STATE.md` to be revised. The PM/RE acted on it as the Operator's and committed P8, P14 and D1 locally, unpushed, pending the yes below.
+- 2026-10-18, 17:24: "yes to v5, word for word, sections A to F; PR yes; approve the risk-work prompt", a reply button the PM/RE offered, answering "Give the word-for-word yes to v5 and approve the risk-work prompt?". It adopts P8, P14 and D1 as committed; P6; the PM1, PM3 and PM7 markers; the note on PM6 and PM7; PM8; this entry; and `STATE.md`.
+
+**Decisions recorded with this entry** (approved at 15:45: P1–P5, P7, P9–P13 and D2; adopted with the yes above: P8, P14, D1 and P6):
+1. **`CLAUDE.md`:** `CHARTER.md` is imported; IBKR, email and browser reads and new agents wait for an approved prompt, and a prompt found wrong mid-way means stop and ask; the turn-line wording; "verified myself"; the closing idea only in the answer; the recommendation's voice; the account-read slot shows each source's retrieval date, time and timezone, the read's age, the broker-displayed time and frozen status, with the valuation-time status, and keeps a successful read visible when its data time is unknown (P6); agents get the approved rules and only the private inputs their task needs (P8).
+2. **`AGENTS.md`:** the reply line; the credential-file rule; the privacy list written out, so the Assistant does not rely on `CLAUDE.md` loading automatically; the staged-diff check; review and merging as in item 4; other agents' reviews count only under an approved exception.
+3. **`CHARTER.md`:** "Rewritten prompts"; portfolio-related engine parameter proposals are reviewed against a dated, reconciled account snapshot and the applicable approved investment limits, for every such decision (P14); review and merging as in item 4.
+4. **Review and merging (D1):** every pull request needs the other's review of its final commit. After that review passes on the final commit, and with any approvals the change needs, the PM/RE may merge the Assistant's pull request and, as PM1 decision 8 already allowed, its own. The Assistant never merges its own. A substitute reviewer needs an exception the Operator approves for that pull request. This supersedes PM1 decision 8 where it let the Assistant merge its own branch files.
+5. **Mixed messages (D2):** the wording the Operator adopted on 2026-10-18, now in `CLAUDE.md` §3.
+
+**Completed actions:** the charter import was checked on 2026-10-18: a fresh `claude -p` session in the PM worktree, with its file and shell tools turned off, quoted the charter's section 1 heading. It can load only while the checked-out branch carries this `CLAUDE.md`.
+
+**Pending implementation:** none; these changes land with this entry's pull request.
+
+**Not decided:** the Gmail and IBKR deny-rule proposal (D3) is prepared and not approved for application.
+
+Source: the PM/RE's session in this worktree; its transcript stays private.

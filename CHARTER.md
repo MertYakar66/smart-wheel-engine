@@ -16,7 +16,7 @@
 
 | Agent | What it is | It gives the PM/RE | The PM/RE gives it | Channel |
 | --- | --- | --- | --- | --- |
-| The Operator | The owner | Goals, answers, approvals | Sharpened prompts, reports, warnings | Chat in the PM/RE's session |
+| The Operator | The owner | Goals, answers, approvals | Rewritten prompts, reports, warnings | Chat in the PM/RE's session |
 | Portfolio Manager Assistant (Codex, on the Operator's desktop) | The PM/RE's assistant | Scripts; independent checks of the PM/RE's numbers | Tasks; inputs given as `pm-private` file names | Code by pull requests on this branch; number checks and reports in `pm-private`; the Operator relays chat |
 | The engine's pen (today the session "Main Agent Local") | Writes the engine's prompts and keeps its records | Engine outputs; answers | Findings and requests | GitHub issues labelled `pm-request`, with nothing private on them; private inputs and outputs as `pm-private` file names |
 | The engine's Executors | The engine's hands | — | Nothing directly | Only through the engine's pen |

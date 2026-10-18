@@ -843,9 +843,12 @@ desktop's checkout still has the round 3 branch locally.
        Nothing blocking. Drive now holds `data_raw` twice; removing the original is a point 3 step,
        with the Operator's yes, and only after `_logs/` (its ledger) is in `swe-data/`;
      - next, one desktop card for the rest of points 1 and 2:
-       - the amendment's 50 files (`_local_archive/data_store/` and a manifest text file;
-         177,171 B): a census, then home under `data_archive/drive-legacy/day-bot-local-archive/`
-         with the same tool and checks;
+       - the amendment's 50 files (`_local_archive/data_store/`'s 49 and a manifest text file;
+         177,171 B): a census, then home under `data_archive/drive-legacy/day-bot-local-archive/`,
+         each at its own path, as the amendment says, checked by its bytes. Only 28 of the 50
+         contents are distinct, and the tool brings a repeated content home once, at its twin's
+         path, as it did for `data_raw`. So the card copies these 50 by rclone, not by the tool's
+         plan (the check of #590);
        - D33 point 8's routine, written into `docs/DATA_INVENTORY.md` §C (the pen's change) and run
          once: after every data change in the root, copy it to `swe-data/` by its id and check it.
          Only the credential file stays off Drive (D39 point 2), so the root's `_logs/` (535 files,
@@ -853,8 +856,8 @@ desktop's checkout still has the round 3 branch locally.
          Data leaves Drive only when it is unnecessary, as its own step with the Operator's yes;
        - the root's `SHA256SUMS`, D33 point 3's second proof, refreshed: it still lists card 2c's
          147,810 files and none of the 1,725 new ones. The new list goes to both places and its
-         hash into git. It replaces a file already in `swe-data/`, which the routine's
-         `--immutable` copy refuses, so the routine says how a changed root file is carried;
+         hash into git. It replaces a file already in `swe-data/`, which the cards' `--immutable`
+         upload refuses, so the routine says how a changed root file is carried;
        - a check of the whole root against `swe-data/`, both ways by checksum, so that point 2 is
          done and checked (point 5).
        It reads Drive, so it runs on the sign-in of 2026-10-16 (it ends between about 14:48 and
@@ -932,7 +935,8 @@ desktop's checkout still has the round 3 branch locally.
   - v4 ("change it right away").
   - The rulings on card 1's findings (2026-09-26): "1. yes 2. yes, will do both
     3. yes, leave them out". Theta gets Bloomberg's rule; the Operator rotates the
-    Flex token and deletes the Drive copy; the day-bot's `data_raw` is left out.
+    Flex token and deletes the Drive copy; the day-bot's `data_raw` is left out (until D39,
+    2026-10-17, which brings it home).
   - The card 2 plan and D34's text ("yes to both, go ahead with card 2a",
     2026-09-26). D34 is written; 2a-i is done; 2a-ii ran 12 of its 15 chunks (#548),
     after its gate's "yes" (2026-09-29).
@@ -1042,9 +1046,9 @@ desktop's checkout still has the round 3 branch locally.
       it leaves Drive only when it is unnecessary, as its own step with the Operator's yes.
       The two-way check then reports it, by name.
     - Name resolution must hold for the whole run (see card 2d).
-    - A file that changes in the root, such as `SHA256SUMS`, cannot go by an `--immutable`
-      copy, which refuses to change a file already in `swe-data/`. The routine says how it is
-      carried (found by the check of #588).
+    - A file that changes in the root, such as `SHA256SUMS`, cannot go by the cards' `--immutable`
+      upload, which refuses to change a file already in `swe-data/`. The routine says how it is
+      carried (raised by a skeptic in the pen's check of #588).
   - **For the next long cards:**
     - ship long blocks as files fetched from GitHub and checked by sha256, as the driver
       is, not as heredocs through the terminal's transport;

@@ -20,7 +20,9 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 - `PROJECT_STATE.md`: the close after #587 and #588; D39's card done and checked by a context
   that did not write it (PR #588 comment 6249441948); what remains of D39 points 1 and 2.
 - `DECISIONS.md`: D39 amended (point 1). The check of #588 found 50 files in `_local_archive/`
-  (177,171 B) that no census had covered; the Operator: "Bring them home", then "yes" to the text.
+  (177,171 B) that no census had covered. The Operator: "Bring them home (Recommended)" to "The 50
+  uncounted day-bot files (177 KB): bring them home too, like data_raw?", then "Yes (Recommended)"
+  to "Adopt this amendment to D39, as worded above?" (2026-10-18).
 - `docs/DATA_INVENTORY.md` §C.3: `data_raw` home, the 50 files, and what `swe-data/` lacks.
 - `docs/deadlines.md`: the sign-in row names the next D39 card.
 - The D39 card's worklog fragment: merged, PR 588.

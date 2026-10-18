@@ -250,7 +250,7 @@ into the same path in `swe-data/`, by copies only: 1,725 files and 34,816,381 B,
 plan. Its 1,581 duplicates came home once, at their twins' paths; the run's ledger maps them. The
 two-way check matched the subtree's 1,725 files by MD5. A context that did not write the run
 re-hashed them and found the Drive original untouched (PR #588 comment 6249441948). The root
-outside `_logs/` now holds 149,537 files. `swe-data/` holds the same less the credential file.
+outside `_logs/` then held 149,537 files. `swe-data/` held the same less the credential file.
 D39's last card then added the 50 files, the root's `_logs/` and a fresh `SHA256SUMS` (below).
 
 One lesson for every long Drive listing. rclone v1.74.4 does not retry a failed name lookup
@@ -288,17 +288,21 @@ last card, `_logs/d39-finish/` on the desktop). After any change in the root, fr
    file neither `copy` nor `copyto` honours `--immutable`.
 3. Copy a changed file, such as `SHA256SUMS`, with `rclone copyto <root>/<file> gdrive:<file>
    --drive-root-folder-id <the same id> --checksum --no-update-dir-modtime --drive-use-trash=true`,
-   without `--immutable`, and only after its MD5 shows that `swe-data/` holds the old version and
-   the file at home is the one item 1 checked. Read it back after: the same Drive id, the new MD5.
+   without `--immutable`, and only after three checks: its name is not credential-shaped (the
+   tool's `credential_shaped`), since `copyto` applies no filter; its MD5 shows that `swe-data/`
+   holds the old version; and, for a file outside `_logs/`, the file at home is the one item 1
+   checked. Read it back after: the same Drive id, the new MD5.
    Drive keeps the old version for a while as a revision, and the run's `_logs/` folder keeps it
    for good.
-4. Copy the root's `_logs/` the same way, the run's own folder last.
+4. Copy the root's `_logs/` the same way, the run's own folder last. A log file that changed
+   since it went up stops the `--immutable` copy; it goes by item 3.
 5. Check both ways by MD5: `rclone check <root>/<folder> gdrive:<folder> --drive-root-folder-id
    <the same id> --checksum --disable ListR --exclude-from <filters> --ignore-case` over each
    folder that changed (a single file is checked as `<root>/<file>` against `gdrive:<its
-   folder>`, without `--exclude-from`, which rclone refuses for a single file), and over the
-   whole root after a large change. The files the same both ways must be all the root's files
-   the check covers. A file only in `swe-data/` is reported by name, and stays.
+   folder>`, without `--exclude-from`, which rclone refuses for a single file, and only after its
+   name is shown not credential-shaped), and over the whole root after a large change. The files
+   the same both ways must be all the root's files the check covers. A file only in `swe-data/`
+   is reported by name, and stays.
 6. Never `sync`, `move`, `delete`, `purge` or `dedupe` in `swe-data/`. A file that leaves the root
    stays in `swe-data/`. It leaves Drive only when it is unnecessary, as its own step with the
    Operator's yes (D39 point 3).

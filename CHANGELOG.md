@@ -14,7 +14,14 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-18 — D39's last card: the 50 files, SHA256SUMS, _logs and the whole-root check (desktop)
+## 2026-10-19 — the close after #591 and #593; D39 points 1 and 2 done and checked (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `37758a4`; D39's last card checked by a context that did
+not write it (PR #593 comment 6256417642), and merged by the pen while the Operator was away (D35);
+what is open: the stray file in `swe-data/`, the routine's wording (Codex's P1), and D39 point 5.
+`docs/deadlines.md`: the sign-in row. The last card's fragment: merged, PR 593.
+
+## 2026-10-18 — D39's last card: the 50 files, SHA256SUMS, _logs and the whole-root check (desktop; #593, `37758a4`, campaign #544)
 
 D39 points 1 and 2 are done and checked: 150,121 files the same both ways
 
@@ -35,7 +42,7 @@ staging folder into the root, and the one removal its empty staging folders:
   known 3-byte stray file in `swe-data/`, a checker's upload by mistake, is counted apart and waits
   for the Operator's yes to remove. End check "no finding"; the manifest 144/0/0 by full hash.
 
-## 2026-10-18 — the close after #590; D39's last card authorized (desktop)
+## 2026-10-18 — the close after #590; D39's last card authorized (desktop; #591, `4d9c17d`)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `34b8053`; D39's last card ("yes, merge it and write the
 card") and the pen's merge of its PR while the Operator is away recorded under Authorized.

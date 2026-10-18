@@ -2,9 +2,9 @@
 id: d39-finish
 title: Desktop card for D39: the last 50 files, SHA256SUMS, _logs and the whole-root check
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 593
 decisions: [D33, D39]
 date: 2026-10-18
 headline: D39 points 1 and 2 are done and checked — the day-bot's last 50 files (177,171 B) are home with Drive's bytes; SHA256SUMS now lists 149,585 files, every old line unchanged; the 50, the new SHA256SUMS and the root's _logs/ (535 files) are in swe-data/; the check of the whole root both ways by MD5 reads 150,121 the same, 0 on one side only and 0 differ, with one known 3-byte stray file in swe-data/ counted apart; end check "no finding", the manifest 144/0/0 by full hash; the routine is in docs/DATA_INVENTORY.md §C.

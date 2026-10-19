@@ -863,7 +863,15 @@ desktop's checkout still has the round 3 branch locally.
        a single file's name is not credential-shaped; a changed file under `_logs/` goes by
        item 3; §C.3 says "then held 149,537 files". #595, merged as `f9aaa93` ("Yes
        (Recommended)" to merging it once CI was green).
-     - Next, D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
+     - Next, D39's day-bot card (D39 amended again, 2026-10-19): the pen's read-only sweep found
+       data outside the censused areas, on Drive only. The day-bot's project folder holds 623 files
+       and 302,044,316 B beyond `_local_archive/` and `ticks/`: `bars_1m/`, `events/`,
+       `option_chain/`, `option_tape/`, its scripts and notes. `OptionsEngine_Project` holds
+       `Options Intelligence Engine.docx` (77,054 B). The card brings them home under
+       `data_archive/drive-legacy/day-bot-project/` and `.../OptionsEngine_Project/`, each at its own
+       path, checked by its bytes, then into `swe-data/` with a fresh `SHA256SUMS`; it reads Drive
+       before the sign-in ends (2026-10-23, plan on 14:48 UTC).
+     - Then D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
        for the Operator, then a decision to reopen the data track, parked on 2026-09-17.
   2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old
      folders "clear to trash by hand: yes", 0 blockers, the proof's sha256
@@ -1016,6 +1024,10 @@ desktop's checkout still has the round 3 branch locally.
     PR and #544 (public, as MertYakar66), merge that PR if the check is clean and CI green, then open
     and merge its close?", 2026-10-18), under D35's conditions (`OPERATING_MODEL.md` §3.1): done,
     the check posted (PR #593 comment 6256417642), #593 merged as `37758a4`, and this close.
+  - D39's second amendment and the day-bot card (2026-10-19): "yes, bring them all home" to the
+    pen's recommendation to bring the day-bot project's remaining files and the `.docx` home, and
+    "Yes (Recommended)" to "Adopt this second amendment to D39, as worded above?". Written into
+    `DECISIONS.md` by this pull request.
   - The Portfolio Manager / Risk Engineer's change to `main` (2026-10-15): the Operator asked the pen to carry out
     PM1 Part 5 (on the orphan branch `Risk_Management`, commit `6c087a0`): "carry it out as one change run through
     your normal process, and ask me for the explicit yes your rules need for the §7 change, the D38 entry and the

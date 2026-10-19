@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-18 (close after #590, `main` at `34b8053`: D39's amendment on `main`; D39's
+**Last updated:** 2026-10-19 (close after #591 and #593, `main` at `37758a4`: D39's last card ran
+clean and a context that did not write it checked it (PR #593 comment 6256417642): D39 points 1 and
+2 are done and checked; the pen merged #593 while the Operator was away (D35). Earlier, 2026-10-18:
+close after #590, `main` at `34b8053`: D39's amendment on `main`; D39's
 last card authorized, with the pen's merge of its PR while the Operator is away. Earlier the same
 day: close after #587 and #588, `main` at `534fb04`: D39 written (#587,
 `78a2116`); D39's card brought the day-bot's `data_raw` home and into `swe-data/` (#588), 1,725 files
@@ -172,7 +175,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `34b8053` (2026-10-18). Others on `origin`:
+**Branches:** `main` is at `37758a4` (2026-10-19). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -825,50 +828,38 @@ desktop's checkout still has the round 3 branch locally.
      `HostsFileHijack` entry from the run.
   6. **D33 point 8, keeping `swe-data/` current.** Answered by D39 (2026-10-17): the routine
      copies and never deletes; data leaves Drive only when it is unnecessary, as its own step
-     with the Operator's yes; only the credential file stays off Drive. The routine is written
-     into `docs/DATA_INVENTORY.md` §C next (next action 1). Until then only a card's own upload
-     refreshes `swe-data/`. It matched the root on 2026-10-16 (card 3a), by path and by bytes, and
-     D39's card added the `data_raw` subtree on 2026-10-17 (#588), checked both ways by MD5. The
-     root's `_logs/` and its `SHA256SUMS` are not yet current there (next action 1).
+     with the Operator's yes; only the credential file stays off Drive. The routine is in
+     `docs/DATA_INVENTORY.md` §C since #593, and D39's last card ran it once: on 2026-10-18 the
+     whole root, `_logs/` included, matched `swe-data/` both ways by MD5 (next action 1).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  1. D39 (2026-10-17, amended 2026-10-18), in order:
-     - done: D39's card (#588, merged as `534fb04`) brought the day-bot's `_local_archive/data_raw`
-       home into `data_archive/drive-legacy/day-bot-local-archive/data_raw/` and into the same path
-       in `swe-data/`: 1,725 files and 34,816,381 B, exactly card 1's plan. The area's 3,306 files
-       hold 1,725 distinct contents, so its 1,581 duplicates came home once, at their twins' paths,
-       and 7 folders that hold only duplicates have no home counterpart; the ledger in
-       `_logs/d39-data-raw/` maps them. A context that did not write the run checked it (PR #588
-       comment 6249441948): it re-hashed all 1,725 on the desktop and matched them in `swe-data/`
-       and in the Drive original, found the Drive original untouched (3,306 files, 1,640 folders,
-       the same ids) and the rest of the root unchanged (147,812 files), and the manifest 144/0/0.
-       Nothing blocking. Drive now holds `data_raw` twice; removing the original is a point 3 step,
-       with the Operator's yes, and only after `_logs/` (its ledger) is in `swe-data/`;
-     - next, D39's last card for the rest of points 1 and 2 (authorized 2026-10-18; the card is
-       `pen-drafts/d39-finish/d39-finish.md` on the desktop, checked by a context that did not
-       write it before it runs; branch `claude/d39-finish`, record `_logs/d39-finish/`):
-       - the amendment's 50 files (`_local_archive/data_store/`'s 49 and a manifest text file;
-         177,171 B): a census, then home under `data_archive/drive-legacy/day-bot-local-archive/`,
-         each at its own path, as the amendment says, checked by its bytes. Only 28 of the 50
-         contents are distinct, and the tool brings a repeated content home once, at its twin's
-         path, as it did for `data_raw`. So the card copies these 50 by rclone, not by the tool's
-         plan (the check of #590);
-       - D33 point 8's routine, written into `docs/DATA_INVENTORY.md` §C (the pen's change) and run
-         once: after every data change in the root, copy it to `swe-data/` by its id and check it.
-         Only the credential file stays off Drive (D39 point 2), so the root's `_logs/` (535 files,
-         about 4.1 GB on 2026-10-17) goes too, which D33 point 3 had left out, with the 50 files.
-         Data leaves Drive only when it is unnecessary, as its own step with the Operator's yes;
-       - the root's `SHA256SUMS`, D33 point 3's second proof, refreshed: it still lists card 2c's
-         147,810 files and none of the 1,725 new ones. The new list goes to both places and its
-         hash into git. It replaces a file already in `swe-data/`, which the cards' `--immutable`
-         upload refuses, so the routine says how a changed root file is carried;
-       - a check of the whole root against `swe-data/`, both ways by checksum, so that point 2 is
-         done and checked (point 5).
-       It reads Drive, so it runs on the sign-in of 2026-10-16 (it ends between about 14:48 and
-       15:33 UTC on 2026-10-23; plan on 14:48) or a newer one, and the card sizes the `_logs/`
-       upload's time against it;
-     - then the plan for pulling new data: the next-phase plan's questions, and a decision to
-       reopen the data track, parked on 2026-09-17.
+  1. D39 (2026-10-17, amended 2026-10-18): points 1 and 2 are done and checked.
+     - D39's card (#588, `534fb04`, 2026-10-17) brought the day-bot's `_local_archive/data_raw`
+       home and into `swe-data/`: 1,725 files and 34,816,381 B, card 1's plan; its 1,581
+       duplicates came home once, at their twins' paths (the ledger in `_logs/d39-data-raw/`).
+       Checked by a context that did not write it (PR #588 comment 6249441948).
+     - D39's last card (#593, `37758a4`, 2026-10-18) brought the amendment's 50 files home, each
+       at its own path (177,171 B); rebuilt `SHA256SUMS` (149,585 files, sha256
+       `ff8362bb5bab9ce6fae5073fea96cd6a606280c5f56b6eb93cb73e3a8feae46e`, every old line
+       unchanged), replaced it in place in `swe-data/` (card 2c's list is kept in
+       `_logs/d39-finish/SHA256SUMS.card2c`); sent the root's `_logs/` up; and checked the whole
+       root against `swe-data/` both ways by MD5: 150,121 files the same, and one file only in
+       `swe-data/`, the stray below. It wrote D33 point 8's routine into `docs/DATA_INVENTORY.md`
+       §C. A context that did not write it checked it, re-hashing all 149,585 lines of the new
+       list against the disk and matching `_logs/` (557 files) in `swe-data/`: nothing blocking
+       (PR #593 comment 6256417642). The pen merged it while the Operator was away (D35).
+     - Point 1 holds by content: the 50 at their own paths, `data_raw`'s duplicates at their
+       twins' paths, the `vendor_*` files already in the root.
+     - Open: a 3-byte stray file in `swe-data/`,
+       `data_archive/drive-legacy/day-bot-local-archive/fake-text-file.txt` (Drive id
+       `1M3t2AZlHe2ksvzFIjNM8X-BTK7MeKRwH`), uploaded by mistake on 2026-10-18 by a checker of
+       the last card. It is no one's data; removing it needs the Operator's yes (D39 point 3).
+     - Open: the routine's wording (Codex's P1 on PR #593, review comment 4308823353): items 3
+       and 5 should say outright to check that a single file's name is not credential-shaped,
+       as item 2 does; §C.3's "now holds 149,537 files" is 149,587; and a changed file under
+       `_logs/` has no stated route. The pen's own pull request, held for the Operator's yes.
+     - Next, D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
+       for the Operator, then a decision to reopen the data track, parked on 2026-09-17.
   2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old
      folders "clear to trash by hand: yes", 0 blockers, the proof's sha256
      `0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9`. A context that did not write the card checked
@@ -1018,7 +1009,8 @@ desktop's checkout still has the round 3 branch locally.
   - The pen's merge of that card's pull request, and of its close, while the Operator is away
     ("Yes (Recommended)" to "While you're away, may I post the fresh check of the card's run on its
     PR and #544 (public, as MertYakar66), merge that PR if the check is clean and CI green, then open
-    and merge its close?", 2026-10-18), under D35's conditions (`OPERATING_MODEL.md` §3.1).
+    and merge its close?", 2026-10-18), under D35's conditions (`OPERATING_MODEL.md` §3.1): done,
+    the check posted (PR #593 comment 6256417642), #593 merged as `37758a4`, and this close.
   - The Portfolio Manager / Risk Engineer's change to `main` (2026-10-15): the Operator asked the pen to carry out
     PM1 Part 5 (on the orphan branch `Risk_Management`, commit `6c087a0`): "carry it out as one change run through
     your normal process, and ask me for the explicit yes your rules need for the §7 change, the D38 entry and the
@@ -1050,7 +1042,8 @@ desktop's checkout still has the round 3 branch locally.
     Operator: the data budget, the IBKR subscriptions and daily login, the capital and
     limits, which names, and the timing and evidence bar for the first trade. Reopening
     the data track (parked on 2026-09-17) needs a new decision.
-  - **D33 point 8, the refresh routine** (a draft; its question answered by D39, 2026-10-17).
+  - **D33 point 8, the refresh routine** (a draft; its question answered by D39, 2026-10-17;
+    superseded by the routine in `docs/DATA_INVENTORY.md` §C, written by #593, 2026-10-18).
     After a data change in the root, run an `rclone copy`, never a `sync`, of the root to
     `swe-data/`, leaving out only the credential file (D39 point 2: `_logs/` goes too),
     reaching `swe-data/` by its id (`--drive-root-folder-id`), never by a path

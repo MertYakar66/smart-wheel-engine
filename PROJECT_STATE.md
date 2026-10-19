@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-10-19 (close after #591 and #593, `main` at `37758a4`: D39's last card ran
+**Last updated:** 2026-10-19 (close after #594 and #595, `main` at `f9aaa93`: the stray file is gone
+from `swe-data/`, so the desktop and `swe-data/` match with no exception; the routine's wording
+merged. Earlier the same day: close after #591 and #593, `main` at `37758a4`: D39's last card ran
 clean and a context that did not write it checked it (PR #593 comment 6256417642): D39 points 1 and
 2 are done and checked; the pen merged #593 while the Operator was away (D35). Earlier, 2026-10-18:
 close after #590, `main` at `34b8053`: D39's amendment on `main`; D39's
@@ -175,7 +177,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `37758a4` (2026-10-19). Others on `origin`:
+**Branches:** `main` is at `f9aaa93` (2026-10-19). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -850,14 +852,17 @@ desktop's checkout still has the round 3 branch locally.
        (PR #593 comment 6256417642). The pen merged it while the Operator was away (D35).
      - Point 1 holds by content: the 50 at their own paths, `data_raw`'s duplicates at their
        twins' paths, the `vendor_*` files already in the root.
-     - Open: a 3-byte stray file in `swe-data/`,
-       `data_archive/drive-legacy/day-bot-local-archive/fake-text-file.txt` (Drive id
-       `1M3t2AZlHe2ksvzFIjNM8X-BTK7MeKRwH`), uploaded by mistake on 2026-10-18 by a checker of
-       the last card. It is no one's data; removing it needs the Operator's yes (D39 point 3).
-     - Open: the routine's wording (Codex's P1 on PR #593, review comment 4308823353): items 3
-       and 5 should say outright to check that a single file's name is not credential-shaped,
-       as item 2 does; §C.3's "now holds 149,537 files" is 149,587; and a changed file under
-       `_logs/` has no stated route. The pen's own pull request, held for the Operator's yes.
+     - Done 2026-10-19: the 3-byte stray file a checker of the last card had uploaded by mistake
+       to `swe-data/` (`data_archive/drive-legacy/day-bot-local-archive/fake-text-file.txt`, Drive
+       id `1M3t2AZlHe2ksvzFIjNM8X-BTK7MeKRwH`). The Operator trashed it by hand ("I'll trash it by
+       hand (Recommended)", then "done, trashed it"), and the pen read the folder by id after:
+       three folders and the 2,594-byte text file, nothing else; the day-bot's original
+       `_local_archive/` and `swe-data/`'s `SHA256SUMS` unchanged. The desktop and `swe-data/`
+       now match with no exception. Checkers run rclone with an empty config from now on.
+     - Done 2026-10-19: the routine's wording (Codex's P1 on PR #593): items 3 and 5 check that
+       a single file's name is not credential-shaped; a changed file under `_logs/` goes by
+       item 3; §C.3 says "then held 149,537 files". #595, merged as `f9aaa93` ("Yes
+       (Recommended)" to merging it once CI was green).
      - Next, D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
        for the Operator, then a decision to reopen the data track, parked on 2026-09-17.
   2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old

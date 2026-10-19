@@ -14,7 +14,15 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-19 — the close after #591 and #593; D39 points 1 and 2 done and checked (desktop)
+## 2026-10-19 — the routine's credential check for single files (desktop; #595, `f9aaa93`)
+
+**Docs** — `docs/DATA_INVENTORY.md` §C, the routine: a changed file sent by `copyto` (item 3) and a
+single file checked alone (item 5) first have their name checked against the credential patterns,
+since neither applies the filters; a changed log goes by item 3; §C.3's root count is dated. Answers
+Codex's P1 on #593. `PROJECT_STATE.md`: the close after #594 and #595, and the stray file in
+`swe-data/`, trashed by the Operator and confirmed gone by the pen.
+
+## 2026-10-19 — the close after #591 and #593; D39 points 1 and 2 done and checked (desktop; #594, `625c180`)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `37758a4`; D39's last card checked by a context that did
 not write it (PR #593 comment 6256417642), and merged by the pen while the Operator was away (D35);

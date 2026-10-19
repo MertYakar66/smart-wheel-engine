@@ -182,6 +182,17 @@ day-bot's `_local_archive/` stays where it is. Since #576 (merged 2026-10-16, `9
 `scripts/drive_consolidate.py` reads `swe-data/` by its id in `OptionsEngine_Project`; at the top
 of My Drive it looks up only `The_Works`, the first link of the chain it records.
 
+**2026-10-19:** the Operator tidied Drive by hand, moving folders and deleting nothing. `SmartWheelData/`,
+`swe-local-only/` and `smart-wheel-engine/` went into `OptionsEngine_Project/_old/`
+(`1ppBsp3xJs5K8BItc7ZFFMw5RbNlqfYzk`). Everything in the day-bot's project folder
+(`1k4fjO7Sfhl--UKDulOb-ZaDyXUN5-_W7`), `_local_archive/` with it, went into its `_old/`
+(`1c-MR-_2F0dw7O2J8J01KdpraQBgC_Qpr`). Every folder kept its id. The pen read both `_old/` folders by id
+afterwards: all 327,716 objects of card 3a's census and all 5,769 of the D39 censuses are there, 0 missing,
+0 sizes changed; the day-bot's `ticks/` (15 files, home by content) was never in a census. Three empty folders
+exist, all inside the old copies. `OptionsEngine_Project` now holds `swe-data/`, `_old/` and `Options
+Intelligence Engine.docx`. The tool's area records name each area's old parent; card 3 (parked) updates them if
+it resumes.
+
 Card 1's census and plan, 2026-09-25 (`swe-data/_logs/d33-card1/` on the desktop). Every
 area's totals equal `rclone size`, and `swe-data exists: False`:
 

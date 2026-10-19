@@ -2,9 +2,9 @@
 id: staging-untrack
 title: Untrack the 20 staging data CSVs (D31's last gap)
 kind: refactor
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 600
 decisions: [D31]
 date: 2026-10-19
 headline: git no longer tracks the 20 data CSVs under staging/ (7,152,880 B); each has a byte-identical copy at the same path in the data root (20 of 20 by git blob id) and so in swe-data/; .gitignore ignores staging/**/*.csv; the 25 scripts and notes under staging/ stay tracked; nothing on disk changed and no history was rewritten.

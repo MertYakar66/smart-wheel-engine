@@ -14,7 +14,14 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-19 — the 20 staging data CSVs untracked (desktop)
+## 2026-10-19 — the close after #599 and #600, and the Drive tidy (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `6759e7c`; D31's last gap closed (#600); the Operator's Drive tidy
+(old copies into `_old/` folders, ids kept, read back by the pen). `docs/DATA_INVENTORY.md` §C.3: the
+tidy's record. `FILE_MANIFEST.md`: the three staging folder rows say where their CSVs live now. The staging
+card's fragment: merged, PR 600.
+
+## 2026-10-19 — the 20 staging data CSVs untracked (desktop; #600, `6759e7c`)
 
 the 20 staging CSVs are untracked; their copies stay in the data root and swe-data
 
@@ -26,7 +33,7 @@ tracked. Nothing on disk changed and no history was rewritten. A checkout that m
 its own copies of the 20; `staging/integrate_phase1b.py` runs with the data root as its working folder.
 **Docs** — `docs/worklog/staging-untrack-untrack-the-20-staging-data-csvs-d31-s-last-gap.md`.
 
-## 2026-10-19 — the close after #596, #597 and #598 (desktop)
+## 2026-10-19 — the close after #596, #597 and #598 (desktop; #599, `428f6a9`)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `f8be3e7`; D39's day-bot card done and checked by a context
 that did not write it (PR #598 comment 6265472083). `docs/deadlines.md`: the sign-in row. The card's

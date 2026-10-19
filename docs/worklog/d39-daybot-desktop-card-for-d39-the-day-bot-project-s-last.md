@@ -2,9 +2,9 @@
 id: d39-daybot
 title: Desktop card for D39: the day-bot project's last files and the document home
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 598
 decisions: [D33, D39]
 date: 2026-10-19
 headline: The day-bot project's last 623 files (302,044,316 B) and Options Intelligence Engine.docx (77,054 B) are home with Drive's bytes, each at its own path, and in swe-data/; SHA256SUMS now lists 150,209 files, every old line unchanged; the check of the two new folders both ways by MD5 reads 624 the same, 0 on one side only and 0 differ; end check "no finding", the manifest 144/0/0 by full hash; the record is in docs/DATA_INVENTORY.md §C.

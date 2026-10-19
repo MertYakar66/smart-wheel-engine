@@ -14,6 +14,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-19 — the 20 staging data CSVs untracked (desktop)
+
+the 20 staging CSVs are untracked; their copies stay in the data root and swe-data
+
+**Changed** — git no longer tracks the 20 data CSVs under `staging/`: 15 in `staging/blue_chips/`, 4 in
+`staging/casy/` and 1 in `staging/fundamentals_pit/`, 7,152,880 B in all. This closes D31's last gap.
+Each has a byte-identical copy at the same path in the data root, 20 of 20 by git blob id, and so in
+`swe-data/`. `.gitignore` now ignores `staging/**/*.csv`. The 25 scripts and notes under `staging/` stay
+tracked. Nothing on disk changed and no history was rewritten. A checkout that moves to this `main` loses
+its own copies of the 20; `staging/integrate_phase1b.py` runs with the data root as its working folder.
+**Docs** — `docs/worklog/staging-untrack-untrack-the-20-staging-data-csvs-d31-s-last-gap.md`.
+
 ## 2026-10-19 — the close after #596, #597 and #598 (desktop)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `f8be3e7`; D39's day-bot card done and checked by a context

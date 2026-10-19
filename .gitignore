@@ -308,3 +308,7 @@ Theta/
 # =============================================================================
 tradingview/screenshots/
 
+
+# staging/ data fragments live under the desktop data root (SWE_DATA_ROOT), not in git
+# (D31; untracked 2026-10-19, the Operator: "Yes, untrack them"). The scripts and notes stay tracked.
+staging/**/*.csv

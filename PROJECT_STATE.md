@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-10-19 (close after #594 and #595, `main` at `f9aaa93`: the stray file is gone
+**Last updated:** 2026-10-19 (close after #596, #597 and #598, `main` at `f8be3e7`: D39 amended again;
+D39's day-bot card brought the day-bot project's last 623 files and `Options Intelligence Engine.docx`
+home and into `swe-data/`, checked by a context that did not write it (PR #598 comment 6265472083).
+Earlier the same day: close after #594 and #595, `main` at `f9aaa93`: the stray file is gone
 from `swe-data/`, so the desktop and `swe-data/` match with no exception; the routine's wording
 merged. Earlier the same day: close after #591 and #593, `main` at `37758a4`: D39's last card ran
 clean and a context that did not write it checked it (PR #593 comment 6256417642): D39 points 1 and
@@ -177,7 +180,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `f9aaa93` (2026-10-19). Others on `origin`:
+**Branches:** `main` is at `f8be3e7` (2026-10-19). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -863,15 +866,21 @@ desktop's checkout still has the round 3 branch locally.
        a single file's name is not credential-shaped; a changed file under `_logs/` goes by
        item 3; §C.3 says "then held 149,537 files". #595, merged as `f9aaa93` ("Yes
        (Recommended)" to merging it once CI was green).
-     - Next, D39's day-bot card (D39 amended again, 2026-10-19): the pen's read-only sweep found
-       data outside the censused areas, on Drive only. The day-bot's project folder holds 623 files
-       and 302,044,316 B beyond `_local_archive/` and `ticks/`: `bars_1m/`, `events/`,
-       `option_chain/`, `option_tape/`, its scripts and notes. `OptionsEngine_Project` holds
-       `Options Intelligence Engine.docx` (77,054 B). The card brings them home under
-       `data_archive/drive-legacy/day-bot-project/` and `.../OptionsEngine_Project/`, each at its own
-       path, checked by its bytes, then into `swe-data/` with a fresh `SHA256SUMS`; it reads Drive
-       before the sign-in ends (2026-10-23, plan on 14:48 UTC).
-     - Then D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
+     - Done 2026-10-19: D39's day-bot card (D39 amended again, #597, `623e638`). The pen's read-only
+       sweep had found data on Drive only, outside the censused areas: the day-bot project folder's
+       623 files (302,044,316 B) beyond `_local_archive/` and `ticks/` (`bars_1m/`, `events/`,
+       `option_chain/`, `option_tape/`, its scripts and notes), and `Options Intelligence Engine.docx`
+       (77,054 B) in `OptionsEngine_Project`. The card (#598, `f8be3e7`; 27 min 50 s) brought all 624
+       home under `data_archive/drive-legacy/day-bot-project/` and `.../OptionsEngine_Project/`, each at
+       its own path, into `swe-data/`, checked both ways by MD5 (624 the same); `SHA256SUMS` now lists
+       150,209 files, sha256 `8629fbc5bb10e0e8db6fc4ce828d1505408fbf1e3cec46f133d8081fc131187f`. A
+       context that did not write it re-hashed the 624 and 3,000 old lines, matched them in
+       `swe-data/`, and found the sources untouched: nothing blocking (PR #598 comment 6265472083).
+       Every file the pen's sweeps found on Drive for this project and the day-bot is now home and
+       in `swe-data/`. The old copies in `OptionsEngine_Project` (`SmartWheelData/`,
+       `swe-local-only/`, `smart-wheel-engine/`) stay as they are, on the pen's advice (Drive has room;
+       removing them is card 3, parked).
+     - Next, D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
        for the Operator, then a decision to reopen the data track, parked on 2026-09-17.
   2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old
      folders "clear to trash by hand: yes", 0 blockers, the proof's sha256
@@ -1027,7 +1036,8 @@ desktop's checkout still has the round 3 branch locally.
   - D39's second amendment and the day-bot card (2026-10-19): "yes, bring them all home" to the
     pen's recommendation to bring the day-bot project's remaining files and the `.docx` home, and
     "Yes (Recommended)" to "Adopt this second amendment to D39, as worded above?". Written into
-    `DECISIONS.md` by this pull request.
+    `DECISIONS.md` by #597 (`623e638`). The card ran as #598 (`f8be3e7`), after "yes, post it and merge
+    when the check passes" (2026-10-19).
   - The Portfolio Manager / Risk Engineer's change to `main` (2026-10-15): the Operator asked the pen to carry out
     PM1 Part 5 (on the orphan branch `Risk_Management`, commit `6c087a0`): "carry it out as one change run through
     your normal process, and ask me for the explicit yes your rules need for the §7 change, the D38 entry and the

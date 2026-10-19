@@ -14,7 +14,13 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-19 — D39's day-bot card: the day-bot project's last files and the document home (desktop)
+## 2026-10-19 — the close after #596, #597 and #598 (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `f8be3e7`; D39's day-bot card done and checked by a context
+that did not write it (PR #598 comment 6265472083). `docs/deadlines.md`: the sign-in row. The card's
+fragment: merged, PR 598.
+
+## 2026-10-19 — D39's day-bot card: the day-bot project's last files and the document home (desktop; #598, `f8be3e7`, campaign #544)
 
 the day-bot project's last files are home and in swe-data: 624 files the same both ways
 
@@ -35,7 +41,15 @@ the staging folder into the root, and the one removal its empty staging folders:
 - The check of the two folders both ways by MD5: 624 the same, 0 on one side only, 0 differ. End
   check "no finding"; the manifest 144/0/0 by full hash.
 
-## 2026-10-19 — the routine's credential check for single files (desktop; #595, `f9aaa93`)
+## 2026-10-19 — D39 amended again: the day-bot project's last files (desktop; #597, `623e638`)
+
+**Docs** — `DECISIONS.md` D39, the second amendment (point 1): the pen's read-only sweep found 623
+files (302,044,316 B) in the day-bot's project folder outside `_local_archive/` and `ticks/`, and
+`Options Intelligence Engine.docx` in `OptionsEngine_Project`, on Drive only; they come home, each
+at its own path, and into `swe-data/`. The Operator: "yes, bring them all home", then "Yes
+(Recommended)" to the text.
+
+## 2026-10-19 — the routine's credential check for single files (desktop; #595, `f9aaa93`; its close #596, `e579979`)
 
 **Docs** — `docs/DATA_INVENTORY.md` §C, the routine: a changed file sent by `copyto` (item 3) and a
 single file checked alone (item 5) first have their name checked against the credential patterns,

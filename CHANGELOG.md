@@ -14,6 +14,27 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-10-19 — D39's day-bot card: the day-bot project's last files and the document home (desktop)
+
+the day-bot project's last files are home and in swe-data: 624 files the same both ways
+
+**Docs** — `docs/worklog/d39-daybot-desktop-card-for-d39-the-day-bot-project-s-last.md`, the record of
+D39's day-bot card (campaign #544, D39's second amendment), and its record in `docs/DATA_INVENTORY.md`
+§C. One desktop run, with the tool at blob `6903c9c8…` (its `sums` and `filters`, and its
+`credential_shaped` check) and rclone v1.74.4. Into `swe-data/` it went by copies only, with no move,
+sync or delete there; on the desktop, the one move of a data file was step 4's rename of the 624 from
+the staging folder into the root, and the one removal its empty staging folders:
+- The day-bot project's 623 files outside `_local_archive/` and `ticks/` (302,044,316 B) are home under
+  `data_archive/drive-legacy/day-bot-project/`, and `Options Intelligence Engine.docx` (77,054 B) under
+  `data_archive/drive-legacy/OptionsEngine_Project/`, each at its own path: 624 of 624 with Drive's
+  size, MD5 and SHA-256 where Drive has one.
+- The root's `SHA256SUMS` now lists 150,209 files (sha256 `8629fbc5…`): the 149,585 lines before this
+  card unchanged, and the 624 added with the SHA-256 taken at home.
+- Into `swe-data/`: the two folders (624 new), `SHA256SUMS` (replaced in place, the same Drive id) and
+  this run's own folder (23 new, checked), with 0 errors.
+- The check of the two folders both ways by MD5: 624 the same, 0 on one side only, 0 differ. End
+  check "no finding"; the manifest 144/0/0 by full hash.
+
 ## 2026-10-19 — the routine's credential check for single files (desktop; #595, `f9aaa93`)
 
 **Docs** — `docs/DATA_INVENTORY.md` §C, the routine: a changed file sent by `copyto` (item 3) and a

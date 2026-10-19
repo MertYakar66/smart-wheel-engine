@@ -312,8 +312,16 @@ The last check of the whole root: 2026-10-18, by D39's last card, 150,121 files 
 and checked after it. `SHA256SUMS` then listed 149,585 files; its own sha256 is
 `ff8362bb5bab9ce6fae5073fea96cd6a606280c5f56b6eb93cb73e3a8feae46e`.
 The stray file is 3 bytes that a checker of the card put in `swe-data/` by mistake on
-2026-10-18 (`data_archive/drive-legacy/day-bot-local-archive/fake-text-file.txt`); it waits for
-the Operator's yes to remove.
+2026-10-18 (`data_archive/drive-legacy/day-bot-local-archive/fake-text-file.txt`); the Operator
+trashed it on 2026-10-19, and the pen read the folder after: it is gone.
+
+D39's day-bot card, 2026-10-19 (`_logs/d39-daybot/` on the desktop; D39's second amendment), brought home
+624 files, each at its own path, and put them into `swe-data/`: the day-bot project's 623 files outside
+`_local_archive/` and `ticks/` (302,044,316 B) under `data_archive/drive-legacy/day-bot-project/`, and
+`Options Intelligence Engine.docx` (77,054 B) under `data_archive/drive-legacy/OptionsEngine_Project/`.
+It checked what changed both ways by MD5: 624 files the same, 0 on one side only, 0 differ.
+`SHA256SUMS` now lists 150,209 files; its own sha256 is
+`8629fbc5bb10e0e8db6fc4ce828d1505408fbf1e3cec46f133d8081fc131187f`.
 
 ---
 

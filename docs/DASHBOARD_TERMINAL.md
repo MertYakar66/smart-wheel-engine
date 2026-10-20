@@ -58,9 +58,9 @@ snapshot `as_of`.
 - `wheel_ledger.json` — closed wheel cycles → **Realized P&L / Premium / Win-Rate**.
 - `portfolio_history.json` — the Portfolio Value curve (`points[].port` = real
   NAV) → **Total Return**. **Deposit-aware:** a live account takes deposits, so
-  raw NAV deltas grossly overstate performance — this account was funded with
-  **$979 (~2025-03-31)** and grew mostly by DEPOSITS, so a naive since-inception
-  NAV return is absurd (+13,000%) while the true perf is modest. Source it from
+  raw NAV deltas grossly overstate performance — this account started small and
+  grew mostly by DEPOSITS, so a naive since-inception NAV return is absurd
+  while the true perf is modest. Source it from
   **IBKR PortfolioAnalyst**: month-end net-liq NAV = `long_total + short_total`
   from `get_pa_allocation(ASSET_CLASS, date=…)` (cross-validates to the
   `get_pa_performance_all_periods` `nav` series), plus `portfolio_measure:"TWR"`
@@ -134,7 +134,7 @@ Activity statement** includes expiries (`notes="Ep"`) and assignments
   - `token` — rotates, **IP-locked**, current window 2026-06-09 → 2026-07-07.
   - `query_id` = **`1537765`** ("SWE Wheel Ledger" — Activity Flex Query,
     **Trades** section, **Last 365 days**, **XML**).
-  - `account` = `U17853958`.
+  - `account` = `U********`.
   - **The token is a SECRET** — never print it in logs/committed files, never echo it.
 - **Endpoints (v3):**
   1. **SendRequest** → reference code:
@@ -212,7 +212,7 @@ cp $DATA/portfolio_history.json   $DATA/_backup/portfolio_history.<ts>.json
 ```bash
 curl -s :8811/api/portfolio/summary    # netLiq, realizedYtd, premium30d, winRate, source:"live"
 curl -s :8811/api/portfolio/returns    # Total Return YTD reflects live NAV
-curl -s :8811/api/portfolio/positions  # legs == 14 (or current count)
+curl -s :8811/api/portfolio/positions  # legs == the current count
 ```
 
 ### 4.4 SPY benchmark — `spy-repair` / automatic on snapshot sync
@@ -303,9 +303,8 @@ logged out; the connector is the reliable path).
   `drops_summary` serialization (real cockpit funnel). The `swe-dash`
   session worktree was retired after the merge — launch the rig from any
   current checkout per §2.
-- Account NAV ~$152k (recovering from the April drawdown); margin cushion is
-  STILL thin (excess liquidity ~$9k at 1.76× leverage) — always surface margin
-  health after an update.
+- Always surface margin health (excess liquidity and leverage) after an update;
+  the account's own figures stay off GitHub (CLAUDE.md §3 step 9).
 
 ## 10. Gotchas (hard-won)
 - **Connector trades miss option expiries + lack contract detail** → Flex only

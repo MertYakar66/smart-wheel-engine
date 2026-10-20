@@ -14,7 +14,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
-## 2026-10-19 — the close after #599 and #600, and the Drive tidy (desktop)
+## 2026-10-20 — the close after #602 (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `7301a05`; the next-phase plan's questions answered on 2026-10-19
+(one answer kept off GitHub); D40, the decision to reopen the data track, waits to be drafted.
+
+## 2026-10-20 — the IBKR account number masked (desktop; #602, `7301a05`)
+
+**Docs** — `docs/DASHBOARD_TRADES.md`, `docs/DASHBOARD_TERMINAL.md` and `docs/DATA_INVENTORY.md`: the
+account number reads `U********`; the account figures in `docs/DASHBOARD_TERMINAL.md` and one trade's
+figures in `docs/DASHBOARD_TRADES.md` are described in general terms.
+
+## 2026-10-19 — the close after #599 and #600, and the Drive tidy (desktop; #601, `a95db9a`)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `6759e7c`; D31's last gap closed (#600); the Operator's Drive tidy
 (old copies into `_old/` folders, ids kept, read back by the pen). `docs/DATA_INVENTORY.md` §C.3: the

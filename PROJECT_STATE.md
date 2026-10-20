@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-10-19 (close after #599 and #600, `main` at `6759e7c`: the 20 staging CSVs left git
+**Last updated:** 2026-10-20 (close after #602, `main` at `7301a05`: the IBKR account number masked in three
+docs; the next-phase plan's questions answered, D40 to be drafted for the Operator's yes. Earlier, 2026-10-19:
+close after #599 and #600, `main` at `6759e7c`: the 20 staging CSVs left git
 (D31's last gap); the Operator tidied Drive into `_old/` folders, ids kept, read back by the pen. Earlier the
 same day: close after #596, #597 and #598, `main` at `f8be3e7`: D39 amended again;
 D39's day-bot card brought the day-bot project's last 623 files and `Options Intelligence Engine.docx`
@@ -182,7 +184,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `6759e7c` (2026-10-19). Others on `origin`:
+**Branches:** `main` is at `7301a05` (2026-10-20). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -888,8 +890,12 @@ desktop's checkout still has the round 3 branch locally.
        in the day-bot's folder into its `_old/`, by hand, ids kept; the pen read both by id: nothing
        missing, nothing changed (`docs/DATA_INVENTORY.md` §C.3). Only three empty folders exist, inside the
        old copies; the pen gave the Operator their paths. The staging CSVs left git (#600).
-     - Next, D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
-       for the Operator, then a decision to reopen the data track, parked on 2026-09-17.
+     - Done 2026-10-20: #602 (`7301a05`) masked the IBKR account number in `docs/DASHBOARD_TRADES.md`,
+       `docs/DASHBOARD_TERMINAL.md` and `docs/DATA_INVENTORY.md` and put two docs' account figures in
+       general terms ("Mask it in the docs now (Recommended)"). The Operator keeps the repository public.
+     - Next, D39 point 5: the plan for pulling new data. The next-phase plan's questions are answered
+       (2026-10-19; below, Proposed). Next: D40, the decision to reopen the data track (parked on
+       2026-09-17), drafted by the pen for the Operator's yes to its exact text.
   2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old
      folders "clear to trash by hand: yes", 0 blockers, the proof's sha256
      `0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9`. A context that did not write the card checked
@@ -917,7 +923,7 @@ desktop's checkout still has the round 3 branch locally.
      - not done: the rehearsal by hand and the credential file's "Delete forever";
      - not done: the recount, the baseline, the trash by hand and the check; the undo-window row
        never opened.
-  3. The next-phase plan (Proposed): five questions wait for the Operator.
+  3. The next-phase plan (Proposed): its questions answered on 2026-10-19; D40 waits to be drafted.
   4. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
      moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/` into
@@ -1073,10 +1079,11 @@ desktop's checkout still has the round 3 branch locally.
     - the credential scan in step 5 covers step files 0 to 4 only; widen it to every step
       file.
   - **The next-phase plan** (sent to the Operator on 2026-10-09): a week of wrap-up, then
-    fresh data, filtering, and readiness for real trading. Five questions wait for the
-    Operator: the data budget, the IBKR subscriptions and daily login, the capital and
-    limits, which names, and the timing and evidence bar for the first trade. Reopening
-    the data track (parked on 2026-09-17) needs a new decision.
+    fresh data, filtering, and readiness for real trading. Its questions, answered on 2026-10-19:
+    the data budget, "tell me whatever data we need. no budget limit"; IBKR market data, "Yes
+    (Recommended)"; the names, "All ~503, trade the top (Recommended)"; the first real trade, "Wait for the
+    short-dated menu". The fifth answer is kept off GitHub. Reopening the data track (parked on 2026-09-17) needs
+    a new decision, D40, which the pen drafts for the Operator's yes.
   - **D33 point 8, the refresh routine** (a draft; its question answered by D39, 2026-10-17;
     superseded by the routine in `docs/DATA_INVENTORY.md` §C, written by #593, 2026-10-18).
     After a data change in the root, run an `rclone copy`, never a `sync`, of the root to
@@ -1109,8 +1116,8 @@ desktop's checkout still has the round 3 branch locally.
     own change feed. Card 2c does not list the old areas, and card 3 lists them once.
   - For long cards: the Executor sets a timer for the 20-hour WAITING note instead of
     catching it between look-ins (card 2b's Run Summary, heading 12).
-  - Purging the data from git history; the fixture subset; untracking the
-    `staging/` data.
+  - Purging the data from git history; the fixture subset. (Untracking the `staging/`
+    data: done, #600.)
   - A credential check in the tool's `_check_areas`. It has never refused an area
     name for being credential-shaped, and the `key=value` rule lets more such
     names through (`x/token=1`). No Theta folder above a ticker is

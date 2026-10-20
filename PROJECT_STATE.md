@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-10-19 (close after #596, #597 and #598, `main` at `f8be3e7`: D39 amended again;
+**Last updated:** 2026-10-19 (close after #599 and #600, `main` at `6759e7c`: the 20 staging CSVs left git
+(D31's last gap); the Operator tidied Drive into `_old/` folders, ids kept, read back by the pen. Earlier the
+same day: close after #596, #597 and #598, `main` at `f8be3e7`: D39 amended again;
 D39's day-bot card brought the day-bot project's last 623 files and `Options Intelligence Engine.docx`
 home and into `swe-data/`, checked by a context that did not write it (PR #598 comment 6265472083).
 Earlier the same day: close after #594 and #595, `main` at `f9aaa93`: the stray file is gone
@@ -180,7 +182,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `f8be3e7` (2026-10-19). Others on `origin`:
+**Branches:** `main` is at `6759e7c` (2026-10-19). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -824,9 +826,9 @@ desktop's checkout still has the round 3 branch locally.
      root (card 2b's `redundant -> redundant`); 13 more are duplicates of those. Corrected on 2026-10-11: this line said they all matched live
      root files, so that card 3 need re-hash only those; card 3 re-checks every twin,
      archive copies included. None of it covers the day-bot's `data_raw`.
-  4. **A D31 gap:** git still tracks 20 data fragments under `staging/` (7,152,880
-     B). Card 1 copied them into the root, so card 2 takes them to Drive. Untracking
-     them remains proposed.
+  4. **D31's last gap, closed 2026-10-19:** the 20 data CSVs under `staging/` (7,152,880 B) left git
+     (#600; "Yes, untrack them (Recommended)"); their copies stay in the root and `swe-data/`, and
+     `.gitignore` keeps `staging/**/*.csv` out. Git history keeps the old copies.
   5. **The hosts pin is off** (2026-10-09). The Operator ran the removal command in #544
      comment 6065992701, which restores `hosts.bak-card2d`, and pasted its output,
      `pin removed`. Still to report: whether Defender's Protection history shows a
@@ -880,6 +882,12 @@ desktop's checkout still has the round 3 branch locally.
        in `swe-data/`. The old copies in `OptionsEngine_Project` (`SmartWheelData/`,
        `swe-local-only/`, `smart-wheel-engine/`) stay as they are, on the pen's advice (Drive has room;
        removing them is card 3, parked).
+     - Done 2026-10-19, the Drive tidy, on the Operator's answers to four questions ("Move into one _old
+       folder (Recommended)", "Tidy it too", "Yes, remove empty ones (Recommended)", "Yes, untrack them
+       (Recommended)"). The Operator moved the old copies into `OptionsEngine_Project/_old/` and everything
+       in the day-bot's folder into its `_old/`, by hand, ids kept; the pen read both by id: nothing
+       missing, nothing changed (`docs/DATA_INVENTORY.md` §C.3). Only three empty folders exist, inside the
+       old copies; the pen gave the Operator their paths. The staging CSVs left git (#600).
      - Next, D39 point 5: the plan for pulling new data. The next-phase plan's five questions wait
        for the Operator, then a decision to reopen the data track, parked on 2026-09-17.
   2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old

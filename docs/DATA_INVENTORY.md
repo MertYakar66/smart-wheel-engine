@@ -499,7 +499,7 @@ SPY, QQQ, DIA, IWM, XLE, XLF, XLK, XLV.
 | `data_processed/vol_indices.parquet` | **Vol-index** long series (VIX/VVIX/SKEW/MOVE/GVZ/OVX/VXN/VIX3M/6M/9D) | 2011-05-31 → 2026-05-22 | 35,062 | ignored |
 | `data_processed/vol_indices_wide.parquet` | Same, wide (per-index close cols) | 2011-05-31 → 2026-05-22 | 3,783 | ignored |
 | `data_processed/trade_universe/2025-11-22_trade_universe.csv` | Ranked **trade universe** snapshot | 2025-11-22 | 1,066 | ignored |
-| `data_processed/ibkr/wheel_ledger.json` (+ portfolio/ev_calibration files) | Real **IBKR portfolio** state (acct U17853958) | live account | — | ignored |
+| `data_processed/ibkr/wheel_ledger.json` (+ portfolio/ev_calibration files) | Real **IBKR portfolio** state (acct U********) | live account | — | ignored |
 | `data_raw/sp500_constituents_current.csv` | Current S&P constituents | snapshot | — | tracked |
 
 > Note: `data_processed/_inventory_scan.json` is (re)written by `scripts/inventory_data.py`

@@ -34,7 +34,7 @@ IBKR Flex Web Service (query 1537765, Trades)          ← operator regenerates 
    IBKR Client Portal → Settings → Account Settings → **Flex Web Service**, and
    it is stored at `data_processed/ibkr/flex_credentials.json` (gitignored):
    ```json
-   { "token": "<secret>", "query_id": "1537765", "account": "U17853958" }
+   { "token": "<secret>", "query_id": "1537765", "account": "U********" }
    ```
    The token is a **secret** — never printed, echoed, or committed.
 2. **Fetch.** `SendRequest` → `ReferenceCode`, then poll `GetStatement` (retry on
@@ -71,9 +71,9 @@ Top level: `source` (`ibkr_flex`), `generated_at`, `coverage`
   each closing execution. Summed per ticker per asset class = realized gain/loss
   over the covered period. Unrealized P&L on still-open positions is **not** here
   (it's on the KPI cards / Holdings).
-- **Net of commissions.** Verified: a short put opened for +$145.00 with −$1.50
-  commission expires with `fifoPnlRealized = +$143.50`. The realized figure is the
-  true bottom line, commissions included — do not subtract them again.
+- **Net of commissions.** Verified on a real expiry: a short put's
+  `fifoPnlRealized` equals the premium less its commission. The realized figure is
+  the true bottom line, commissions included — do not subtract them again.
 - **Basis is true, not window-truncated.** For a position opened *before* the
   365-day window and closed inside it, `fifoPnlRealized` uses the real historical
   cost basis (IBKR knows the full history), so the realized P&L is correct even

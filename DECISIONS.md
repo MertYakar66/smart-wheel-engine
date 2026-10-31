@@ -132,6 +132,8 @@ Two rounds of fresh-agent checks shaped the text. A skeptic confirmed 67 of 73 f
 
 ## PM2. The Operator's standing rule on every message (2026-10-15)
 
+**Superseded by PM10** (2026-10-31): the rule itself. `CLAUDE.md` §3 now holds the 2026-10-31 rule; §4's line on neutral questions still stands. This entry stays as history.
+
 **Confirmed by the Operator** on 2026-10-15, by pasting the rewritten rule back unchanged. It answered "Here is your message rewritten as the rule I'll follow. Nothing else happens until you approve it."
 
 **The checklist change was then put to him in four points:**
@@ -290,5 +292,64 @@ Source: the PM/RE's session in this worktree; its transcript stays private.
 **Pending implementation:** none; these changes land with this entry's pull request.
 
 **Not decided:** the Gmail and IBKR deny-rule proposal (D3) is prepared and not approved for application.
+
+Source: the PM/RE's session in this worktree; its transcript stays private.
+
+## PM10. The standing rule revised: questions, a talk, then the final prompt (2026-10-31)
+
+**Supersedes PM2's rule.** PM2 stays as history.
+
+**Historical approvals** (local times, UTC+3):
+- 2026-10-31, 16:48: the Operator proposed the change: "for rewriting my prompt, please ask the questions first, based on my answers to your questions, rewrite the final prompt and ask for my approval. stop after asking me questions because we are going to talk about that. After we both agree on the answers, write the final prompt for my approval. agreed?" The PM/RE agreed and asked six questions about the details.
+- 2026-10-31, 16:55: the Operator's answers:
+  - on what the PM/RE may contribute in the talk: "if I ask questions while asnwering your questions, then answer";
+  - on tools during the talk: "of course you can";
+  - on scope: "yes it applies to all in this project. tell other agents also";
+  - on keeping the current exceptions: "yes";
+  - on how agreement is reached: "After I answer your questions, if you think that there are no gaps or inaccurate information in my answers and you are sure that you can form the final prompt, then go ahead and form it. If not, we will continue talking."
+- 2026-10-31, 16:58: "1. yes 2. yes 3. yes", answering three follow-ups:
+  - keep the restatement at the top of the first reply;
+  - the list of agents, and how each is told;
+  - the PM/RE's reading that in the talk it answers the Operator's questions and points out gaps or inaccurate information, and gives its own answers to its questions only if asked.
+- 2026-10-31, 17:02: two edits to the first wording: "It does not have to be one-line. It must be professional, simple and summarized. you decide." and "10 question seems long, lets make it 5 most important ones."
+- 2026-10-31, 17:04: "Yes, word for word", a reply button answering "Do you approve the revised wording of the standing rule, word for word?"
+- 2026-10-31, 17:11: "Yes, word for word", a reply button answering "Do you approve these texts word for word, so I commit, push and post them?"
+
+**The rule, word for word:**
+
+> **Standing rule: how you handle every message of mine.**
+> 1. When my message arrives, your first reply contains only two things:
+>    - my request, restated as a short summary in professional, simple words (one to three sentences);
+>    - at most five numbered clarifying questions, the most important ones, neutral, with no analysis, options or answer inside them.
+> 2. Then stop. Write no part of the answer, and no prompt yet.
+> 3. Then we talk about the questions. You answer my questions, and you point out gaps or inaccurate information in my answers. You give your own answers to your questions only if I ask. To do this you may look up facts, read files and start agents; reading my IBKR account, my email or a signed-in page still waits for an approved prompt.
+> 4. When my answers have no gaps or inaccurate information, and you are sure you can form the final prompt, write it and ask for my approval. Otherwise we keep talking.
+> 5. After I approve or edit the final prompt, carry it out and give the answer. If my edit changes the scope, write the prompt again and wait again.
+> 6. These do not start a new round: my answers to your questions, my questions during the talk, my "approve", "yes" or edited prompt, and "close".
+> 7. One exception: a time-critical risk warning is given at once, before anything else.
+> 8. This rule applies to every agent in this project. Record it in your memory and your checklist, and tell the other agents.
+
+**Where it lives, and who is told:**
+- `CLAUDE.md` §3, with three lines that follow from it:
+  - the final prompt's paragraph, which no longer bars agents before approval;
+  - the relayed-approval line, now under point 6;
+  - the mixed-message line, which now ends in restatement and questions.
+- `CLAUDE.md` §4: "approve" now names a final prompt.
+- `AGENTS.md`, written out for the Assistant.
+- The PM/RE's private memory.
+- The engine's pen, by a `pm-request` issue, for the engine's own rules and its Executors.
+- The Dashboard terminal and the claude.ai Financial Analysis agent, by a text the Operator pastes.
+
+The ORCA agents belong to a separate project and are not told.
+
+**What changed from PM2:**
+- The first reply no longer carries a rewritten prompt. A talk comes before the final prompt.
+- At most five questions. The restatement is a short summary, not one line.
+- Facts may be looked up, files read and agents started during the talk. The account, email and signed-in pages still wait for an approved prompt.
+- The rule covers every agent in this project.
+
+**Numbering:** the investment-limits prompt approved on 2026-10-31 named PM10 for the limits' approval. That work is set aside; its approval, if it comes, takes the next free number.
+
+**Pending implementation:** the pen's change to the engine's own rules, on the Operator's approval of its wording; the two pastes.
 
 Source: the PM/RE's session in this worktree; its transcript stays private.

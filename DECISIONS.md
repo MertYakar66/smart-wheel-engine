@@ -378,3 +378,12 @@ Source: the PM/RE's session in this worktree; its transcript stays private.
 - Each message from the PM/RE says where five steps stand: D40, the vendor pick, the first data update, the join, the first pass.
 
 Source: the PM/RE's session in this worktree; its transcript stays private.
+
+## PM12. A substitute reviewer for pull request 592 (2026-11-14)
+
+The Portfolio Manager Assistant is not reviewing at present. For pull request 592 only, a fresh read-only agent reviews the final commit in its place (`CLAUDE.md` §7). The exception ends with this pull request.
+
+**Historical approval:**
+- 2026-11-14: "Approve", a reply button answering "Approve this final prompt for pull request 592?" The final prompt showed the paragraph above, and the changes to the pull request's title and text, in full.
+
+Source: the PM/RE's session in this worktree; its transcript stays private.

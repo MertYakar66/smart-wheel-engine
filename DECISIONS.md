@@ -353,3 +353,28 @@ The ORCA agents belong to a separate project and are not told.
 **Pending implementation:** the pen's change to the engine's own rules, on the Operator's approval of its wording; the two pastes.
 
 Source: the PM/RE's session in this worktree; its transcript stays private.
+
+## PM11. Two lanes and short replies added to the standing rule (2026-11-14)
+
+**Adds to PM10's rule.** PM10 stays in force; its points 1 to 8 are unchanged.
+
+**Historical approvals** (local times, UTC+3):
+- 2026-11-12: the Operator asked the PM/RE to review how the two of them work and to suggest changes. The PM/RE suggested five: two lanes for requests; short replies; the PM/RE decides small things; the agreed engine design is frozen until D40; a five-step scoreboard.
+- 2026-11-14: "all suggestions make sense", answering "Which of these do you want?"
+- 2026-11-14, about 12:55: "Yes, word for word", a reply button answering "Do you say yes to this rule text, word for word?"
+
+**The addition, word for word:**
+
+> **Added to my standing rule.**
+> 9. Quick lane: when my message asks for something that stays in this chat (a question, an explanation, a summary, a draft, an opinion), answer at once. Points 1 to 5 do not apply.
+> 10. Full lane: points 1 to 5 still apply to anything that posts publicly, reads my account, my email or a signed-in page, spends money, or changes an agreed document or a rule. If you are unsure which lane, ask one question.
+> 11. Keep every reply short: about ten lines and at most one question, unless I say "more".
+
+**Where it lives, and who is told:** `CLAUDE.md` §3 and `AGENTS.md`, each below point 8; the PM/RE's private memory. The other agents named in PM10 are told the same way as before, each on the Operator's yes to the text.
+
+**Also adopted on 2026-11-14, as working practice, not as rule text:**
+- The PM/RE decides small things (wording, checks, technical defaults) and reports each in one line. The Operator decides money, risk, what is posted and what is traded.
+- The agreed engine design is not reviewed again until D40. New findings go on a list for later.
+- Each message from the PM/RE says where five steps stand: D40, the vendor pick, the first data update, the join, the first pass.
+
+Source: the PM/RE's session in this worktree; its transcript stays private.

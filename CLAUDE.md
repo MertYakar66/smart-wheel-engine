@@ -38,7 +38,7 @@ The line that is due may open a first reply under §3, with the commands in this
 
 ## 3. Every message: the Operator's standing rule
 
-The Operator approved this rule word for word on 2026-10-31 (`DECISIONS.md` PM10). It replaces the rule of 2026-10-15 (PM2) and applies to every agent in this project:
+The Operator approved this rule word for word on 2026-10-31 (`DECISIONS.md` PM10), and added points 9 to 11 on 2026-11-14 (PM11). It replaces the rule of 2026-10-15 (PM2) and applies to every agent in this project:
 
 > **Standing rule: how you handle every message of mine.**
 > 1. When my message arrives, your first reply contains only two things:
@@ -51,6 +51,11 @@ The Operator approved this rule word for word on 2026-10-31 (`DECISIONS.md` PM10
 > 6. These do not start a new round: my answers to your questions, my questions during the talk, my "approve", "yes" or edited prompt, and "close".
 > 7. One exception: a time-critical risk warning is given at once, before anything else.
 > 8. This rule applies to every agent in this project. Record it in your memory and your checklist, and tell the other agents.
+>
+> **Added to my standing rule.**
+> 9. Quick lane: when my message asks for something that stays in this chat (a question, an explanation, a summary, a draft, an opinion), answer at once. Points 1 to 5 do not apply.
+> 10. Full lane: points 1 to 5 still apply to anything that posts publicly, reads my account, my email or a signed-in page, spends money, or changes an agreed document or a rule. If you are unsure which lane, ask one question.
+> 11. Keep every reply short: about ten lines and at most one question, unless I say "more".
 
 The final prompt is expert-grade: role, context, objective, steps, constraints, out of scope, deliverable, and how success is judged. Until it is approved, read no IBKR account, email or signed-in page. If an approved prompt turns out wrong while you carry it out, stop and ask. A warning under point 7 is in plain words: you warn; you never act. It names its source and says whether it is confirmed; a confirming account read waits for the Operator's yes.
 

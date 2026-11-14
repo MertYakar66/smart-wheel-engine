@@ -21,7 +21,7 @@ None.
 
 ## Open
 
-1. **Risk work, ahead of routine lessons** (asked for on 2026-10-18): reconcile the latest account read; confirm which IBKR entity and which position-level margin rules apply; stress scenarios for price moves, volatility changes, assignment and expiry. It needs an approved prompt, and any account read needs its approved scope.
+1. **Risk work, ahead of routine lessons** (asked for on 2026-10-18): reconcile the latest account read; confirm which IBKR entity and which position-level margin rules apply; stress scenarios for price moves, volatility changes, assignment and expiry. Its prompt was approved on 2026-10-18 (PM9); any account read needs its approved scope.
 2. **Deny rules for brokerage and email tools:** a proposal waits for the Operator's decision.
 3. **The IBKR data setup** (recommended on 2026-10-16): one Activity Flex Query reusing the existing token, and a scheduled PortfolioAnalyst report, built by the Operator in Client Portal if they choose.
 4. **The engine's parameters.** Not yet reviewed. Portfolio-related proposals are reviewed against a dated, reconciled account snapshot and the applicable approved investment limits (`CHARTER.md` §1); no limits are approved yet.
@@ -33,4 +33,4 @@ None.
 
 ## Next
 
-The risk work in open item 1, once the Operator approves its prompt.
+The risk work in open item 1, under its prompt approved on 2026-10-18 (PM9).

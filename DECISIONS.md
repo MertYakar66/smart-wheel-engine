@@ -385,5 +385,6 @@ The Portfolio Manager Assistant is not reviewing at present. For pull request 59
 
 **Historical approval:**
 - 2026-11-14: "Approve", a reply button answering "Approve this final prompt for pull request 592?" The final prompt showed the paragraph above, and the changes to the pull request's title and text, in full.
+- 2026-11-14: "Yes, fix and merge", a reply button answering "Fix the two STATE.md sentences, re-check that commit, then merge?" The review of commit `6bc04bc` found that `STATE.md` contradicted PM9 on the risk-work prompt. The Operator was shown both corrected sentences. The fix is the next commit, and the review must pass on it before the merge.
 
 Source: the PM/RE's session in this worktree; its transcript stays private.

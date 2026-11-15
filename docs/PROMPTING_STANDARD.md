@@ -20,16 +20,18 @@ may be a fresh session with no memory of the discussion.
 
 ## 2. Sharpening (Operator → Strategist), the gate
 
-When the request has depth behind it, ask **3 to 5 short questions** before
-writing anything. Ask about intent and priority, never about implementation the
-Strategist should determine itself. Skip the questions when the task is small,
-obvious, or fully specified, and say so in the block below ("not warranted,
-because ..."). The answers are recorded; they travel with the work.
+In the first reply, **restate first**: in one to three sentences, what we would
+do, why, and what counts as success. Then ask only the questions whose answers
+could materially change the work: at most five (`CLAUDE.md` §3), and none when
+no answer would. Ask about intent, priority, acceptable risk and constraints,
+never about implementation the Strategist should determine itself. When there
+is nothing to ask, say so in the block below ("not warranted, because ...").
+The answers are recorded; they travel with the work.
 
-Then **restate, and wait**. In one paragraph, say what we would do, why, and what
-counts as success. Draft nothing until the Operator confirms. For a fully
-specified request, the Operator's own words are both the restatement and the
-confirmation: quote them.
+Before the plan, **check the premises**, by reading only (`CLAUDE.md` §3 step
+3). Then **show the plan** (`CLAUDE.md` §3 step 6); the Operator's approval of
+it is the confirmation. For a fully specified request, give the plan in the
+same reply, and quote the Operator's own words on line 2.
 
 Question bank (pick what fits, never all of them):
 
@@ -39,7 +41,6 @@ Question bank (pick what fits, never all of them):
 - What must not break or change?
 - What is the acceptable scope of one run: one file, one module, one campaign?
 - Is this a question (read-only) or a change?
-- Who verifies, and what evidence will you accept?
 
 ## 3. The Execution Prompt template
 
@@ -52,6 +53,8 @@ prompt that does not open this way (`CLAUDE.md` §4).
 ```
 <run-mode>       read-only | change
 <confirmed-request> "the Operator's words, quoted" — confirmed YYYY-MM-DD
+                 (a private figure in the Operator's words appears only as a
+                 pm-private file name and date)
 <request-as-sharpened>
   Goal:            one sentence, the Operator's intent in plain words
   Success:         what the Operator will accept as done
@@ -59,6 +62,18 @@ prompt that does not open this way (`CLAUDE.md` §4).
   Must not break:  the invariants and behaviours that stay fixed
   Scope of run:    one coherent piece of work; name it
   Operator answers: the sharpening answers, or "not warranted, because ..."
+                   (private figures only as a pm-private file name and date)
+  Premises:        each public fact the run relies on: checked (path:line or
+                   command) or unverified (what settles it); a private
+                   premise only as a pm-private file name and date
+  Approved as:     the plan's last line, quoted (private material only as a
+                   pm-private file name and date), with the date the
+                   Operator approved it; "not yet approved" in the copy
+                   shown below the plan; "quick lane: no plan" for a
+                   quick-lane read-only prompt; the Operator's "close",
+                   quoted, with its date, for a close prompt, or, for a
+                   close after a merge, the merged pull request and its
+                   merge commit
 <objective>      one paragraph: what this run accomplishes and what "done" means
 <context>        what a cold session needs: files, decisions, prior runs, data state
 <scope>          explicit list of what is in scope
@@ -95,7 +110,7 @@ Executor's mark (`CLAUDE.md` §2), then the twelve headings of
 1. **Run header**: date, branch, base commit, HEAD, the pushed commit id, and whether it went badly.
 2. **Objective as I understood it**: one paragraph echoing the confirmed request and the sharpened one.
 3. **What I did**: one entry per change, with its role, why, and your confidence and the reason for it.
-4. **Opportunistic fixes**: listed and labelled, or "none".
+4. **Repairs and proposed follow-ups**: each necessary repair, labelled, with its test; each unrelated defect, as proposed follow-up work; or "none".
 5. **Commands and their real output**: pasted; the decisive portion is enough.
 6. **What I did not do**: every in-scope item not completed, with the reason.
 7. **Gates hit**: the yes/no question, the answer, and how you proceeded; quote the approval for anything irreversible.
@@ -107,8 +122,9 @@ Executor's mark (`CLAUDE.md` §2), then the twelve headings of
 
 Prohibited: claiming a check you did not run; describing expected instead of
 actual output; "should work" / "appears correct"; omitting a failure a later step
-worked around; burying an unrequested change; presenting a passing suite as
-proof of correctness; asserting a runtime result without its output.
+worked around; burying an unrequested change or a repair; fixing an unrelated
+defect instead of proposing it; presenting a passing suite as proof of
+correctness; asserting a runtime result without its output.
 
 ## 6. Portability across Executors
 
@@ -133,6 +149,8 @@ Codex does not execute prompts (D32). It reviews them.
   Must not break: EVEngine.evaluate authority; downgrade-only reviewers; the event gate stays on by default.
   Scope of run: the menu plumbing only; no change to the forward distribution or the event policy.
   Operator answers: menu = (7, 14, 21, 28); events stay blocked in this run.
+  Premises: dte_target is a parameter of rank_candidates_by_ev (checked in engine/wheel_runner.py); every locked result is at 35 DTE (checked, DECISIONS.md D29); the held IV surface starts at 30 days (checked, docs/DATA_INVENTORY.md:561), so 7-28-day rows are priced from a stretched 30-day IV: told to the Operator, out of scope for this run.
+  Approved as: "one change run on claude/dte-menu: the menu plumbing and its test, with a gate before the trio edit and before the PR, and nothing on the line above" — approved 2026-09-16 (example)
 <objective> Add a dte_menu parameter ... done when the new tests pass and the four regression snapshots are unchanged with the default menu.
 <scope> engine/wheel_runner.py (rank_candidates_by_ev signature + loop), tests/test_dte_menu.py
 <out-of-scope> forward_distribution.py, event_gate.py, candidate_dossier.py, snapshots, docs beyond the worklog

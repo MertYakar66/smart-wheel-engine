@@ -1,7 +1,7 @@
 # smart-wheel-engine — Operating Model
 
 **Status:** Primary project document. Read this before doing anything else in this repository.
-**Version:** 4 — 2026-09-23. It adds four roles, marks filled from commands, the close, and the checklist files, adopted from the Operator's ORCA project (`DECISIONS.md` D32). It supersedes v3 of 2026-09-16, and v3 superseded every earlier scheme. Amended on 2026-10-10: the pen's merge while the Operator is away, §3.1 (`DECISIONS.md` D35). Amended on 2026-10-15: the Portfolio Manager / Risk Engineer and its assistant, Leg 4, and §7's sentence on where account data lives (`DECISIONS.md` D38).
+**Version:** 4 — 2026-09-23. It adds four roles, marks filled from commands, the close, and the checklist files, adopted from the Operator's ORCA project (`DECISIONS.md` D32). It supersedes v3 of 2026-09-16, and v3 superseded every earlier scheme. Amended on 2026-10-10: the pen's merge while the Operator is away, §3.1 (`DECISIONS.md` D35). Amended on 2026-10-15: the Portfolio Manager / Risk Engineer and its assistant, Leg 4, and §7's sentence on where account data lives (`DECISIONS.md` D38). Amended on 2026-11-15: the Operator's standing rule and the plan, §2 Legs 1, 2 and 3, §2.4, §3, §3.1, §3.2, §4.1–§4.5, §6, §8, §9.6 and §9.10 (`DECISIONS.md` D32, amendment of 2026-11-15).
 **Audience:** Every participant in this project: the human Operator, the Strategist (the pen: Claude Code in a chat with the Operator), the second opinion (Codex), every Executor, and the Portfolio Manager / Risk Engineer and its assistant (Leg 4).
 **Rule of precedence:** If any other instruction in this project conflicts with this document, this document wins until the Operator amends it. Two files carry the checklist:
 - `CLAUDE.md`, which every Claude session loads by itself. It covers the roles, session-open and the marks, the pen's and the Executor's steps, the close, and what never happens without a yes.
@@ -39,7 +39,7 @@ The owner and director of the project. The Operator understands the strategy and
 
 **Three words carry weight:**
 - **yes** (or "approve", "confirm") to a specific proposal;
-- **authorize …** to start a named piece of work;
+- **authorize …** to start a named piece of work in a plan the Operator approved; for work with no approved plan it is a new full-lane request (`CLAUDE.md` §3 step 0, point 7);
 - **close** when the session ends (§3.2).
 
 Beyond these, the Operator needs no format.
@@ -52,7 +52,7 @@ Beyond these, the Operator needs no format.
 
 The brain. A senior quantitative engineer and systems architect: deep expertise in options pricing and Greeks, stochastic modelling of returns, tail-risk and regime estimation, statistical calibration and out-of-sample validation, and — critically for this project — the design of codebases as retrieval systems for stateless LLM agents. Holds the project's accumulated context: the four-layer architecture, the invariants, the decision log, prior runs, and the state of the roadmap.
 
-**There is one pen: Claude Code in a chat with the Operator**, on the Operator's machine or in a remote sandbox; the rules do not change with the location. Only the pen writes Execution Prompts. It opens every session with its mark (§3.2). It sharpens the request, restates it, and drafts nothing until the Operator confirms (§4.1).
+**There is one pen: Claude Code in a chat with the Operator**, on the Operator's machine or in a remote sandbox; the rules do not change with the location. Only the pen writes Execution Prompts. It opens every session with its mark (§3.2). It handles each request by the Operator's standing rule (`CLAUDE.md` §3): in the full lane it restates the request, asks only what could materially change the work, checks the premises, and carries nothing out before the Operator approves the plan (§4.1).
 
 **Merging.** The Operator merges. The pen may also merge a pull request when necessary (Operator, 2026-09-23: "you can still merge if necessary"), under three conditions:
 - CI is green on the head;
@@ -61,7 +61,7 @@ The brain. A senior quantitative engineer and systems architect: deep expertise 
 
 While the Operator is away, the pen merges only under §3.1's exception (D35).
 
-**Records.** The pen keeps the records: `PROJECT_STATE.md` (§0 is the direction and the handoff), `DECISIONS.md` (only decisions the Operator confirmed), `docs/deadlines.md`, and the close (§3.2). With repository write access, it drafts documents on its own branch. Code, data, CI and invariants reach the repository through an Execution Prompt, even when the same session then executes it (§2.4).
+**Records.** The pen keeps the records: `PROJECT_STATE.md` (§0 is the direction and the handoff), `DECISIONS.md` (only decisions the Operator confirmed), `docs/deadlines.md`, and the close (§3.2). With repository write access, it drafts documents on its own branch, within a plan the Operator approved (`CLAUDE.md` §3 step 6) or as a record `CLAUDE.md` §3 step 0 names. Code, data, CI and invariants reach the repository through an Execution Prompt, even when the same session then executes it (§2.4).
 
 **The Strategist does:** sharpen the Operator's request (§4.1), discuss in plain language, decide *what* should happen and *why*, write the Execution Prompt (§4.3), open or update the campaign issue for the run (§9.5), and evaluate the Run Summary when it comes back (§4.5).
 
@@ -97,7 +97,7 @@ The hands. Reads files, edits files, runs commands, runs tests, manages branches
 
 **The Executor pushes before every handoff.** Any work that leaves the Executor — a question raised at an approval gate, or a finished Run Summary — must be committed and pushed to a branch on GitHub first. Unpushed work is unverifiable, and unverifiable work does not count as done.
 
-**The Executor may fix things opportunistically.** If it notices a genuine defect while working — a broken import, a stale docstring, a dead reference, a small bug adjacent to its task — it may fix it, provided the fix does not touch a §7 invariant, lies inside the run's `<owns>` set, and is reported as a separate, clearly-labelled item in the Run Summary. Opportunistic fixes are never silent.
+**Repairs, and defects found along the way** (the Operator's decision of 2026-11-15). The Executor may make a repair that is necessary to complete the approved objective, and only when it stays inside the approved plan, the run's `<owns>` set, its constraints and its acceptance criteria (the prompt's Success line and `<verification>`). A defect unrelated to the approved objective, one the objective does not need repaired (for example a stale docstring, a dead reference, or a small bug next to the task), is not fixed: it is documented in the Run Summary as proposed follow-up work. If a necessary repair would go beyond the approved scope or `<owns>`, change a protected invariant (§7), or trigger another authorization requirement (a `CLAUDE.md` §6 action, a word-for-word text, a publication, a private read, or a gate the prompt names), the Executor stops, reports it, and makes it only after the appropriate approval: a new or edited plan, re-cut by the pen, for work beyond the scope or `<owns>` (§2.4); the Operator's amendment for a §7 invariant (§7); the yes at a gate for a `CLAUDE.md` §6 action or any other approval the rules require. Every repair it makes is tested and reported, separately and labelled, under the Run Summary's heading 4 (§4.4). Repairs are never silent.
 
 **The Executor never merges to `main` without the Operator's yes for that specific pull request.** Merging is the Operator's action, or the pen's when necessary (Leg 2). This is a convention, not a GitHub setting: `main` is deliberately unprotected (Operator ruling of 2026-09-17; §5). History rewrites need the Operator's explicit, per-action approval and are done by the Operator or under their eyes.
 
@@ -117,7 +117,7 @@ A Claude agent the Operator set up on 2026-10-15 to manage and watch the portfol
 
 **A session can be the pen and the Executor in turn, never both at once.** A remote sandbox session often is both. Two rules make that safe:
 
-1. **Writer and checker are never the same context.** Any Tier 1 check (§5) of a session's own work is done by a freshly spawned subagent or a second session that receives only the PR link and the Execution Prompt — never the writer's transcript — and posts its check on the PR. A session that strategises, executes and verifies inside one context is self-approval, and self-approval does not count.
+1. **Writer and checker are never the same context.** Any Tier 1 check (§5) of a session's own work is done by a freshly spawned subagent or a second session that receives only the PR link and the Execution Prompt — never the writer's transcript — and posts its check on the PR. A check made before a plan reaches the Operator (`CLAUDE.md` §3 steps 3 and 6) receives the plan and the instructions instead, and the plan names its result. A session that strategises, executes and verifies inside one context is self-approval, and self-approval does not count.
 2. **The Execution Prompt is written first and attached to the PR, even when the same session then executes it.** It opens with the run mode and the Operator's confirmed request. Intent travels with the work.
 
 **Concurrency is by declaration, not negotiation.** Every Execution Prompt names the files it `<owns>`; the union of `<owns>` across open runs is disjoint. A run that discovers it must edit outside its `<owns>` stops and reports; the Strategist re-cuts the work. The decision-layer trio (`engine/ev_engine.py`, `engine/wheel_runner.py`, `engine/candidate_dossier.py`) is edited by one run at a time and every PR touching it carries the CI-gated lane-claim block (§9.5). There is no allocator role and no board; the campaign issue (§9.5) is the shared record for a piece of work, and the Operator sequences campaigns.
@@ -130,11 +130,13 @@ A Claude agent the Operator set up on 2026-10-15 to manage and watch the portfol
         ↓
     Operator raises a need
         ↓
-    The pen sharpens it (3–5 questions when warranted; §4.1), restates it, and waits
+    The pen sorts it: the quick lane is answered at once (`CLAUDE.md` §3)
         ↓
-    Operator confirms ("yes"); discussion until scope is agreed
+    Full lane: the pen restates the request, flags any wrong fact found so far, and asks only the questions that could materially change the work; with nothing to ask, it gives the plan (§4.1)
         ↓
-    The pen writes the Execution Prompt (§4.3); the Operator pastes it into the terminal
+    Operator answers; discussion until nothing important is open; the pen finishes the premise check
+        ↓
+    The pen shows the plan with the Execution Prompt below it (§4.3); the Operator approves the plan and pastes the approved copy of the prompt into the terminal
         ↓
     Executor works on a branch, stopping at every gate with one yes/no question, pushing before each
         ↓
@@ -153,13 +155,13 @@ One cycle accomplishes one coherent piece of work. If a proposed cycle contains 
 The Operator is offline for 8 to 10 hours most nights. Work may continue in that window under these rules, which are the only sanctioned form of unattended operation:
 
 - **One campaign issue per piece of work** (§9.5) is the channel. Every participating session registers on it once with a unique id, its machine, and its role for the campaign: the pen, an Executor, or Codex as the read-only second opinion.
-- **Numbered commands and reports.** The Strategist posts `CMD n` with a self-contained Execution Prompt; an Executor posts `REPORT n` with the short-form Run Summary. A command is executed once: an Executor executes the lowest-numbered command addressed to it for which it has not yet posted a report.
+- **Numbered commands and reports.** The Strategist posts `CMD n` with a self-contained Execution Prompt; an Executor posts `REPORT n` with the short-form Run Summary. A `CMD` is an Execution Prompt, not imported material, and the Executor checks its "Approved as" against the approval quoted under Authorized in `PROJECT_STATE.md` §0 B (on `origin/main`, or on the branch the `CMD` names). A command is executed once: an Executor executes the lowest-numbered command addressed to it for which it has not yet posted a report.
 - **Heartbeat at most every 30 minutes** while idle; **poll no faster than every 5 minutes**.
 - **Blocked, then move on.** An Executor that cannot proceed posts `BLOCKED n` with exactly what is needed and continues with other commands. It never fabricates, never guesses past a gate, and never reaches outside its `<owns>`.
-- **Two polls without an answer to a question, then documented best judgment** — only for decisions outside the hard-blocked list; the decision is written into the report.
+- **Two polls without an answer to a question, then documented best judgment** — only for decisions outside the hard-blocked list, and never for a plan that turned out wrong, for work beyond the approved plan, or for a repair §2 Leg 3 stops for; these wait for the Operator. The decision is written into the report.
 - **The hard-blocked list while the Operator is away:** merging to `main`, except the pen's merge in the next bullet; any history rewrite; any edit to the decision-layer trio; writing a `DECISIONS.md` entry or a §7 invariant; deleting files; changing CI or environment configuration; anything touching real capital or a brokerage credential. These wait for the Operator, full stop.
 - **The one exception: the pen's merge** (`DECISIONS.md` D35, 2026-10-10). The Operator is away from the moment they sign off until they next write; when the pen is unsure, the Operator is away. While the Operator is away, the pen may merge a pull request into `main` only when all of these hold:
-  - **The Operator authorized that piece of work by name before going away:** their "authorize …" for it, or their yes to it by name, recorded under Authorized in `PROJECT_STATE.md` §0 B. A plan the Operator was only shown does not count. The close that follows the merge (§3.2) is part of the same work, and it touches only the files §3.2 names, the worklog fragments' status and `docs/worklog/INDEX.md`.
+  - **The Operator authorized that piece of work by name before going away:** their yes, by name, to its plan (`CLAUDE.md` §3 step 6), or their "authorize …" for work in a plan they approved, recorded, quoted, under Authorized in `PROJECT_STATE.md` §0 B. A plan the Operator was only shown does not count. The close that follows the merge (§3.2) is part of the same work, and it touches only the files §3.2 names, the worklog fragments' status and `docs/worklog/INDEX.md`.
   - **CI is green** on the pull request's head.
   - **A context that did not write the work has checked it** (§2.4), and the check is posted on the pull request or the campaign issue with nothing blocking. A close needs no such check.
   - **The diff touches none of these:**
@@ -186,7 +188,7 @@ The pen's mark carries five facts:
 
 A slot whose source fails reads `unknown`. After a context compaction the session runs session-open again: a compacted session that has not re-read this document is not following it.
 
-**The words.** "yes" approves a specific proposal, "authorize …" starts a named piece of work, and "close" ends a session (§2, Leg 1).
+**The words.** "yes" approves a specific proposal, "authorize …" starts a named piece of work in a plan the Operator approved (otherwise it is a new full-lane request, `CLAUDE.md` §3 step 0), and "close" ends a session (§2, Leg 1).
 
 **The close.** It runs when the Operator says "close", and after every merge to `main`:
 - **`PROJECT_STATE.md`:** the stamp, the Branches line ("`main` is at `<hash>`"), and §0 B, the handoff (done, remains, next action, authorized or proposed).
@@ -207,16 +209,18 @@ These five interfaces are where the system succeeds or fails. Each has a require
 
 No required format from the Operator. The Operator describes the need in plain terms.
 
-**The Strategist's obligation on receipt: sharpen the request before acting on it, and record the result.** A request will often be narrower than the real opportunity behind it, or broader than one clean run should hold. Sharpening makes it *precise*, never larger.
+**The Strategist's obligation on receipt: sharpen the request before acting on it, and record the result.** A request will often be narrower than the real opportunity behind it, or broader than one clean run should hold. Sharpening makes it *precise*, never larger. The Operator's standing rule (`CLAUDE.md` §3 step 0) sets the order of the conversation; this section gives the reasoning.
 
-When the request has depth behind it, the Strategist asks **3 to 5 short follow-up questions** designed to surface what the Operator did not think to specify: the underlying goal, what would count as success, what has already been tried, what must not break, and what the acceptable scope of one run is. Two rules govern this:
+When an answer could materially change the work, the Strategist asks: at most five questions in the first reply, the most important first, designed to surface what the Operator did not think to specify: the underlying goal, what would count as success, what has already been tried, what must not break, and what the acceptable scope of one run is. There is no minimum. Two rules govern this:
 
-- **Only when warranted.** If the task is small, obvious, or fully specified, skip the questions and write "not warranted, because …" in the record.
-- **Questions must be answerable without re-deriving the whole system.** Ask about intent and priority, not about implementation the Strategist should determine itself.
+- **Only when warranted.** If no answer would materially change the work, ask nothing and write "not warranted, because …" in the record.
+- **Questions must be answerable without re-deriving the whole system.** Ask about intent, priority, acceptable risk and constraints, not about implementation the Strategist should determine itself.
 
-**Restate, then wait.** After the questions, the pen restates the request in one paragraph: what we would do, why, and what counts as success. If that differs from what was asked, it says what changed and why. It drafts nothing until the Operator confirms. For a fully specified request, the Operator's own words are both the restatement and the confirmation, and the pen quotes them.
+**Check the premises.** A request can be right about its goal and wrong about a fact. On 2026-10-31 a request (#604) carried claims that its author, the PM/RE, corrected five days later (comment of 2026-11-05); two of them were also in the pen's own data inventory of 2026-10-20, which that request had read. So before the plan the Strategist checks, by reading only, each fact the work depends on, and checks again at its source any premise that traces to its own earlier work (`CLAUDE.md` §3 step 3). A wrong premise is named to the Operator, never corrected silently.
 
-**The record** is the Operator's confirmed words, quoted on line 2 of every Execution Prompt, together with the `<request-as-sharpened>` block defined in `docs/PROMPTING_STANDARD.md`. Both are copied into the PR body, and the Run Summary's "Objective as I understood it" echoes them. A PR without them is not to standard.
+**Restate first, then plan.** The restatement comes first, in one to three sentences: what we would do, why, and what counts as success. If that differs from what was asked, it says what changed and why. The Operator's answers confirm it. For a fully specified request, the plan comes in the same reply, once the premise check is done, and line 2 of the prompt quotes the Operator's own words. Nothing is carried out before the Operator approves the plan (§4.3).
+
+**The record** is the Operator's confirmed words, quoted on line 2 of every Execution Prompt, together with the `<request-as-sharpened>` block defined in `docs/PROMPTING_STANDARD.md`, which quotes the plan's approval line. Both are copied into the PR body, and the Run Summary's "Objective as I understood it" echoes them. A PR without them is not to standard.
 
 ### 4.2 Strategist → Operator (discussion)
 
@@ -230,9 +234,11 @@ Every proposal states, in this order, as briefly as it can be stated:
 4. **What could go wrong** — honestly.
 5. **My recommendation** — one clear call.
 
-If several viable paths exist, present at most three, one sentence of tradeoff each, and **still recommend one**. The Operator is never asked to break a tie between technical options. **Never advise without confidence.** If a decision requires knowledge the Strategist does not have — an acceptable risk threshold, whether a modelling assumption matches the Operator's intent, whether a result is good enough to build on — stop and ask.
+Questions in a first reply are neutral (`CLAUDE.md` §3); the recommendation comes in the plan or the answer. If several viable paths exist, present at most three, one sentence of tradeoff each, and **still recommend one**. The Operator is never asked to break a tie between technical options. **Never advise without confidence.** If a decision requires knowledge the Strategist does not have — an acceptable risk threshold, whether a modelling assumption matches the Operator's intent, whether a result is good enough to build on — stop and ask.
 
 ### 4.3 Strategist → Executor (the Execution Prompt)
+
+**The plan.** The Operator approves a plan of about ten lines (`CLAUDE.md` §3 step 6), not the Execution Prompt line by line: they are not the technical safety net (§2, Leg 1). The prompt follows the plan and never goes beyond it; for a consequential change, as `CLAUDE.md` §3 step 6 defines it, a context that did not write the instructions checks that before the Operator approves. The plan's approval never stands in for a §6 yes, a word-for-word yes, or any other approval the rules require when an action is reached.
 
 Written to the project's prompting standard, `docs/PROMPTING_STANDARD.md`, which defines the template and the run modes. The prompt is self-contained: the Executor may be a fresh session with no memory of the discussion that produced it.
 
@@ -257,7 +263,7 @@ Batch-size discipline: a run that would touch more than roughly eight files, del
 1. **Run header**: date, branch, base commit, current HEAD, and the commit id pushed to GitHub. A Run Summary without a pushed commit id is incomplete and is returned unread. If the run went badly, say so here, first.
 2. **Objective as I understood it**: one paragraph. Echo the confirmed request and the sharpened request, and state any difference from the prompt.
 3. **What I did**: one entry per change. Give what changed (its role and purpose, not only the filename), why, and a confidence of high, medium or low with a reason.
-4. **Opportunistic fixes**: each one separately and labelled, or "none".
+4. **Repairs and proposed follow-ups**: each repair the approved objective needed, separately and labelled, with the test that covers it; then each unrelated defect found, as proposed follow-up work; or "none".
 5. **Commands and their real output**: pasted, not summarised. Give the decisive portion if long, and say what was truncated. For anything touching engine logic, include the import smoke-check and the test subset.
 6. **What I did not do**: every in-scope item not completed, with the reason. An empty section here is almost always a sign something was missed.
 7. **Gates hit**: the yes/no question asked, what the Operator answered, and how you proceeded. Quote the approval for anything irreversible.
@@ -267,7 +273,7 @@ Batch-size discipline: a run that would touch more than roughly eight files, del
 11. **What must happen next**, and who takes it.
 12. **Open questions** to the pen.
 
-**Prohibited in a Run Summary:** claiming a check you did not run; describing a command's expected output instead of its actual output; "should work", "appears correct", "likely fine"; omitting a failure because a later step worked around it; smoothing over a skipped gate; burying an opportunistic fix; presenting a passing test suite as proof of correctness (state what the tests cover); asserting a runtime result without quoting the output that shows it. **A truthful summary of a partially failed run is more valuable than a confident summary of an ambiguous one.**
+**Prohibited in a Run Summary:** claiming a check you did not run; describing a command's expected output instead of its actual output; "should work", "appears correct", "likely fine"; omitting a failure because a later step worked around it; smoothing over a skipped gate; burying a repair, or fixing an unrelated defect instead of proposing it; presenting a passing test suite as proof of correctness (state what the tests cover); asserting a runtime result without quoting the output that shows it. **A truthful summary of a partially failed run is more valuable than a confident summary of an ambiguous one.**
 
 ### 4.5 Strategist → Operator (evaluation)
 
@@ -279,7 +285,7 @@ A Run Summary is evaluated by a Strategist context that did not write the run (�
 4. **Discrepancies** — anything done that was not asked, asked that was not done, or stated that contradicts the repository. A summary that disagrees with the repository is a serious finding.
 5. **Risk assessment** — ranked.
 6. **Recommended next step** — exactly one.
-7. **The next Execution Prompt** — if scope is already clear; otherwise the questions that must be answered first.
+7. **The next step** — the next plan with its Execution Prompt, or the step of an approved plan that names the next run; otherwise the questions that must be answered first.
 
 ---
 
@@ -318,7 +324,7 @@ Rules on top of the tiers:
 
 **The Executor wrote a new invariant, constraint, or `DECISIONS` entry on its own initiative.** Treat the reasoning as unverified until the Strategist has checked the premise. A false rule in a governing document outlives any mistaken line of code. Remove it unless the premise holds.
 
-**The Executor did something out of scope.** Declared and outside the invariants: review on its merits, accept or revert. Undeclared: a process breach — flag it, assess harm, write a revert prompt if warranted.
+**The Executor did something out of scope.** Declared and outside the invariants: review it on its merits, and keep it only with the Operator's yes, or revert it; an unrelated defect fixed instead of proposed breaches §2 Leg 3. Undeclared: a process breach — flag it, assess harm, write a revert prompt if warranted.
 
 **The summary is thin, evasive, or disagrees with the repository.** Do not proceed on it. The repository is the truth; establish what actually happened before any further work.
 
@@ -371,14 +377,14 @@ Both the Strategist and the Executor must honour these. The Strategist must not 
 | **Is** | Project owner and director | Quant and systems brain | Independent reviewer | Hands in a terminal (main: Claude Code in VS Code) |
 | **Sees** | The goals, the strategy, the campaign issue | GitHub, all branches | GitHub (read-only) and what the Operator pastes | Its clone or worktree and filesystem |
 | **Decides** | Direction, merges, final approval | What to do and why | Nothing: finds and challenges | Nothing: executes the approved plan |
-| **Produces** | yes / authorize / close, answers to sharpening questions | Marks, restatements, Execution Prompts, evaluations, the records | Findings that quote the line and propose a fix | Pushed branches, PRs, Run Summaries |
-| **Must never** | Be the mechanism that catches a technical error | Advise without being sure; verify its own writing; push to `main` | Write anything | Skip a gate, hide a fix, touch the decision layer unclaimed, merge without a yes, or hand over unpushed work |
+| **Produces** | yes / authorize / close, answers to sharpening questions | Marks, restatements, plans, Execution Prompts, evaluations, the records | Findings that quote the line and propose a fix | Pushed branches, PRs, Run Summaries |
+| **Must never** | Be the mechanism that catches a technical error | Advise without being sure; verify its own writing; push to `main` | Write anything | Skip a gate, hide a repair, fix an unrelated defect instead of proposing it, touch the decision layer unclaimed, merge without a yes, or hand over unpushed work |
 
 This table covers the engine's loop. Leg 4 covers the two roles above it.
 
 **The six sentences that matter most:**
 
-1. Every session opens with its mark, filled from commands; every run starts from the Operator's confirmed request, quoted on line 2 of its prompt.
+1. Every session opens with its mark, filled from commands; every run starts from the Operator's confirmed request, quoted on line 2 of its prompt, and from the plan they approved.
 2. The Strategist checks the repository itself, on GitHub, across all branches — in a context that did not write the run.
 3. The Executor pushes before every handoff; unpushed work cannot be verified, and unverified work does not count as done.
 4. The Run Summary lives on the PR and contains evidence, not reassurance.
@@ -482,7 +488,7 @@ For sandbox-vs-machine capability differences, see `docs/DATA_POLICY.md` §7.
 
 For "where does X live / what tests cover Y" lookups, `docs/REPO_MAP.md` routes each question to the one owning doc.
 
-**What you can change without asking:** docstrings; new tests under `tests/` that exercise existing public surface; a worklog fragment for your run; documentation (`docs/`, root `*.md`) **except** the rule-books (`CLAUDE.md`, `AGENTS.md`, this document, `DECISIONS.md`), which the pen drafts and the Operator approves; files under your active feature branch; updates to `CHANGELOG.md` / `PROJECT_STATE.md` / `ROADMAP.md` that reflect the work you just did.
+**What you can change without asking, when an approved plan or Execution Prompt covers it:** docstrings; new tests under `tests/` that exercise existing public surface; a worklog fragment for your run; documentation (`docs/`, root `*.md`) **except** the rule-books (`CLAUDE.md`, `AGENTS.md`, this document, `DECISIONS.md`), which the pen drafts and the Operator approves; files under your active feature branch; updates to `CHANGELOG.md` / `PROJECT_STATE.md` / `ROADMAP.md` that reflect the work you just did. Never a defect the objective does not need: that is proposed as follow-up work (§2 Leg 3).
 
 **What requires an explicit ask:** everything on the `CLAUDE.md` §6 list; any change under `engine/ev_engine.py`, `engine/wheel_runner.py`, or `engine/candidate_dossier.py`; any new data-provider class, advisor, or chart provider; adding broker / OMS / order-routing surface; editing a rule-book; writing a `DECISIONS.md` entry; committing to `main`; deleting files. Market data is never committed at all (D31).
 
@@ -550,7 +556,7 @@ If the Operator addresses a session by a **role name**, it adopts that role and 
 
 | Operator says | You are | Read first |
 |---|---|---|
-| **"You are responsible for the Dashboard"** (or `dashboard`) | the **Dashboard** terminal — owns the live IBKR portfolio viewer; on **"update"** it refreshes all live data | **`docs/DASHBOARD_TERMINAL.md`** |
+| **"You are responsible for the Dashboard"** (or `dashboard`) | the **Dashboard** terminal — owns the live IBKR portfolio viewer; on **"update"** it refreshes all live data; before any step that reads the account or account data (`CLAUDE.md` §3 step 0 lists them) it says what it will read and write and waits for the Operator's yes, until they decide otherwise | **`docs/DASHBOARD_TERMINAL.md`** |
 | **"You are the Portfolio Manager"** | the **Portfolio Manager / Risk Engineer**: manages and watches the portfolio above the engine; writes only on `Risk_Management` and its `rm/` branches | **`CLAUDE.md` on the `Risk_Management` branch** |
 
 The Dashboard terminal is strictly read-only (§7 Brokerage safety). Other sessions leave the dashboard, `data_processed/ibkr/`, and the `/api/portfolio/*` pipeline to it.

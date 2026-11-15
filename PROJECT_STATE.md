@@ -1,7 +1,9 @@
 # Project State
 
-**Last updated:** 2026-11-15 (close after #607, `main` at `c7601c0`: the Operator's standing rule for every
-agent adopted in the engine as an amendment of D32 (#605), approved word for word, with the `DECISIONS.md`
+**Last updated:** 2026-11-15 (the reply on #605 posted, on the Operator's word-for-word yes to its text (v4),
+and read back from GitHub byte for byte; `main`'s content unchanged since `c7601c0`, its head the close
+merge `7b0a0f8` (#608). Earlier the same day: close after #607, `main` at `c7601c0`: the Operator's
+standing rule for every agent adopted in the engine as an amendment of D32 (#605), approved word for word, with the `DECISIONS.md`
 writes separately authorized under `CLAUDE.md` §6 and decision C on repairs and unrelated defects; the
 reply on #605 and the Portfolio Manager handoff wait for the Operator. Earlier, 2026-10-20: close after #602,
 `main` at `7301a05`: the IBKR account number masked in three
@@ -675,6 +677,14 @@ desktop's checkout still has the round 3 branch locally.
     review of decision C with two confirmations; a check that the provenance fill (dates, approval words and
     questions only) changed nothing substantive; and a check of #607 against the approved checksums (PR #607
     comment 6894960721). `main`'s six files match the approved set plus the fill, byte for byte.
+  - **The reply on #605 (posted 2026-11-15, 14:00 UTC).** https://github.com/MertYakar66/smart-wheel-engine/issues/605#issuecomment-6895466436
+    - **Approval.** Asked "Do you approve posting #605 reply v4 word for word?", the Operator answered "Yes,
+      post v4". The text is v4, sha256 `36e20021c825de64f7f26a5b141e0b28c8d1b16247fa2a0d2e46cb0ed7f1df81`:
+      the first draft revised in two rounds of the Operator's corrections (four clarifications, then three
+      wording fixes), with three wording fixes from the independent check in the first round.
+    - **Checks.** In each round, a context that did not write the text checked the corrections against the
+      rule in `CLAUDE.md` and found nothing private. The checksum was verified before posting, and the
+      comment read back from GitHub has the same sha256.
 - **Remains.**
   1. **Desktop card 2, copy and prove.** Nothing is deleted. Confirmed on
      2026-09-26, after Codex's review ("agree with changes"; the pen checked each
@@ -868,10 +878,10 @@ desktop's checkout still has the round 3 branch locally.
      whole root, `_logs/` included, matched `swe-data/` both ways by MD5 (next action 1).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  - **Now (2026-11-15), each waiting on the Operator:** the reply on #605, whose exact text needs their yes
-    before it is posted; the Portfolio Manager handoff (PM13 on `Risk_Management`, by that branch's own
-    process, on the Operator's relay); the open pm-requests #604 (D40's draft) and #606 (the weekly dated
-    copies), each to be taken through the standing rule.
+  - **Now (2026-11-15), each waiting on the Operator:** the Portfolio Manager handoff (PM13 on
+    `Risk_Management`, by that branch's own process, on the Operator's relay); the open pm-requests #604
+    (D40's draft) and #606 (the weekly dated copies), each to be taken through the standing rule. The reply
+    on #605 is posted (Done).
   1. D39 (2026-10-17, amended 2026-10-18): points 1 and 2 are done and checked.
      - D39's card (#588, `534fb04`, 2026-10-17) brought the day-bot's `_local_archive/data_raw`
        home and into `swe-data/`: 1,725 files and 34,816,381 B, card 1's plan; its 1,581
@@ -988,8 +998,9 @@ desktop's checkout still has the round 3 branch locally.
   which pulls Flex.
 - **Authorized.**
   - The standing rule's text (approval A), the `DECISIONS.md` writes (approval B), decision C and the merge
-    of #607 (2026-11-15, quoted under Done): done, `c7601c0`. Posting on #605 and any change on
-    `Risk_Management` are not authorized; each needs its own yes.
+    of #607 (2026-11-15, quoted under Done): done, `c7601c0`. The reply on #605: its text (v4) approved
+    word for word and posted, 2026-11-15 (quoted under Done). Any change on `Risk_Management` is not
+    authorized; it needs its own yes.
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
   - Retiring the morning-pull task ("delete the morning pull"): done 2026-09-25 in

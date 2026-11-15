@@ -14,6 +14,11 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-15 — the reply on #605 recorded (desktop)
+
+**Docs** — `PROJECT_STATE.md`: the reply on #605, approved word for word (v4) and posted as comment
+6895466436, recorded under Done, Next action and Authorized; `main`'s content unchanged since `c7601c0`.
+
 ## 2026-11-15 — the close after #607 (desktop)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `c7601c0`; the standing rule recorded under Done and Authorized;

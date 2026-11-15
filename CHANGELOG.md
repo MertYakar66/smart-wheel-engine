@@ -14,6 +14,20 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-15 — the close after #607 (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `c7601c0`; the standing rule recorded under Done and Authorized;
+the reply on #605 and the Portfolio Manager handoff wait for the Operator; a proposed follow-up for a
+Windows-only test encoding defect.
+
+## 2026-11-15 — the Operator's standing rule for every agent (desktop; #607, `c7601c0`)
+
+**Docs** — `CLAUDE.md` §1, §3 and §4, the `AGENTS.md` Appendix and review guidelines, `OPERATING_MODEL.md`,
+`docs/PROMPTING_STANDARD.md`, `DECISIONS.md` (D32 amended; a D35 pointer) and `TESTING.md` (scenarios 8 and
+10–29): one ten-point intake rule for every agent that takes the Operator's requests, with two lanes, a
+bounded premise check, a plan of about ten lines, and repairs limited to what the approved objective needs.
+Approved word for word on 2026-11-15; answers #605.
+
 ## 2026-10-20 — the close after #602 (desktop)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `7301a05`; the next-phase plan's questions answered on 2026-10-19

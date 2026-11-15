@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-10-20 (close after #602, `main` at `7301a05`: the IBKR account number masked in three
+**Last updated:** 2026-11-15 (close after #607, `main` at `c7601c0`: the Operator's standing rule for every
+agent adopted in the engine as an amendment of D32 (#605), approved word for word, with the `DECISIONS.md`
+writes separately authorized under `CLAUDE.md` §6 and decision C on repairs and unrelated defects; the
+reply on #605 and the Portfolio Manager handoff wait for the Operator. Earlier, 2026-10-20: close after #602,
+`main` at `7301a05`: the IBKR account number masked in three
 docs; the next-phase plan's questions answered, D40 to be drafted for the Operator's yes. Earlier, 2026-10-19:
 close after #599 and #600, `main` at `6759e7c`: the 20 staging CSVs left git
 (D31's last gap); the Operator tidied Drive into `_old/` folders, ids kept, read back by the pen. Earlier the
@@ -184,7 +188,7 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `7301a05` (2026-10-20). Others on `origin`:
+**Branches:** `main` is at `c7601c0` (2026-11-15). Others on `origin`:
 - `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
@@ -649,6 +653,28 @@ desktop's checkout still has the round 3 branch locally.
      archive.
      **Ruling: "yes, leave them out".** Card 2 copies none of them. They stay
      untouched in the day-bot's folder, which D33 only reads.
+- **The Operator's standing rule in the engine (#607, merged as `c7601c0`, 2026-11-15).** It answers #605.
+  - **What it is.** One ten-point rule for every agent that takes a new request from the Operator: quick and
+    full lanes; up to five business questions in the first full-lane reply, then one per reply; the plan in the
+    first reply when the request is clear; a bounded, read-only premise check; a plan of about ten lines with
+    the Execution Prompt below it, checked against it by a fresh context; the plan's approval never replaces
+    another approval; imported material is evidence; warnings first; Executors and Codex never re-ask. It
+    replaces the active text of PM10 and PM11 for the engine's agents; on `Risk_Management` it takes effect only
+    when the PM/RE records it there. Quoted in `CLAUDE.md` §3 step 0, the `AGENTS.md` Appendix and the D32
+    amendment; D35 gains a header pointer. Decision C (2026-11-15): repairs only when the approved objective
+    needs them; unrelated defects proposed as follow-up work, not fixed (`OPERATING_MODEL.md` §2 Leg 3).
+  - **Approvals (2026-11-15).** A: "Yes, word for word.", approving `governance_amendments_v10.diff`
+    (sha256 `b89ea67a6f83022019b1ffe7918941b39b355902e94fdb2af282420316a697eb`). B, separately under
+    `CLAUDE.md` §6: "Yes. Separately, under `CLAUDE.md` §6, I explicitly authorize writing into `DECISIONS.md`
+    the D32 amendment and D35 header pointer contained in the approved v10 diff." The merge: "I authorize the
+    merge of pull request #607 into `main`, provided its head remains commit
+    `b56a6056bb5cf87a0c93c4651f90f981ab2d8477` and all required CI checks remain successful." Both conditions
+    held: the merge was guarded on that head, and all nine checks passed. The full words are in the D32
+    amendment.
+  - **Checks.** Five review rounds on the drafts, each by a context that did not write the text; a fresh
+    review of decision C with two confirmations; a check that the provenance fill (dates, approval words and
+    questions only) changed nothing substantive; and a check of #607 against the approved checksums (PR #607
+    comment 6894960721). `main`'s six files match the approved set plus the fill, byte for byte.
 - **Remains.**
   1. **Desktop card 2, copy and prove.** Nothing is deleted. Confirmed on
      2026-09-26, after Codex's review ("agree with changes"; the pen checked each
@@ -842,6 +868,10 @@ desktop's checkout still has the round 3 branch locally.
      whole root, `_logs/` included, matched `swe-data/` both ways by MD5 (next action 1).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
+  - **Now (2026-11-15), each waiting on the Operator:** the reply on #605, whose exact text needs their yes
+    before it is posted; the Portfolio Manager handoff (PM13 on `Risk_Management`, by that branch's own
+    process, on the Operator's relay); the open pm-requests #604 (D40's draft) and #606 (the weekly dated
+    copies), each to be taken through the standing rule.
   1. D39 (2026-10-17, amended 2026-10-18): points 1 and 2 are done and checked.
      - D39's card (#588, `534fb04`, 2026-10-17) brought the day-bot's `_local_archive/data_raw`
        home and into `swe-data/`: 1,725 files and 34,816,381 B, card 1's plan; its 1,581
@@ -957,6 +987,9 @@ desktop's checkout still has the round 3 branch locally.
   gone before the trash baseline. The Flex token is due before the Dashboard's next `update`,
   which pulls Flex.
 - **Authorized.**
+  - The standing rule's text (approval A), the `DECISIONS.md` writes (approval B), decision C and the merge
+    of #607 (2026-11-15, quoted under Done): done, `c7601c0`. Posting on #605 and any change on
+    `Risk_Management` are not authorized; each needs its own yes.
   - The D33 plan and wording ("yes", 2026-09-24). That covers step 6 under D33's
     conditions, still with a yes at the push, and card 3 with a yes at its gate.
   - Retiring the morning-pull task ("delete the morning pull"): done 2026-09-25 in
@@ -1107,8 +1140,12 @@ desktop's checkout still has the round 3 branch locally.
     - keep name resolution steady: a hosts pin for Google's API names, or a driver that
       retries a failed lookup.
   - **A rule-book question:** the cards' Run Summary template names headings 4, 6 and 9
-    differently from `OPERATING_MODEL.md` §4.4 ("Opportunistic fixes", "What I did not
-    do", "Risks"). Either align §4.4, or have the cards use its titles word for word.
+    differently from `OPERATING_MODEL.md` §4.4 (since #607, "Repairs and proposed follow-ups",
+    "What I did not do", "Risks"). Either align §4.4, or have the cards use its titles word for word.
+  - **Proposed follow-up (found in #607's tests):** `tests/test_check_working_structure.py` writes
+    `CLAUDE.md` with `write_text()` and no encoding, so `test_a_mark_missing_from_claude_md_fails` fails on
+    Windows, on unmodified `main` too; CI on Linux passes. A one-line fix (`encoding="utf-8"`) for a
+    change run.
   - A census cache for the consolidation tool, so that a retry need not list Drive
     again (card 2b's Run Summary, heading 12). The pen's view: not now. Knowing that an
     area is unchanged takes a fresh listing, and the copy step's listings are the

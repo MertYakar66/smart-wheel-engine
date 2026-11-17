@@ -14,6 +14,16 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-17 — D29 amended: the weekly dated copies (desktop)
+
+**Docs** — `DECISIONS.md`: D29 amended on the Operator's word-for-word yes. One exception to ruling 8 before
+D40: a weekly dated copy of the official economic release schedules and of the S&P 500 members list, with
+pointers under D29's, D31's and D33's headings; `docs/DATA_INVENTORY.md` §C: one line after the routine's
+item 6 (#611, `6e33373`). No copy has been taken yet. `PROJECT_STATE.md`: this close; plan 1 (#606) and plan 2
+(#604's D40 draft) recorded as approved, with what each authorizes; the Portfolio Manager handoff recorded
+done (#610 on `Risk_Management`, `22dc437`). `docs/deadlines.md`: the Drive sign-in row names the first weekly
+copy as the next Drive run, and the data-dates table gains a row for the dated copies.
+
 ## 2026-11-15 — the reply on #605 recorded (desktop)
 
 **Docs** — `PROJECT_STATE.md`: the reply on #605, approved word for word (v4) and posted as comment

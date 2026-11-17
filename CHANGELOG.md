@@ -14,6 +14,13 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-17 — the update on #606, and plans 4 and 5 (desktop)
+
+**Docs** — `PROJECT_STATE.md`: the update on #606 recorded under Done (comment 6954708713, posted on the
+Operator's yes to its trimmed text, and read back); plans 4 and 5, for BLS and for the cookie values in the
+run's record, recorded under Proposed as shown and not approved, with the Operator's four points for the BLS
+plan. `docs/deadlines.md`: a conditional row, both plans come again before the next weekly dated copy.
+
 ## 2026-11-17 — the close after #616 (desktop)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `9bb6538`; the first weekly dated copy recorded under Done, with its

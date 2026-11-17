@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-11-17 (close after #616, `main` at `9bb6538`: the first weekly dated copy is taken, in
+**Last updated:** 2026-11-17 (the update on #606 posted, on the Operator's yes to its text, and read back from
+GitHub; plans 4 and 5, for BLS and for the cookie values in the run's record, shown to the Operator and not
+approved, to come again before the next weekly copy; `main`'s content unchanged since `9bb6538`, its head
+the close merge `2c89c98` (#617). Earlier the same day: close after #616, `main` at `9bb6538`: the first
+weekly dated copy is taken, in
 part: six of the eight release-schedule files are saved and in `swe-data/`, and BLS refused both of its
 addresses. Earlier the same day: close after #613 and #614, `main` at `8037636`: the weekly copy script merged
 (#613), built by a cloud Executor and checked three times, with no copy taken yet; D40 written on the
@@ -200,7 +204,7 @@ described here is no longer accurate.
 ## 0. Direction, handoff, and the restart record — read this first
 
 **Branches:** `main` is at `9bb6538` (2026-11-17). Others on `origin`:
-- `claude/close-616`, the pen's branch for this close, while it is open.
+- `claude/close-606-post`, the pen's branch for this record, while it is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
 `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and `data/drive-migration`.
@@ -777,6 +781,21 @@ desktop's checkout still has the round 3 branch locally.
     CI: 9 of 9.
   - **Not shown.** Drive itself was read only by the run, so the sign-in test, the copy and its check rest on
     the Run Summary. The root's `SHA256SUMS` and the manifest do not list the new files, by D29's amendment.
+- **The update on #606 (posted 2026-11-17, 16:50 UTC).**
+  https://github.com/MertYakar66/smart-wheel-engine/issues/606#issuecomment-6954708713
+  - **Approval.** The pen showed a text for #606 at 16:11 UTC, and wrote at 16:36 UTC: "The text for #606 is
+    unchanged; a yes to it in the same answer is enough." The Operator answered: "#606: yes, post the text as
+    you showed it, if it carries only what main's record of #616 already shows: the copy date, the six file
+    names, their sizes and sha256s, and that BLS refused. If it carries anything else, stop and show me." The
+    text carried more: pointers to #611, #613 and #616, where the files are kept, the Operator's acceptance of
+    the copy without BLS, the members list, and that the issue stays open. So the pen posted nothing, named
+    what went beyond the five things, and showed a trimmed text. The Operator: "Post the trimmed text on #606,
+    word for word as you showed it."
+  - **What it carries.** The copy date, the six file names with their sizes and sha256s, and that BLS refused
+    both of its addresses (HTTP 403), so its two files were not copied. Nothing private. The text's sha256 is
+    `2de169338965d749a0f364e69e29b48124395d82f2910d8df93bd89d1e75dd48`.
+  - **Checks.** The checksum was taken before posting. The comment read back from GitHub is the same text,
+    1,085 characters. #606 stays open.
 - **Remains.**
   1. **Desktop card 2, copy and prove.** Nothing is deleted. Confirmed on
      2026-09-26, after Codex's review ("agree with changes"; the pen checked each
@@ -979,9 +998,11 @@ desktop's checkout still has the round 3 branch locally.
       "authorize the weekly copy", after a Drive sign-in that is still in force (`docs/deadlines.md`). BLS
       refused both addresses on 2026-11-17. The Operator accepted that day's copy without the two BLS files,
       with no second automated attempt, and asked for a plan before the next weekly copy; neither the script
-      nor the job's name changes before they approve it. The text for #606 on the
-      first copy (its date, file names, sizes and sha256s) comes to the Operator for their yes before it is
-      posted. The members list waits for the Operator's reading of the licence points on #606 and starts on
+      nor the job's name changes before they approve it. The update on #606 on the
+      first copy is posted (Done). Plans 4 and 5, for BLS and for the cookie values in the run's record, were
+      shown on 2026-11-17 and are not approved: the Operator asked for them another day, before the next
+      weekly copy (Proposed, below). Until they approve one, there is no BLS test and no script change. The
+      members list waits for the Operator's reading of the licence points on #606 and starts on
       their word. #606 stays open until both lists have a first copy.
     - **Plan 2, D40's draft (#604), approved 2026-11-17: done.** The four files #604 names matched its
       sha256s and were read. The draft was written in one dated file in the PM/RE's private folder and shown
@@ -1152,7 +1173,8 @@ desktop's checkout still has the round 3 branch locally.
     desktop Executor with the checked first-copy prompt?", they answered "Yes, start it". Asked "Your Drive
     sign-in is made. Go?", they answered "Go". Done: #616, above. Asked "Accept today's copy without the two
     BLS files?", they answered: "Yes. I accept today's copy without the two BLS files. No second automated
-    attempt today." Each later week still needs their "authorize the weekly copy".
+    attempt today." The update on #606: its trimmed text approved and posted, 2026-11-17 (quoted under Done).
+    Each later week still needs their "authorize the weekly copy".
   - **Plan 3, writing D40 (2026-11-17):** asked "Do you approve plan 3, the plan for writing D40?", the
     Operator answered "I approve plan 3, the plan for writing D40." Its last line, what the approval
     authorizes: "After your two yeses: the records pull request that writes D40 and the four lines into
@@ -1300,13 +1322,44 @@ desktop's checkout still has the round 3 branch locally.
     The pen wrote the rule-book text; an Executor wrote `scripts/session_open.py`'s branch rule, the tests
     and the label, in the same PR. Merged as #580 (`e042f5b`).
 - **Proposed, not authorized.**
+  - **Plans 4 and 5, shown on 2026-11-17 and not approved.** Plan 4 is for BLS in the weekly copy. Plan 5 has
+    the run's record leave out cookie values. The Operator, 2026-11-17: "Plans 4 and 5: not tonight. No BLS
+    test and no script change today. Bring them another day, before the next weekly copy. The BLS plan must
+    already say: no browser's User-Agent in any request; why a test may send my contact before a dated line
+    exists; where my contact can be stored, never on GitHub; and what kind of contact you expect from me."
+    - **Where they stand.** The pen wrote both. A context that did not write them checked the plans and their
+      instructions twice: one blocking point and ten smaller ones, then none blocking and three small ones,
+      all applied. After the second pass the pen rewrote plan 4's test command; it compiles, and nobody has
+      re-read it. The text is kept outside the repository, in the pen sessions' notes folder on the desktop:
+      `plans-4-5-bls-cookies-2026-11-17.md`, sha256
+      `f40430a31f00886adf894eaf6ed224dc49cdf1bf9fea83e436cf4762f07b5025`. Nothing in either plan has started.
+    - **What comes next.** Both come to the Operator again before the next weekly copy, revised and checked
+      again by a context that did not write them. Plan 4 must then say the Operator's four points. Until the
+      Operator approves a plan, there is no BLS test, no script change and no change to the job's name.
+    - **What plan 4 rests on.** The pen read BLS's own pages on 2026-11-17, without signing in. BLS's rule is
+      the section "Automated retrieval program (robot) activity" of `https://www.bls.gov/bls/pss.htm`, last
+      modified on May 5, 2023, and repeated on its terms page. It prohibits excessive robot activity, and
+      keeps the right to block a robot that carries no information by which its owner can be contacted. It
+      names no User-Agent, email address, number of requests or registration. Why BLS refused on 2026-11-17
+      is still not established. One unverified report from another developer says a web address in a
+      program's name draws the refusal and a contact address does not.
+    - **Plan 4's three options, each the Operator's to choose.** A private contact in an environment variable
+      on the desktop, sent to BLS only, as D29's amendment foresees; the pen recommended this one. Another
+      official address, by a dated line under the exception; the pen found none that carries the same
+      schedule. Or no BLS copy, said plainly in each record.
+    - **Plan 5.** A header that sets a cookie keeps its name in the run's record and loses its value. The
+      record of 2026-11-17 is not touched. It can land before the next weekly copy.
+    - **Not in plan 4 yet.** On 2026-11-17 the Operator asked where to keep BLS's two pages if they saved
+      them by hand that evening. The pen answered: outside the data root, the repository and anything Drive
+      syncs, with a note beside them. Whether they were saved is not recorded. No agent opens such files
+      until a plan names that read, and the revised plan 4 says whether and how they enter the data root.
   - **From the first weekly copy (#616), proposed follow-up work (not done):**
     - the run's record keeps the sites' response headers whole, and some set an anonymous-visitor cookie; a
       script change should leave such values out of the record. None is a credential, and none is on GitHub.
-      The Operator agreed on 2026-11-17 that it should be fixed, and asked for it as a plan;
+      The Operator agreed on 2026-11-17 that it should be fixed, and asked for it as a plan: plan 5, above;
     - BLS: a plan under the standing rule, before the next weekly copy, as the Operator asked on 2026-11-17:
       what BLS asks of an automated reader and where that is written, and the options with what each needs
-      from the Operator. The job never uses a browser's User-Agent;
+      from the Operator. The job never uses a browser's User-Agent: plan 4, above;
     - the weekly prompt in `docs/DATED_COPIES.md`: keep its rule for a refused address as it is, record it and
       go on, with no second attempt, and add only that a refusal is brought to the Operator the same day (the
       Operator, 2026-11-17); say which fields of the run's record may be published; write each wrapped

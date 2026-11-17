@@ -1,6 +1,10 @@
 # Project State
 
-**Last updated:** 2026-11-17 (close after #611, `main` at `6e33373`: D29 amended on the Operator's word-for-word
+**Last updated:** 2026-11-17 (close after #613 and #614, `main` at `8037636`: the weekly copy script merged
+(#613), built by a cloud Executor and checked three times, with no copy taken yet; D40 written on the
+Operator's word-for-word yes and their `CLAUDE.md` §6 yes (#614): the data track reopens, with no source
+named; the answer on #604 posted on the Operator's yes. Earlier the same day: close after #611, `main` at
+`6e33373`: D29 amended on the Operator's word-for-word
 yes, the weekly dated copies as an exception before D40 (#606); the Operator approved two plans, for #606 and
 for #604's D40 draft; the Portfolio Manager handoff recorded done. Earlier, 2026-11-15: the reply on #605 posted,
 on the Operator's word-for-word yes to its text (v4),
@@ -193,8 +197,8 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `6e33373` (2026-11-17). Others on `origin`:
-- `claude/close-611`, the pen's branch for this close, while it is open.
+**Branches:** `main` is at `8037636` (2026-11-17). Others on `origin`:
+- `claude/close-613-614`, the pen's branch for this close, while it is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
 `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and `data/drive-migration`.
@@ -720,6 +724,37 @@ desktop's checkout still has the round 3 branch locally.
     that did not write #611 checked it on GitHub against the approved file (PR #611 comment 6945440124): the five
     texts match byte for byte, ten lines are added and nothing else is changed. All nine CI checks passed, and
     the pen merged on the pinned head `c0e421d`.
+- **The weekly copy script (#613, merged as `de8603a`, 2026-11-17).** Plan 1's third step.
+  - **What it is.** `scripts/copy_dated_sources.py`, its test file (155 tests, on a fake fetch function, with
+    hand-made pages, no network and no data) and the page `docs/DATED_COPIES.md`, which holds the weekly prompt
+    word for word. A cloud Executor built it under the pen's prompt. It fetched none of the sources and opened
+    no data. No copy has been taken yet.
+  - **Checks.** A context that did not write it checked it in three passes, all posted on #613 (comments
+    6947853934, 6948996162 and 6949857773). The first found the Run Summary missing. The Executor then pushed a
+    commit of its own fixes and said so plainly; the second pass read it and found one fault, a table that could
+    be built from a page whose write had failed. The Executor fixed it, and the third pass found nothing. CI: 9
+    of 9 on the merged head `d16c385`.
+  - **Not yet shown.** The script and its tests have run on Linux only, and no line of it has met a real site.
+    The first copy on the desktop settles both: it runs the test file first.
+- **D40: the data track reopens (#614, merged as `8037636`, 2026-11-17).** It answers #604.
+  - **What it is.** The next entry in `DECISIONS.md`, with one pointer line each under D2, D29, D31 and D39. It
+    ends the park of D29 ruling 8 with no source named, makes the data list Track A's sourcing document, sets the
+    order of work, and records the tests set in advance, before any profit test runs. It records the Operator's
+    consent for names outside the S&P 500 and trades beyond the wheel, measured and ranked only after the same
+    tests. D40 itself buys nothing, pulls nothing and builds nothing, and it changes no other rule-book line:
+    each one it names changes later, by its own text, on the Operator's word-for-word yes.
+  - **Approvals.** Plan 3, the Operator's three changes and the two yeses are quoted under Authorized, below.
+  - **Checks.** The draft: four passes by the one context allowed to read the four agreed files, against those
+    files, #604 and `main`; the last found nothing blocking. The plan for writing it: two passes by a fresh
+    context. The pull request: a fresh context took the five texts from the approved file itself, compared each
+    with the branch by sha256 and read the records against D40 (#614, comments 6950176264); nothing blocking, and
+    its two points on the records are fixed in the pull request's second commit. CI: 9 of 9.
+  - **Two texts that stand side by side.** D40 point 8 says names outside the S&P 500 and trades beyond the
+    wheel leave `ROADMAP.md`'s out-of-scope list. The plan the Operator approved keeps those two lines, marked
+    with the consent, because `OPERATING_MODEL.md` §9.3 still lists them until its own text changes.
+  - **The answer on #604.** Posted on the Operator's yes as comment 6950372586, and read back: a pointer to D40
+    on `main`, the draft file's name and date, and D40's point numbers against the issue's parts. It carries no
+    text from D40. #604 stays open for the Portfolio Manager to close.
 - **Remains.**
   1. **Desktop card 2, copy and prove.** Nothing is deleted. Confirmed on
      2026-09-26, after Codex's review ("agree with changes"; the pen checked each
@@ -917,9 +952,8 @@ desktop's checkout still has the round 3 branch locally.
     - **The Portfolio Manager handoff is done.** PM13 is recorded on `Risk_Management`: #610 merged there on
       2026-11-16 as `22dc437`. The Operator corrected this record on 2026-11-16, relayed by another pen session
       ("the PM13 handoff is done"), and the pen read #610 on GitHub. The reply on #605 is posted (Done).
-    - **Plan 1, the weekly dated copies (#606), approved 2026-11-17.** Done: the exception (#611, above). Next,
-      in order: the copy script, built by a cloud Executor under the pen's prompt (`scripts/copy_dated_sources.py`,
-      its tests and `docs/DATED_COPIES.md`, which holds the weekly prompt); the first copy, a desktop run after
+    - **Plan 1, the weekly dated copies (#606), approved 2026-11-17.** Done: the exception (#611) and the copy
+      script (#613), both above. Next, in order: the first copy, a desktop run after
       the Operator's Drive sign-in and go-ahead, with its own record pull request; then one run a week, each on
       the Operator's "authorize the weekly copy". The release schedules start with the first copy. The members
       list waits for the Operator's reading of the licence points on #606 and starts on their word. #606 stays
@@ -929,9 +963,7 @@ desktop's checkout still has the round 3 branch locally.
       in chat, and the one context that may read those files checked it in four passes.
     - **Plan 3, writing D40 (#604), approved 2026-11-17.** D40 and its four pointer lines are written into
       `DECISIONS.md` on the Operator's word-for-word yes and their `CLAUDE.md` §6 yes (Authorized, below).
-      Next: the check of that pull request by a fresh context; the merge with CI green, while the Operator
-      is present; the close; then the answer on #604, a pointer to D40 on `main`, whose text comes to the
-      Operator for their yes before it is posted.
+      Done: #614 and the answer on #604, both above, and this close. Plan 3 is complete.
     - **After D40.** D40 itself buys nothing, pulls nothing and builds nothing. Next in its order of work:
       the paid talk's choices, the sample, if one is chosen, and the vendor pick, each the Operator's own;
       then the fixes, each in its own run with the approval D40 point 3 names, and the new pullers; the
@@ -1115,9 +1147,13 @@ desktop's checkout still has the round 3 branch locally.
       kept in d40-draft-2026-11-17-b.md, sha256
       3df85ceb3400e098e7ed9b148eaeae33cd354f2a5aa8a5d8fc06327de7cc8cdb, and I approve writing them under
       CLAUDE.md §6." The date filled into the text is 2026-11-17, the day of that answer.
-    - **Still to be asked, each when it is reached.** The Operator's yes to the text of the answer on #604,
-      before it is posted. Later, each under its own plan: each rule-book change D40 names, each dated
-      amendment to D40, and each edit to the decision-layer trio.
+    - **The answer on #604 (2026-11-17).** Asked "Do you approve this text for the answer on #604, to post
+      once #614 is merged?", the Operator answered: "Yes. I approve this text for the answer on #604, to post
+      once #614 is merged, with MAINHASH and DATE-OF-YES filled in and nothing else changed. #604 stays open
+      for the Portfolio Manager to close." Posted as comment 6950372586 with the two slots filled (`8037636`
+      and 2026-11-17), and read back from GitHub.
+    - **Still to be asked, each under its own plan.** Each rule-book change D40 names, each dated amendment
+      to D40, and each edit to the decision-layer trio.
   - The standing rule's text (approval A), the `DECISIONS.md` writes (approval B), decision C and the merge
     of #607 (2026-11-15, quoted under Done): done, `c7601c0`. The reply on #605: its text (v4) approved
     word for word and posted, 2026-11-15 (quoted under Done). Any change on `Risk_Management` is not
@@ -1233,6 +1269,17 @@ desktop's checkout still has the round 3 branch locally.
     The pen wrote the rule-book text; an Executor wrote `scripts/session_open.py`'s branch rule, the tests
     and the label, in the same PR. Merged as #580 (`e042f5b`).
 - **Proposed, not authorized.**
+  - **From #613, proposed follow-up work (not done):**
+    - a later run on the same day reports a short file left by a failed write as "already saved"; flag an
+      existing file that no earlier record lists with the same sha256;
+    - decide whether the script should refuse a copy folder that is a link to another folder;
+    - `urllib`'s default proxy handling stays on, so the system's proxy settings apply to the fetches;
+    - a body has no size limit, and the 30 seconds bound each socket step, not a whole answer;
+    - a failure with no followed redirect still prints the error's text on the screen and in the log;
+    - the audit test's child process builds one path from `SWE_DATA_ROOT`, which the test always sets to a
+      temporary folder; pass the path as an argument;
+    - unrelated to the script: every pytest run warns that `asyncio_default_fixture_loop_scope` is unset;
+      setting it changes `pyproject.toml`, so it needs its own approval.
   - **From #611's check:** `docs/DATA_POLICY.md` §6 and §8 carry no pointer to D29's amendment of 2026-11-17,
     which names a departure from each. Add one when that document is next changed; its own tables wait for D40.
   - **Found while planning the weekly copies:** the session-start hook reads the data root at every session

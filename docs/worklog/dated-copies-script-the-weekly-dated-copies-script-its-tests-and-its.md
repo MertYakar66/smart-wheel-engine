@@ -2,9 +2,9 @@
 id: dated-copies-script
 title: The weekly dated copies script, its tests and its page
 kind: feature
-status: in-flight
+status: merged
 terminal: remote-sandbox
-pr:
+pr: 613
 decisions: [D29]
 date: 2026-11-17
 headline: scripts/copy_dated_sources.py takes the weekly dated copy that D29's amendment of 2026-11-17 allows; its tests use a fake fetch, no network and no data; no copy has been taken yet

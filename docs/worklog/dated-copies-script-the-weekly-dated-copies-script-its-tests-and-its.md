@@ -45,12 +45,14 @@ One approach, the one the Execution Prompt specified.
 - The real request function is tested inside `urllib`'s own machinery without a
   socket: a canned HTTPS handler answers in place of the network. That proves
   one GET goes out with our User-Agent and a 30-second timeout, that `urllib`
-  does not follow a 301, 302, 303, 307 or 308 by itself, and that an error
-  status comes back as an answer and not as an exception.
+  does not follow a 301, 302, 303, 307 or 308 by itself, that an error status
+  comes back as an answer and not as an exception, and that a real run, which
+  hands in no opener, gets the one that follows nothing.
 - "It opens no other file under the data root" is proved with Python's audit
-  events. A child process runs the script twice on a temporary root and records
-  every `open`, `mkdir`, rename and removal. The second run finds every copy
-  already saved, so it also covers the reads.
+  events. A child process runs the script three times on a temporary root and
+  records every `open`, folder listing, `mkdir`, rename and removal, run by
+  run. The second run finds every copy already saved and only reads them. The
+  third builds the table again from the saved page.
 - The page `docs/DATED_COPIES.md` was taken byte for byte from the prompt as
   delivered. Its sha256 matches the one the pen gave.
 
@@ -66,6 +68,34 @@ One approach, the one the Execution Prompt specified.
   in `sys.modules`, and a module loaded with `spec_from_file_location` is not
   there unless the loader puts it there. The script does not use that import,
   and the test registers the module before running it.
+- **The first pushed version (`cfcd339`) had gaps that a fresh context found.**
+  It read the script against the prompt and reported no blocker, two points to
+  fix and several small ones. Each was checked again here before it was acted
+  on. The ones that held, and their fixes:
+  - A run stopped part-way (Ctrl-C, a full disk) wrote no record, so the files
+    it had saved had no status, headers or request time anywhere. The record is
+    now written in a `finally`, with `"finished": false`.
+  - A full disk, or a folder under a file's name, crashed the whole run. Each
+    is now that address's "failed" row, and the run goes on.
+  - The text of an error could reach the screen and the log. After a followed
+    redirect the address asked comes from the server, and `http.client` quotes
+    it in its `InvalidURL` message. Such a failure now prints only the kind of
+    error; the text stays in the record.
+  - `--lists schedules --lists members` copied only the last list and exited 0.
+  - A `Content-Type` naming a codec that is no text encoding (`hex`,
+    `undefined`) crashed the table step after the page was saved.
+  - A table built later from a saved page was always read as UTF-8. It now
+    takes the charset from the earlier run's record of those same bytes.
+  - Port 0 in a redirect counted as port 443. The `.ics` check accepted any
+    mix of byte-order-mark bytes.
+  - The read broke the script on purpose too, and reported twelve breakages
+    that the first tests let through. The worst: the real run's default opener
+    was never exercised, so a version that let `urllib` follow redirects by
+    itself would have passed. Each of the twelve now fails a test.
+- **A network guard that raises `AssertionError` can be swallowed.** The script
+  turns any `Exception` from the fetch function into a "failed" row. The guard
+  now raises a `BaseException`, so a test that reaches for the network fails
+  outright.
 
 ## How we fixed it
 
@@ -96,17 +126,24 @@ accept or re-cut:
 4. **An already saved file** is reported with the size and sha256 of the file
    found, so a later run's lines can be compared with the first run's.
 5. **A missing `members.csv` beside a page saved earlier that day** is built
-   from the saved page, read as UTF-8. If that page holds no such table, the
-   run exits 10 again.
+   from the saved page, with the charset the earlier record holds for those
+   bytes, UTF-8 if there is none. If that page holds no such table, the run
+   exits 10 again, although no file was saved in it.
 6. **The heading row is the table's first row.** The text of `<script>` and
    `<style>` is not cell text. A `<br>` adds no space: tags are removed and
    nothing is put in their place.
-7. **The `.ics` check allows a byte-order mark or blank space** before
+7. **The `.ics` check allows one byte-order mark and blank space** before
    `BEGIN:VCALENDAR`.
 8. **A redirect that is not followed** is reported without its target: the
-   target is a response header, and those go only into the record.
-9. **`--dry-run` still needs the root and today's date**, since it prints the
-   paths a real run would use.
+   target is a response header, and those go only into the record. A redirect
+   to another port, or to an address with a user name, is not followed either.
+9. **A followed redirect's target is percent-quoted** the way `urllib`'s own
+   handler quotes it, so a space or a letter outside ASCII can be sent. The
+   record holds the quoted address.
+10. **`--dry-run` still needs the root and today's date**, since it prints the
+    paths a real run would use.
+11. **The record has two fields the prompt does not name**: `finished`, and for
+    the table `page_read_as`, the charset the page was read with.
 
 ## Evidence
 
@@ -116,13 +153,12 @@ All on 2026-11-17, in the cloud session, with `SWE_DATA_ROOT` unset and no
 - `sha256sum docs/DATED_COPIES.md`:
   `dac627c6760ebbfaabc38e66b0e5a4b4e719e85490f89b83df35d68469b039ae`, 14,079
   bytes, 181 lines.
-- `python -m pytest tests/test_copy_dated_sources.py -q`: `104 passed` on
-  Python 3.11, 3.12 and 3.13.
+- `python -m pytest tests/test_copy_dated_sources.py -q`: `152 passed` on
+  Python 3.11, 3.12 and 3.13 (`104 passed` at `cfcd339`).
 - `python -m pytest tests/ -m "not backtest_regression" -q -rs`, on Python
-  3.12.3: `3577 passed, 273 skipped, 8 deselected, 6 xfailed`. 66 skips are
-  the `requires_data` marker's ("no data root"). Nearly all the others name
-  absent data; 12 name the Theta terminal, one is Windows-only and one needs
-  rclone.
+  3.12.3: `3625 passed, 273 skipped, 8 deselected, 6 xfailed` (`3577 passed`
+  at `cfcd339`). 66 skips are the `requires_data` marker's ("no data root"). Nearly all the others name absent data; 12 name the Theta terminal,
+  one is Windows-only and one needs rclone.
 - `ruff check` and `ruff format --check` on `engine/ data/ tests/ scripts/
   utils/ dashboard/ backtests/regression/`: `All checks passed!` and `372 files
   already formatted` (ruff 0.17.5).
@@ -132,8 +168,8 @@ All on 2026-11-17, in the cloud session, with `SWE_DATA_ROOT` unset and no
   scripts/gen_worklog_index.py --check`, `python
   scripts/check_working_structure.py` and `python
   scripts/check_doc_currency.py`: all pass.
-- The mutation check: 27 deliberate breakages of the script, one at a time, on
-  a scratch copy outside the repository. The tests fail on all 27.
+- The mutation check: 55 deliberate breakages of the script, one at a time, on
+  a scratch copy outside the repository. The tests fail on all 55.
 
 ## Unresolved / handoff
 
@@ -145,6 +181,16 @@ All on 2026-11-17, in the cloud session, with `SWE_DATA_ROOT` unset and no
 - **A body served compressed** would be saved as served and would fail its
   light check. `urllib` asks for no compression, so this needs a server that
   ignores the request.
+- **A write that fails part-way leaves a short file under the copy's name.**
+  The run reports it as failed and exits 10, and the script never deletes. A
+  later run that day would report that file as already saved. Proposed
+  follow-up, for the pen to decide: have a later run flag an existing file
+  that no earlier record lists with the same sha256.
+- **A copy folder that is a link to another folder** is written through. The
+  write guard compares paths as written and does not resolve links.
+- **The 30 seconds are for each socket step**, not for a whole answer, and an
+  answer has no size limit.
 - **The first copy** is the desktop run in `docs/DATED_COPIES.md`. It runs this
   test file on Windows first, with `SWE_DATA_ROOT` unset for that one command.
+  The tests were run here on Linux only.
 - The pen sets this fragment's `status` and `pr` at the merge.

@@ -33,11 +33,11 @@ under the data root outside those folders.
 **Fetching.** Only the standard library (``urllib``). One request per address,
 a 30-second timeout and no retry. ``urllib`` is stopped from following a
 redirect by itself: each one is checked here, and it is followed only over
-https and only to the same host, or between a host and its ``www`` form, at
-most three times. Each followed redirect is one more request. Any other
-redirect is not followed and counts as a failure. Only a 200 answer is saved.
-The job names itself by the project and its public repository, with no email
-address and never a browser's User-Agent (D29).
+https and only to the same host and port, or between a host and its ``www``
+form, at most three times. Each followed redirect is one more request. Any
+other redirect is not followed and counts as a failure. Only a 200 answer is
+saved. The job names itself by the project and its public repository, with no
+email address and never a browser's User-Agent (D29).
 
 **The table.** ``members.csv`` is the first table in the page whose heading row
 (its first row) has a cell reading "Symbol". Each cell is its text with tags
@@ -48,12 +48,13 @@ header, UTF-8 if there is none. The file is UTF-8 with LF line endings. With no
 such table the page is still kept, no ``members.csv`` is written, and the
 address counts as looking wrong. If the page was saved by an earlier run that
 day and ``members.csv`` is missing, the table is built from the saved page,
-read as UTF-8.
+with the Content-Type that run's record holds for it.
 
 **The light check** never stops a save: an ``.ics`` file should begin with
-``BEGIN:VCALENDAR`` (a byte-order mark or blank space before it is allowed), a
-``.json`` file should parse, and an HTML page should contain its marker,
-whatever the letter case. The record says whether each file looks right.
+``BEGIN:VCALENDAR`` (one byte-order mark and blank space before it are
+allowed), a ``.json`` file should parse, and an HTML page should contain its
+marker, whatever the letter case. The record says whether each file looks
+right.
 
 **The record** (``_copy-<HHMMSS>Z.json``) lists for each address: the address,
 each redirect and the final address, the file name, the UTC time of the
@@ -61,11 +62,14 @@ request, the HTTP status, the response headers, the byte count, the sha256 and
 the result of the light check. ``members.csv`` is listed too, as derived from
 ``members_page.html``. An address that answers with another status, or does not
 answer, gets its row with the status or the error and no file. Response headers
-go only into the record: never to the screen or the log.
+go only into the record: never to the screen or the log. The record is written
+even when the run is stopped part-way (``"finished": false``), so every file
+saved so far has its row.
 
 **Output.** One line per file: its name, bytes, sha256 and result (saved,
 already saved, looks wrong, refused with its status, or failed). The same lines
-go to the run's log.
+go to the run's log. A failure after a followed redirect names only the kind of
+error: its text may quote the address the server sent, and stays in the record.
 
 **Exit codes.** 0: every address in the named lists is saved, now or by an
 earlier run that day, and every file saved in this run looks right. 10: one or
@@ -86,6 +90,7 @@ import io
 import json
 import os
 import re
+import string
 import sys
 import urllib.error
 import urllib.parse
@@ -227,6 +232,10 @@ def fetch_once(address: str, opener: urllib.request.OpenerDirector | None = None
             return Response(err.code, headers, err.read())
 
 
+def _port(parts: urllib.parse.SplitResult) -> int:
+    return 443 if parts.port is None else parts.port
+
+
 def redirect_target(
     current: str, location: str | None, followed: int
 ) -> tuple[str | None, str | None]:
@@ -235,9 +244,15 @@ def redirect_target(
     if not location:
         return None, "redirect without a target address, not followed"
     try:
-        target = urllib.parse.urljoin(current, location)
+        # Quoted as urllib's own redirect handler quotes it, so a space or a
+        # letter outside ASCII in the target can still be sent.
+        target = urllib.parse.quote(
+            urllib.parse.urljoin(current, location),
+            encoding="iso-8859-1",
+            safe=string.punctuation,
+        )
         here, there = urllib.parse.urlsplit(current), urllib.parse.urlsplit(target)
-        same_port = (here.port or 443) == (there.port or 443)
+        same_port = _port(here) == _port(there)
     except ValueError:
         return None, "redirect to an address that cannot be read, not followed"
     host, new_host = (here.hostname or "").lower(), (there.hostname or "").lower()
@@ -264,7 +279,8 @@ def looks_right(source: Source, body: bytes) -> tuple[bool, str]:
     """The light check for one saved file: (looks right, what was checked)."""
     name = source.filename.lower()
     if name.endswith(".ics"):
-        ok = body.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"BEGIN:VCALENDAR")
+        start = body[3:] if body.startswith(b"\xef\xbb\xbf") else body
+        ok = start.lstrip(b" \t\r\n").startswith(b"BEGIN:VCALENDAR")
         return ok, "begins with BEGIN:VCALENDAR" if ok else "does not begin with BEGIN:VCALENDAR"
     if name.endswith(".json"):
         try:
@@ -376,6 +392,29 @@ def charset_of(headers: tuple[tuple[str, str], ...]) -> str:
         return "utf-8"
 
 
+def decode_page(body: bytes, charset: str) -> str:
+    """The page as text. A charset that is no text encoding falls back to UTF-8."""
+    try:
+        text = body.decode(charset, errors="replace")
+        text.encode("utf-8")  # a codec that hands back lone surrogates is no text encoding
+        return text
+    except (LookupError, UnicodeError):
+        return body.decode("utf-8", errors="replace")
+
+
+def recorded_headers(folder: Path, filename: str, digest: str) -> tuple[tuple[str, str], ...]:
+    """The response headers an earlier run that day recorded for these bytes; () if none."""
+    for path in sorted(folder.glob("_copy-*.json"), reverse=True):
+        try:
+            for row in json.loads(path.read_bytes())["files"]:
+                if row.get("file") == filename and row.get("sha256") == digest:
+                    if row.get("headers"):
+                        return tuple((str(name), str(value)) for name, value in row["headers"])
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            continue
+    return ()
+
+
 # ── small helpers ─────────────────────────────────────────────────────────────
 
 
@@ -403,6 +442,14 @@ def _one_line(text: str) -> str:
     return " ".join(text.split()).encode("ascii", "backslashreplace").decode("ascii")
 
 
+def _say(text: str) -> None:
+    """Print one line, escaped if the console cannot show it as it is."""
+    try:
+        print(text, flush=True)
+    except UnicodeEncodeError:
+        print(text.encode("ascii", "backslashreplace").decode("ascii"), flush=True)
+
+
 def _create(path: Path, data: bytes, allowed: frozenset[Path]) -> None:
     """Write a new file. Mode ``xb``: the bytes as given, and never over a file."""
     if path.parent not in allowed:
@@ -411,12 +458,29 @@ def _create(path: Path, data: bytes, allowed: frozenset[Path]) -> None:
         handle.write(data)
 
 
+def _read_existing(path: Path, row: dict[str, Any]) -> bytes | None:
+    """The bytes of a file that is already there; None, with the row filled in, if it
+    cannot be read (a folder or a broken link under that name)."""
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        row.update(
+            result="failed",
+            error=f"{path.name} is there but cannot be read ({type(exc).__name__})",
+        )
+        return None
+
+
 def _line(row: dict[str, Any]) -> str:
     result = row["result"]
     if result == "refused":
         result = f"refused (HTTP {row['status']})"
     elif result == "failed":
-        result = f"failed ({row['error']})"
+        shown = row["error"]
+        if row.get("error_type") and row.get("redirects"):
+            # The address asked came from the server, and the error may quote it.
+            shown = f"{row['error_type']} after a redirect; the record holds the text"
+        result = f"failed ({shown})"
     elif result == "looks wrong":
         result = f"looks wrong ({row['check']})"
     size = row.get("bytes")
@@ -438,8 +502,9 @@ def copy_address(
     target = folder / source.filename
     row: dict[str, Any] = {"address": source.address, "file": source.filename}
     if os.path.lexists(target):
-        found = target.read_bytes()
-        row.update(result="already saved", bytes=len(found), sha256=_sha256(found))
+        found = _read_existing(target, row)
+        if found is not None:
+            row.update(result="already saved", bytes=len(found), sha256=_sha256(found))
         return row, None
 
     redirects: list[dict[str, Any]] = []
@@ -449,7 +514,11 @@ def copy_address(
         try:
             response = fetch(address)
         except Exception as exc:  # no answer: a timeout, a refused connection, a broken reply
-            row.update(result="failed", error=_one_line(f"{type(exc).__name__}: {exc}"))
+            row.update(
+                result="failed",
+                error=_one_line(f"{type(exc).__name__}: {exc}"),
+                error_type=type(exc).__name__,
+            )
             return row, None
         if response.status not in REDIRECT_STATUSES:
             break
@@ -475,7 +544,21 @@ def copy_address(
     if response.status != 200:
         row["result"] = "refused"
         return row, None
-    _create(target, response.body, allowed)
+    try:
+        _create(target, response.body, allowed)
+    except FileExistsError:
+        row.update(
+            result="failed",
+            error=f"{source.filename} appeared while it was being fetched; not written over",
+        )
+        return row, None
+    except OSError as exc:
+        row.update(
+            result="failed",
+            error=f"{source.filename} could not be written in full ({type(exc).__name__}); "
+            "what is on disk under that name is not a copy",
+        )
+        return row, None
     ok, what = looks_right(source, response.body)
     row.update(
         bytes=len(response.body),
@@ -496,24 +579,47 @@ def build_table(
     row: dict[str, Any] = {"file": copy_list.table_file, "derived_from": copy_list.table_from}
     target = folder / copy_list.table_file
     if os.path.lexists(target):
-        found = target.read_bytes()
-        row.update(result="already saved", bytes=len(found), sha256=_sha256(found))
+        found = _read_existing(target, row)
+        if found is None:
+            row.update(result="not written", reason=row.pop("error"))
+        else:
+            row.update(result="already saved", bytes=len(found), sha256=_sha256(found))
         return row
     page = folder / copy_list.table_from
     if response is not None:
-        text = response.body.decode(charset_of(response.headers), errors="replace")
+        body, headers = response.body, response.headers
     elif os.path.lexists(page):
-        text = page.read_bytes().decode("utf-8", errors="replace")
+        try:
+            body = page.read_bytes()
+        except OSError:
+            row.update(result="not written", reason=f"{copy_list.table_from} cannot be read")
+            return row
+        # Saved by an earlier run that day: its record holds the page's headers.
+        headers = recorded_headers(folder, copy_list.table_from, _sha256(body))
     else:
         row.update(result="not written", reason=f"{copy_list.table_from} was not saved")
         return row
-    rows = members_table(text)
+    charset = charset_of(headers)
+    rows = members_table(decode_page(body, charset))
     if rows is None:
         row.update(result="not written", reason=NO_TABLE)
         return row
     data = table_csv(rows)
-    _create(target, data, allowed)
-    row.update(result="saved", bytes=len(data), sha256=_sha256(data), rows=len(rows) - 1)
+    try:
+        _create(target, data, allowed)
+    except OSError as exc:
+        row.update(
+            result="not written",
+            reason=f"{copy_list.table_file} could not be written in full ({type(exc).__name__})",
+        )
+        return row
+    row.update(
+        result="saved",
+        bytes=len(data),
+        sha256=_sha256(data),
+        rows=len(rows) - 1,
+        page_read_as=charset,
+    )
     return row
 
 
@@ -539,6 +645,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--lists",
         nargs="+",
+        action="extend",
         required=True,
         choices=tuple(LISTS),
         metavar="LIST",
@@ -602,9 +709,9 @@ def main(
         for copy_list in wanted:
             folder = folders[copy_list.name]
             for source in copy_list.sources:
-                print(f"{source.address} -> {folder / source.filename}")
+                _say(f"{source.address} -> {folder / source.filename}")
             if copy_list.table_file:
-                print(
+                _say(
                     f"(a table built from {copy_list.table_from}) -> "
                     f"{folder / copy_list.table_file}"
                 )
@@ -638,36 +745,44 @@ def main(
             folder = folders[copy_list.name]
             folder.mkdir(parents=True, exist_ok=True)
             rows: list[dict[str, Any]] = []
-            for source in copy_list.sources:
-                row, response = copy_address(source, folder, fetch, now, allowed)
-                rows.append(row)
-                if source.filename != copy_list.table_from:
+            finished = False
+            try:
+                for source in copy_list.sources:
+                    row, response = copy_address(source, folder, fetch, now, allowed)
+                    rows.append(row)
+                    if source.filename != copy_list.table_from:
+                        emit(row)
+                        continue
+                    table_row = build_table(copy_list, folder, response, allowed)
+                    rows.append(table_row)
+                    if table_row["result"] == "not written" and "sha256" in row:
+                        # The page is on disk and no table came of it: it looks wrong.
+                        before = row.get("check") or "saved by an earlier run"
+                        row.update(
+                            looks_right="no",
+                            check=f"{before}; {table_row['reason']}; "
+                            f"{copy_list.table_file} not written",
+                            result="looks wrong",
+                        )
                     emit(row)
-                    continue
-                table_row = build_table(copy_list, folder, response, allowed)
-                rows.append(table_row)
-                if table_row["result"] == "not written" and "sha256" in row:
-                    # The page is on disk and holds no such table: it looks wrong.
-                    before = row.get("check") or "saved by an earlier run"
-                    row.update(
-                        looks_right="no",
-                        check=f"{before}; {NO_TABLE}; {copy_list.table_file} not written",
-                        result="looks wrong",
-                    )
-                emit(row)
-                if "sha256" in table_row:
-                    emit(table_row)
-            record = {
-                "script": "scripts/copy_dated_sources.py",
-                "rule": 'DECISIONS.md D29, "Amended on 2026-11-17 (ruling 8)"',
-                "list": copy_list.name,
-                "copy_date": day,
-                "run_utc": _iso(started),
-                "user_agent": USER_AGENT,
-                "files": rows,
-            }
-            text = json.dumps(record, indent=1, ensure_ascii=False) + "\n"
-            _create(records[copy_list.name], text.encode("utf-8"), allowed)
+                    if "sha256" in table_row:
+                        emit(table_row)
+                finished = True
+            finally:
+                # Written even when the run is stopped part-way, so that every file
+                # saved so far has its record.
+                record = {
+                    "script": "scripts/copy_dated_sources.py",
+                    "rule": 'DECISIONS.md D29, "Amended on 2026-11-17 (ruling 8)"',
+                    "list": copy_list.name,
+                    "copy_date": day,
+                    "run_utc": _iso(started),
+                    "user_agent": USER_AGENT,
+                    "finished": finished,
+                    "files": rows,
+                }
+                text = json.dumps(record, indent=1, ensure_ascii=False) + "\n"
+                _create(records[copy_list.name], text.encode("utf-8", "replace"), allowed)
             if any(row["result"] in ("refused", "failed", "looks wrong") for row in rows):
                 incomplete = True
     return EXIT_INCOMPLETE if incomplete else EXIT_OK

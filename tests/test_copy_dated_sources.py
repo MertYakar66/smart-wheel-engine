@@ -34,6 +34,7 @@ import os
 import socket
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 import urllib.response
 from datetime import UTC, datetime, timedelta, timezone
@@ -144,10 +145,10 @@ def _ok(body: bytes, headers=HEADERS):
     return cds.Response(200, tuple(headers), body)
 
 
-def _redirect(to: str | None, status: int = 301):
+def _redirect(to: str | None, status: int = 301, name: str = "Location"):
     headers = (("X-Served-By", "hand-made-cache-7f3a"),)
     if to is not None:
-        headers = (("Location", to), *headers)
+        headers = ((name, to), *headers)
     return cds.Response(status, headers, b"")
 
 
@@ -168,12 +169,17 @@ class FakeWeb:
         return answer
 
 
+class NetworkAttempt(BaseException):
+    """Not an ``Exception``: the script turns those into a "failed" row, and a
+    test that reaches for the network must fail outright."""
+
+
 @pytest.fixture(autouse=True)
 def _no_network_and_no_ambient_root(monkeypatch):
     monkeypatch.delenv("SWE_DATA_ROOT", raising=False)
 
     def refuse(*args, **kwargs):
-        raise AssertionError("a test tried to open a network connection")
+        raise NetworkAttempt("a test tried to open a network connection")
 
     monkeypatch.setattr(socket.socket, "connect", refuse)
     monkeypatch.setattr(socket.socket, "connect_ex", refuse)
@@ -216,6 +222,15 @@ def _files(base: Path) -> dict[str, bytes]:
         path.relative_to(base).as_posix(): path.read_bytes()
         for path in sorted(base.rglob("*"))
         if path.is_file()
+    }
+
+
+def _tree(base: Path) -> dict[str, bytes | None]:
+    """Every file with its bytes and every folder (None): "writes nothing" means
+    this is unchanged, an empty folder included."""
+    return {
+        path.relative_to(base).as_posix(): path.read_bytes() if path.is_file() else None
+        for path in sorted(base.rglob("*"))
     }
 
 
@@ -304,11 +319,11 @@ def test_a_root_that_is_not_a_folder_is_no_root(tmp_path, monkeypatch, capsys):
     ],
 )
 def test_a_date_that_is_not_todays_utc_date_exits_5_and_does_nothing(date, now, root, capsys):
-    before = _files(root.parent)
+    before = _tree(root.parent)
     code, web = _run(date=date, now=now)
     assert code == 5
     assert web.calls == []
-    assert _files(root.parent) == before
+    assert _tree(root.parent) == before  # not even an empty folder
     captured = capsys.readouterr()
     assert captured.out == "" and captured.err.count("\n") == 1 and date in captured.err
 
@@ -317,7 +332,16 @@ def test_the_copy_date_is_the_utc_date_whatever_the_local_zone(root):
     local = datetime(2026, 11, 18, 1, 30, tzinfo=timezone(timedelta(hours=3)))
     code, _ = _run(date=DAY, now=local)
     assert code == 0
-    assert (_schedules(root) / "_copy-223000Z.json").is_file()
+    record = _record(_schedules(root), "223000Z")
+    assert record["run_utc"] == "2026-11-17T22:30:00Z"
+    assert {row["requested_utc"] for row in record["files"]} == {"2026-11-17T22:30:00Z"}
+    assert (_logs(root) / "run-223000Z.log").is_file()
+
+
+def test_the_scripts_own_clock_is_utc():
+    moment = cds.utc_now()
+    assert moment.tzinfo is not None and moment.utcoffset() == timedelta(0)
+    assert abs(moment - datetime.now(UTC)) < timedelta(minutes=1)
 
 
 @pytest.mark.parametrize(
@@ -334,13 +358,13 @@ def test_the_copy_date_is_the_utc_date_whatever_the_local_zone(root):
     ],
 )
 def test_a_usage_error_keeps_argparses_exit_code_and_does_nothing(argv, root, capsys):
-    before = _files(root.parent)
+    before = _tree(root.parent)
     web = FakeWeb()
     with pytest.raises(SystemExit) as refusal:
         cds.main(argv, fetch=web, now=lambda: NOW)
     assert refusal.value.code == 2
     assert web.calls == []
-    assert _files(root.parent) == before
+    assert _tree(root.parent) == before
 
 
 def test_schedules_alone_writes_nothing_for_members(root):
@@ -364,6 +388,14 @@ def test_naming_a_list_twice_copies_it_once(root):
     code, web = _run(("members", "schedules", "members"))
     assert code == 0
     assert web.calls == [*SCHEDULE_ADDRESSES, WIKI]
+
+
+def test_lists_given_in_two_goes_are_both_copied(root):
+    web = FakeWeb()
+    argv = ["--lists", "schedules", "--date", DAY, "--lists", "members"]
+    assert cds.main(argv, fetch=web, now=lambda: NOW) == 0
+    assert web.calls == [*SCHEDULE_ADDRESSES, WIKI]
+    assert _schedules(root).is_dir() and _members(root).is_dir()
 
 
 # ── bytes as served, and never over a file ────────────────────────────────────
@@ -426,14 +458,117 @@ def test_a_second_run_that_day_fetches_nothing_and_writes_only_its_own_record_an
 
 def test_two_runs_in_one_second_the_second_refuses_and_writes_nothing(root, capsys):
     assert _run()[0] == 0
-    before = _files(root.parent)
+    before = _tree(root.parent)
     capsys.readouterr()
     code, web = _run()
     assert code == 1
     assert web.calls == []
-    assert _files(root.parent) == before
+    assert _tree(root.parent) == before
     captured = capsys.readouterr()
     assert captured.out == "" and captured.err.count("\n") == 1
+
+
+@pytest.mark.parametrize("which", ["the record", "the log"])
+def test_a_run_refuses_when_either_of_its_own_files_is_already_there(which, root, capsys):
+    taken = _schedules(root) / f"_copy-{STAMP}.json"
+    if which == "the log":
+        taken = _logs(root) / f"run-{STAMP}.log"
+    taken.parent.mkdir(parents=True)
+    taken.write_bytes(b"from another run in the same second\n")
+    before = _tree(root.parent)
+    code, web = _run()
+    assert code == 1 and web.calls == []
+    assert _tree(root.parent) == before
+    assert capsys.readouterr().err.count("\n") == 1
+
+
+# ── a run that is stopped, a disk that is full, a folder in a file's place ────
+
+
+def test_a_run_stopped_part_way_still_writes_the_record_of_what_it_saved(root, capsys):
+    web = FakeWeb({BEA_PAGE: KeyboardInterrupt()})
+    with pytest.raises(KeyboardInterrupt):
+        _run(web=web)
+    assert web.calls == SCHEDULE_ADDRESSES[:4]
+    saved = SCHEDULE_FILES[:3]
+    assert sorted(path.name for path in _schedules(root).iterdir()) == sorted(
+        [*saved, f"_copy-{STAMP}.json"]
+    )
+    record = _record(_schedules(root))
+    assert record["finished"] is False
+    assert [(row["file"], row["result"]) for row in record["files"]] == [
+        (name, "saved") for name in saved
+    ]
+    for row in record["files"]:
+        assert _sha((_schedules(root) / row["file"]).read_bytes()) == row["sha256"]
+        assert row["headers"] == [list(pair) for pair in HEADERS]
+    log = (_logs(root) / f"run-{STAMP}.log").read_bytes().decode()
+    assert (
+        log == capsys.readouterr().out
+        and [line.split("  ")[0] for line in log.splitlines()] == saved
+    )
+
+
+def test_a_file_that_cannot_be_written_in_full_is_a_failure_with_a_row(root, capsys, monkeypatch):
+    real_create = cds._create
+
+    def full_disk(path, data, allowed):
+        if path.name == "bls.ics":
+            with open(path, "xb") as handle:
+                handle.write(data[:16])  # what a full disk leaves behind
+            raise OSError(28, "No space left on device (hand-made)")
+        real_create(path, data, allowed)
+
+    monkeypatch.setattr(cds, "_create", full_disk)
+    code, web = _run()
+    assert code == 10 and web.calls == SCHEDULE_ADDRESSES
+    record = _record(_schedules(root))
+    assert record["finished"] is True
+    row = _row(record, "bls.ics")
+    assert row["result"] == "failed" and "could not be written in full" in row["error"]
+    assert "sha256" not in row and "bytes" not in row and "looks_right" not in row
+    assert [r["result"] for r in record["files"] if r["file"] != "bls.ics"] == ["saved"] * 7
+    assert "bls.ics  -  -  failed (bls.ics could not be written in full (OSError)" in (
+        capsys.readouterr().out
+    )
+
+
+def test_a_file_that_appears_while_it_is_being_fetched_is_not_written_over(root, capsys):
+    target = _schedules(root) / "bls.ics"
+    other = b"written by another run meanwhile\r\n"
+
+    class Racing(FakeWeb):
+        def __call__(self, address: str):
+            if address == BLS_ICS:
+                target.write_bytes(other)
+            return super().__call__(address)
+
+    code, web = _run(web=Racing())
+    assert code == 10 and web.calls == SCHEDULE_ADDRESSES
+    assert target.read_bytes() == other
+    row = _row(_record(_schedules(root)), "bls.ics")
+    assert row["result"] == "failed" and "not written over" in row["error"]
+    assert "sha256" not in row and "bytes" not in row
+    assert "bls.ics  -  -  failed (bls.ics appeared while it was being fetched" in (
+        capsys.readouterr().out
+    )
+
+
+def test_a_folder_where_a_file_is_expected_fails_that_address_and_not_the_run(root, capsys):
+    (_schedules(root) / "bea_schedule.htm").mkdir(parents=True)
+    code, web = _run()
+    assert code == 10
+    assert web.calls == [address for address in SCHEDULE_ADDRESSES if address != BEA_PAGE]
+    record = _record(_schedules(root))
+    row = _row(record, "bea_schedule.htm")
+    assert row["result"] == "failed" and "is there but cannot be read" in row["error"]
+    assert [r["result"] for r in record["files"] if r["file"] != "bea_schedule.htm"] == [
+        "saved"
+    ] * 7
+    assert (_schedules(root) / "bea_schedule.htm").is_dir()
+    assert "bea_schedule.htm  -  -  failed (bea_schedule.htm is there but cannot be read" in (
+        capsys.readouterr().out
+    )
 
 
 # ── requests and redirects ────────────────────────────────────────────────────
@@ -516,6 +651,8 @@ def test_a_redirect_between_a_host_and_its_www_form_is_followed_and_recorded(
         "https://www.federalreserve.gov.example.org/x",  # a look-alike host
         "http://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",  # off https
         "https://www.federalreserve.gov:8443/fomccalendars.htm",  # another port
+        "https://www.federalreserve.gov:0/fomccalendars.htm",  # port 0 is another port too
+        "https://www.federalreserve.gov:https/fomccalendars.htm",  # a port that is no number
         "https://someone@www.federalreserve.gov/fomccalendars.htm",  # with a user name
         "//calendar.example.org/fomccalendars.htm",  # another host, scheme left out
         None,  # no target at all
@@ -529,12 +666,78 @@ def test_any_other_redirect_is_not_followed_and_counts_as_a_failure(target, root
     row = _row(_record(_schedules(root)), "fed_fomccalendars.htm")
     assert row["result"] == "failed" and row["status"] == 302
     assert row["redirect_not_followed"] == target and row["redirects"] == []
+    assert row["headers"] == [list(pair) for pair in _redirect(target).headers]
     assert "bytes" not in row and "sha256" not in row and "final_address" not in row
     for filename in SCHEDULE_FILES[1:]:
         assert (_schedules(root) / filename).is_file()
     out = capsys.readouterr().out
     assert "fed_fomccalendars.htm  -  -  failed (redirect" in out
     assert target is None or target not in out
+
+
+@pytest.mark.parametrize("status", [301, 302, 303, 307, 308])
+@pytest.mark.parametrize("name", ["Location", "location", "LOCATION"])
+def test_each_redirect_status_is_followed_whatever_the_header_names_case(status, name, root):
+    moved = "https://www.federalreserve.gov/monetarypolicy/moved.htm"
+    web = FakeWeb({FED: _redirect(moved, status, name), moved: _ok(_page("FOMC"))})
+    code, web = _run(web=web)
+    assert code == 0
+    assert web.calls[:2] == [FED, moved] and len(web.calls) == 9
+    row = _row(_record(_schedules(root)), "fed_fomccalendars.htm")
+    assert row["redirects"] == [{"from": FED, "status": status, "to": moved}]
+    assert row["result"] == "saved" and row["final_address"] == moved
+
+
+@pytest.mark.parametrize("status", [300, 304, 305, 306])
+def test_another_3xx_status_is_refused_and_nothing_is_followed(status, root, capsys):
+    moved = "https://www.federalreserve.gov/monetarypolicy/moved.htm"
+    code, web = _run(web=FakeWeb({FED: _redirect(moved, status), moved: _ok(_page("FOMC"))}))
+    assert code == 10
+    assert web.calls == SCHEDULE_ADDRESSES and moved not in web.calls
+    row = _row(_record(_schedules(root)), "fed_fomccalendars.htm")
+    assert row["result"] == "refused" and row["status"] == status and row["redirects"] == []
+    assert f"fed_fomccalendars.htm  -  -  refused (HTTP {status})" in capsys.readouterr().out
+
+
+def test_a_redirect_target_is_quoted_so_that_it_can_be_sent(root):
+    # http.client hands a header's bytes back as Latin-1 text; "\xe9" is such a letter.
+    quoted = "https://www.federalreserve.gov/monetary%20policy/calendrier%20%E9t%E9.htm?a=b%20c"
+    web = FakeWeb(
+        {
+            FED: _redirect("/monetary policy/calendrier \xe9t\xe9.htm?a=b%20c"),
+            quoted: _ok(_page("FOMC")),
+        }
+    )
+    code, web = _run(web=web)
+    assert code == 0
+    assert web.calls[:2] == [FED, quoted]
+    row = _row(_record(_schedules(root)), "fed_fomccalendars.htm")
+    assert row["redirects"] == [{"from": FED, "status": 301, "to": quoted}]
+
+
+def test_an_error_after_a_followed_redirect_is_printed_by_its_kind_only(root, capsys):
+    """The address asked then came from the server, and the error may quote it, as
+    http.client's InvalidURL does. The text goes to the record, never to the screen."""
+    moved = "https://www.federalreserve.gov/moved/SERVER-SENT-TEXT?session=abc123"
+    error = http.client.InvalidURL(f"hand-made: cannot send {moved!r}")
+    code, web = _run(web=FakeWeb({FED: _redirect(moved), moved: error}))
+    assert code == 10
+    assert web.calls[:2] == [FED, moved]
+    out = capsys.readouterr().out
+    log = (_logs(root) / f"run-{STAMP}.log").read_bytes().decode()
+    (line,) = [line for line in out.splitlines() if line.startswith("fed_")]
+    assert line == (
+        "fed_fomccalendars.htm  -  -  "
+        "failed (InvalidURL after a redirect; the record holds the text)"
+    )
+    for text in (out, log):
+        assert "SERVER-SENT-TEXT" not in text and "session=abc123" not in text
+        assert "moved" not in text
+    row = _row(_record(_schedules(root)), "fed_fomccalendars.htm")
+    assert row["result"] == "failed" and row["error_type"] == "InvalidURL"
+    assert "SERVER-SENT-TEXT" in row["error"]
+    assert row["redirects"] == [{"from": FED, "status": 301, "to": moved}]
+    assert not (_schedules(root) / "fed_fomccalendars.htm").exists()
 
 
 def test_three_redirects_are_followed_and_a_fourth_is_not(root):
@@ -631,6 +834,41 @@ def test_the_real_fetch_returns_an_error_status_as_a_response():
     assert response == cds.Response(403, (("Content-Type", "text/plain"),), b"hand-made refusal")
 
 
+def test_the_real_fetch_by_default_uses_the_opener_that_follows_nothing(monkeypatch):
+    """The path a real run takes: no opener is handed in. urllib's own builder is
+    watched, and given a canned handler so that nothing reaches a socket."""
+    canned = _Canned(302, (("Location", "https://calendar.example.org/elsewhere"),), b"")
+    real_builder = urllib.request.build_opener
+    asked_for: list[tuple] = []
+
+    def watched(*handlers):
+        asked_for.append(handlers)
+        return real_builder(*handlers, canned, urllib.request.ProxyHandler({}))
+
+    monkeypatch.setattr(urllib.request, "build_opener", watched)
+    response = _REAL_FETCH_ONCE(FED)
+    assert asked_for == [(cds._NoRedirect,)]
+    assert len(canned.seen) == 1 and response.status == 302
+
+
+class _NoAnswer(urllib.request.HTTPSHandler):
+    def __init__(self) -> None:
+        super().__init__()
+        self.asked = 0
+
+    def https_open(self, req):
+        self.asked += 1
+        raise urllib.error.URLError("hand-made: no answer")
+
+
+def test_the_real_fetch_asks_once_and_does_not_try_again():
+    silent = _NoAnswer()
+    opener = cds.build_opener(silent, urllib.request.ProxyHandler({}))
+    with pytest.raises(urllib.error.URLError):
+        _REAL_FETCH_ONCE(BEA_ICS, opener)
+    assert silent.asked == 1
+
+
 # ── where it writes, and what it opens ────────────────────────────────────────
 
 
@@ -689,8 +927,12 @@ from datetime import UTC, datetime, timedelta
 script = sys.argv[1]
 
 
+class NetworkAttempt(BaseException):
+    pass
+
+
 def no_network(*args, **kwargs):
-    raise AssertionError("the audit driver tried to open a network connection")
+    raise NetworkAttempt("the audit driver tried to open a network connection")
 
 
 socket.socket.connect = no_network
@@ -722,28 +964,37 @@ def fetch(address):
 
 
 WRITE = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC
+LISTINGS = ("os.listdir", "os.scandir", "os.walk")
 events = []
-watching = False
+run = None  # the number of the run being watched
 
 
 def hook(event, args):
-    if not watching or not (event == "open" or event.startswith(("os.", "shutil."))):
+    if run is None or not (event == "open" or event.startswith(("os.", "shutil."))):
         return
     paths = [os.fsdecode(arg) for arg in args if isinstance(arg, (str, bytes, os.PathLike))]
-    writes = True
+    writes = event not in LISTINGS
     if event == "open":
         paths = paths[:1]
         writes = bool(isinstance(args[2], int) and args[2] & WRITE)
-    events.append({"event": event, "paths": paths, "writes": writes})
+    events.append({"run": run, "event": event, "paths": paths, "writes": writes})
 
 
 sys.addaudithook(hook)
 start = datetime(2026, 11, 17, 14, 3, 22, tzinfo=UTC)
+table = os.path.join(
+    os.environ["SWE_DATA_ROOT"], "data_raw", "sector_dated", "date=2026-11-17", "members.csv"
+)
 codes = []
 with contextlib.redirect_stdout(io.StringIO()):
-    watching = True
-    for minutes in (0, 5):  # the second run finds every file already saved, and reads them
+    # Run 1 saves everything. Run 2 finds every copy already saved, and reads them.
+    # Before run 3 the table is taken away, unwatched, so that run 3 builds it again
+    # from the page and the earlier records beside it.
+    for number, minutes in ((1, 0), (2, 5), (3, 10)):
+        if number == 3:
+            os.remove(table)
         moment = start + timedelta(minutes=minutes)
+        run = number
         codes.append(
             cds.main(
                 ["--lists", "schedules", "members", "--date", "2026-11-17"],
@@ -751,14 +1002,15 @@ with contextlib.redirect_stdout(io.StringIO()):
                 now=lambda: moment,
             )
         )
-    watching = False
+        run = None
 print(json.dumps({"codes": codes, "events": events}))
 """
 
 
 def test_no_file_under_the_root_is_opened_outside_the_copy_and_log_folders(root):
-    """Python's own audit events, in a child process: every open, mkdir, rename or
-    removal under the data root during two runs, the second of which reads the copies."""
+    """Python's own audit events, in a child process: every open, folder listing, mkdir,
+    rename or removal under the data root during three runs. The second reads the
+    copies; the third builds the table again from the page an earlier run saved."""
     env = {key: value for key, value in os.environ.items() if key != "SWE_DATA_ROOT"}
     env.update(SWE_DATA_ROOT=str(root), PYTHONDONTWRITEBYTECODE="1")
     done = subprocess.run(
@@ -771,38 +1023,50 @@ def test_no_file_under_the_root_is_opened_outside_the_copy_and_log_folders(root)
     )
     assert done.returncode == 0, done.stderr
     report = json.loads(done.stdout)
-    assert report["codes"] == [0, 0]
+    assert report["codes"] == [0, 0, 0]
 
     def norm(path: str | Path) -> str:
         return os.path.normcase(os.path.realpath(path))
 
     base = norm(root)
     folders = [norm(_schedules(root)), norm(_members(root)), norm(_logs(root))]
-    opened_to_write, opened_to_read = set(), set()
+    wrote: dict[int, set[str]] = {1: set(), 2: set(), 3: set()}
+    read: dict[int, set[str]] = {1: set(), 2: set(), 3: set()}
     for event in report["events"]:
         for path in map(norm, event["paths"]):
             if path != base and not path.startswith(base + os.sep):
                 continue
-            inside = any(path.startswith(folder + os.sep) for folder in folders)
-            on_the_way = any(
-                folder == path or folder.startswith(path + os.sep) for folder in folders
-            )
+            inside = any(path == folder or path.startswith(folder + os.sep) for folder in folders)
+            on_the_way = any(folder.startswith(path + os.sep) for folder in folders)
             if event["event"] == "os.mkdir":
                 assert inside or on_the_way, event
-                continue
-            assert event["event"] == "open", event  # nothing is renamed, removed or linked
-            assert inside, event
-            (opened_to_write if event["writes"] else opened_to_read).add(path)
-    copies = [_schedules(root) / name for name in SCHEDULE_FILES]
-    copies += [_members(root) / "members_page.html", _members(root) / "members.csv"]
-    own = [
-        folder / f"_copy-{stamp}.json"
-        for folder in (_schedules(root), _members(root))
-        for stamp in ("140322Z", "140822Z")
-    ]
-    own += [_logs(root) / "run-140322Z.log", _logs(root) / "run-140822Z.log"]
-    assert opened_to_write == {norm(path) for path in [*copies, *own]}
-    assert opened_to_read == {norm(path) for path in copies}
+            elif event["event"] in ("os.scandir", "os.listdir"):
+                assert inside, event  # a folder is listed only inside the copy folders
+            else:
+                assert event["event"] == "open", event  # nothing renamed, removed or linked
+                assert inside, event
+                (wrote if event["writes"] else read)[event["run"]].add(path)
+
+    schedule_copies = {norm(_schedules(root) / name) for name in SCHEDULE_FILES}
+    page = norm(_members(root) / "members_page.html")
+    table = norm(_members(root) / "members.csv")
+
+    def own(stamp: str) -> set[str]:
+        return {
+            norm(_schedules(root) / f"_copy-{stamp}.json"),
+            norm(_members(root) / f"_copy-{stamp}.json"),
+            norm(_logs(root) / f"run-{stamp}.log"),
+        }
+
+    assert wrote[1] == schedule_copies | {page, table} | own("140322Z")
+    assert read[1] == set()
+    # Every copy is there: none is opened for writing, only this run's record and log.
+    assert wrote[2] == own("140822Z")
+    assert read[2] == schedule_copies | {page, table}
+    # The table is gone: the page and the earlier records beside it are read to build it.
+    earlier = {norm(_members(root) / f"_copy-{stamp}.json") for stamp in ("140322Z", "140822Z")}
+    assert wrote[3] == {table} | own("141322Z")
+    assert read[3] == schedule_copies | {page} | earlier
     assert (root / "data_raw" / "sp500_constituents_current.csv").read_bytes() == DECOY
     assert list((root.parent / "cwd").iterdir()) == []
 
@@ -868,6 +1132,8 @@ def test_when_every_address_fails_the_record_and_the_log_are_still_written(root)
         ),
         (CENSUS, "census_calendar_listview.html", b"<html>Economic  Indicator, two spaces</html>"),
         (BLS_ICS, "bls.ics", b"<html>hand-made: a page where a calendar should be</html>"),
+        (BLS_ICS, "bls.ics", b"hand-made text first\r\nBEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"),
+        (BLS_ICS, "bls.ics", b"\xbf\xbb\xef BEGIN:VCALENDAR\r\n"),  # not a byte-order mark
         (BEA_JSON, "bea_release_dates.json", b'{"hand_made": tru'),
         (BEA_JSON, "bea_release_dates.json", b""),
     ],
@@ -890,6 +1156,8 @@ def test_a_file_that_fails_its_light_check_is_saved_and_flagged(
         (FED, "fed_fomccalendars.htm", b"<html>the fomc calendar, hand-made, lower case</html>"),
         (CENSUS, "census_calendar_listview.html", b"<html>ECONOMIC INDICATOR CALENDAR</html>"),
         (BLS_ICS, "bls.ics", b"\xef\xbb\xbfBEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"),
+        (BLS_ICS, "bls.ics", b"\xef\xbb\xbf\r\n  BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"),
+        (BLS_ICS, "bls.ics", b"\r\n\tBEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"),
         (BEA_JSON, "bea_release_dates.json", b"[]"),
     ],
 )
@@ -922,6 +1190,7 @@ def test_members_csv_is_built_from_the_page_and_listed_in_the_record(root, capsy
         "bytes": len(MEMBERS_CSV),
         "sha256": _sha(MEMBERS_CSV),
         "rows": 2,
+        "page_read_as": "utf-8",
     }
     assert capsys.readouterr().out.splitlines() == [
         f"members_page.html  {len(MEMBERS_PAGE)}  {_sha(MEMBERS_PAGE)}  saved",
@@ -952,20 +1221,26 @@ def test_when_the_page_is_refused_no_table_is_written(root):
 
 
 @pytest.mark.parametrize(
-    ("content_type", "encoding"),
+    ("name", "content_type", "encoding"),
     [
-        ("text/html; charset=ISO-8859-1", "iso-8859-1"),
-        ('text/html; charset="utf-8"', "utf-8"),
-        ("text/html", "utf-8"),
-        ("text/html; charset=no-such-charset", "utf-8"),
-        (None, "utf-8"),
+        ("Content-Type", "text/html; charset=ISO-8859-1", "iso-8859-1"),
+        ("content-type", "text/html; charset=iso-8859-1", "iso-8859-1"),
+        ("Content-Type", 'text/html; charset="utf-8"', "utf-8"),
+        ("Content-Type", "text/html", "utf-8"),
+        ("Content-Type", "text/html; charset=no-such-charset", "utf-8"),
+        # Names Python knows, but which are no text encodings: UTF-8 again.
+        ("Content-Type", "text/html; charset=hex", "utf-8"),
+        ("Content-Type", "text/html; charset=rot13", "utf-8"),
+        ("Content-Type", "text/html; charset=undefined", "utf-8"),
+        ("Content-Type", "text/html; charset=idna", "utf-8"),
+        (None, None, "utf-8"),
     ],
 )
 def test_the_page_is_decoded_with_its_content_type_charset_utf8_if_none(
-    content_type, encoding, root
+    name, content_type, encoding, root
 ):
     served = MEMBERS_PAGE.decode("utf-8").encode(encoding)
-    headers = () if content_type is None else (("Content-Type", content_type),)
+    headers = () if name is None else ((name, content_type),)
     code, _ = _run(("members",), web=FakeWeb({WIKI: _ok(served, headers)}))
     assert code == 0
     assert (_members(root) / "members_page.html").read_bytes() == served
@@ -981,6 +1256,39 @@ def test_a_missing_table_is_built_from_the_page_an_earlier_run_saved(root):
     assert (_members(root) / "members.csv").read_bytes() == MEMBERS_CSV
     page_row, table_row = _record(_members(root))["files"]
     assert page_row["result"] == "already saved" and table_row["result"] == "saved"
+    assert table_row["page_read_as"] == "utf-8"  # no record of its headers: UTF-8
+
+
+def test_a_table_built_later_uses_the_charset_the_earlier_record_holds(root):
+    served = MEMBERS_PAGE.decode("utf-8").encode("iso-8859-1")
+    headers = (("Content-Type", "text/html; charset=ISO-8859-1"),)
+    assert _run(("members",), web=FakeWeb({WIKI: _ok(served, headers)}))[0] == 0
+    (_members(root) / "members.csv").unlink()  # as if the first run had stopped before it
+    for minutes in (5, 10):  # the middle run's record holds no headers; the first one's does
+        if minutes == 10:
+            (_members(root) / "members.csv").unlink()
+        code, web = _run(("members",), now=NOW + timedelta(minutes=minutes))
+        assert code == 0 and web.calls == []
+        assert (_members(root) / "members.csv").read_bytes() == MEMBERS_CSV
+    table_row = _record(_members(root), "141322Z")["files"][1]
+    assert table_row["result"] == "saved" and table_row["page_read_as"] == "iso8859-1"
+    assert (_members(root) / "members_page.html").read_bytes() == served
+
+
+def test_an_earlier_record_for_other_bytes_lends_no_charset(root):
+    """A record vouches for the bytes it lists. A page under the same name with
+    another sha256 is read as UTF-8, like any page with no header."""
+    served = MEMBERS_PAGE.decode("utf-8").encode("iso-8859-1")
+    headers = (("Content-Type", "text/html; charset=ISO-8859-1"),)
+    assert cds.recorded_headers(_members(root), "members_page.html", _sha(served)) == ()
+    assert _run(("members",), web=FakeWeb({WIKI: _ok(served, headers)}))[0] == 0
+    folder = _members(root)
+    assert cds.recorded_headers(folder, "members_page.html", _sha(served)) == headers
+    assert cds.recorded_headers(folder, "members_page.html", _sha(MEMBERS_PAGE)) == ()
+    assert cds.recorded_headers(folder, "members.csv", _sha(served)) == ()
+    (folder / "_copy-000000Z.json").write_bytes(b"not a record at all")
+    (folder / "_copy-235959Z.json").write_bytes(b'{"files": [7, {"file": "members_page.html"}]}')
+    assert cds.recorded_headers(folder, "members_page.html", _sha(served)) == headers
 
 
 def test_an_earlier_page_with_no_such_table_still_counts_as_looking_wrong(root, capsys):
@@ -991,6 +1299,48 @@ def test_an_earlier_page_with_no_such_table_still_counts_as_looking_wrong(root, 
     assert not (_members(root) / "members.csv").exists()
     assert (_members(root) / "members_page.html").read_bytes() == PAGE_WITHOUT_TABLE
     assert "looks wrong (saved by an earlier run; " in capsys.readouterr().out
+
+
+def test_a_table_that_cannot_be_written_in_full_flags_the_page_and_not_the_run(
+    root, capsys, monkeypatch
+):
+    real_create = cds._create
+
+    def full_disk(path, data, allowed):
+        if path.name == "members.csv":
+            raise OSError(28, "No space left on device (hand-made)")
+        real_create(path, data, allowed)
+
+    monkeypatch.setattr(cds, "_create", full_disk)
+    code, _ = _run(("members",))
+    assert code == 10
+    assert (_members(root) / "members_page.html").read_bytes() == MEMBERS_PAGE
+    record = _record(_members(root))
+    page_row, table_row = record["files"]
+    assert record["finished"] is True
+    assert page_row["result"] == "looks wrong" and page_row["sha256"] == _sha(MEMBERS_PAGE)
+    assert table_row["result"] == "not written" and "sha256" not in table_row
+    assert "members.csv could not be written in full (OSError)" in table_row["reason"]
+    (line,) = capsys.readouterr().out.splitlines()
+    assert "looks wrong (" in line and "members.csv could not be written in full" in line
+
+
+@pytest.mark.parametrize("name", ["members_page.html", "members.csv"])
+def test_a_folder_in_the_place_of_the_page_or_the_table_fails_the_list_and_not_the_run(
+    name, root, capsys
+):
+    (_members(root) / name).mkdir(parents=True)
+    code, web = _run(("members",))
+    assert code == 10
+    assert web.calls == ([] if name == "members_page.html" else [WIKI])
+    assert (_members(root) / name).is_dir()
+    record = _record(_members(root))
+    page_row, table_row = record["files"]
+    assert record["finished"] is True and table_row["result"] == "not written"
+    assert "cannot be read" in table_row["reason"]
+    assert page_row["result"] == ("failed" if name == "members_page.html" else "looks wrong")
+    (line,) = capsys.readouterr().out.splitlines()
+    assert line.startswith("members_page.html  ") and "cannot be read" in line
 
 
 def test_an_existing_members_csv_is_never_written_over(root):
@@ -1114,6 +1464,7 @@ def test_the_record_names_the_run_the_list_and_how_the_job_named_itself(root):
         assert record["list"] == name and record["copy_date"] == DAY
         assert record["run_utc"] == "2026-11-17T14:03:22Z"
         assert record["user_agent"] == cds.USER_AGENT
+        assert record["finished"] is True
         assert len(record["files"]) == count
     row = _row(_record(_schedules(root)), "bea_release_dates.json")
     assert row == {
@@ -1144,11 +1495,11 @@ def test_an_error_text_is_one_line_of_plain_ascii(root, capsys):
 
 
 def test_a_dry_run_fetches_nothing_and_writes_nothing(root, capsys):
-    before = _files(root.parent)
+    before = _tree(root.parent)
     code, web = _run(("schedules", "members"), extra=("--dry-run",))
     assert code == 0
     assert web.calls == []
-    assert _files(root.parent) == before
+    assert _tree(root.parent) == before
     assert sorted(path.name for path in root.iterdir()) == ["data_raw"]
     assert sorted(path.name for path in (root / "data_raw").iterdir()) == [
         "sp500_constituents_current.csv"
@@ -1167,6 +1518,18 @@ def test_a_dry_run_fetches_nothing_and_writes_nothing(root, capsys):
         f"{resolved / 'data_raw' / 'sector_dated' / f'date={DAY}' / 'members.csv'}"
     )
     assert lines == expected
+
+
+def test_a_line_the_console_cannot_show_is_printed_escaped(monkeypatch):
+    """A dry run prints the root's path. On Windows a pipe may be in a code page
+    that has no letter for it; the line must still come out, not stop the run."""
+    raw = io.BytesIO()
+    narrow = io.TextIOWrapper(raw, encoding="cp1252", newline="\n")
+    monkeypatch.setattr(sys, "stdout", narrow)
+    cds._say("https://example.org/a -> /veri-kökğ/a.htm")
+    cds._say("plain")
+    narrow.flush()
+    assert raw.getvalue() == b"https://example.org/a -> /veri-k\\xf6k\\u011f/a.htm\nplain\n"
 
 
 def test_a_dry_run_still_needs_the_root_and_todays_date(root, monkeypatch):

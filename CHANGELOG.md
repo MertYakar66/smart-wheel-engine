@@ -24,8 +24,8 @@ without `SWE_DATA_ROOT` (exit 3) or on a date that is not today's in UTC (exit 5
 follows a redirect only over https to the same host or its `www` form, names itself by the repository and
 never as a browser, and uses only the standard library. No copy has been taken yet: this run fetched none of
 the sources and opened no data. The tests use a fake fetch function, hand-made pages and a temporary root:
-152 pass with no network and no data, on Python 3.11, 3.12 and 3.13. Fast lane, with no data root: 3625
-passed, 273 skipped, 8 deselected, 6 xfailed.
+155 pass with no network and no data, on Python 3.11, 3.12 and 3.13. Fast lane, with no data root:
+3628 passed, 273 skipped, 8 deselected, 6 xfailed.
 
 ## 2026-11-17 — D29 amended: the weekly dated copies (desktop)
 

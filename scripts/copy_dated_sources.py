@@ -571,10 +571,16 @@ def copy_address(
 
 
 def build_table(
-    copy_list: CopyList, folder: Path, response: Response | None, allowed: frozenset[Path]
+    copy_list: CopyList,
+    folder: Path,
+    page_row: dict[str, Any],
+    response: Response | None,
+    allowed: frozenset[Path],
 ) -> dict[str, Any]:
     """Write the list's table from its page, unless it is already there. ``response``
-    is the page as just fetched, or None when an earlier run that day saved it."""
+    is the page as just saved. With none, the page on disk is read only if its row
+    says an earlier run saved it: after a failed fetch or write in this run, what is
+    under the page's name is no copy, and no table is built from it."""
     assert copy_list.table_file and copy_list.table_from
     row: dict[str, Any] = {"file": copy_list.table_file, "derived_from": copy_list.table_from}
     target = folder / copy_list.table_file
@@ -588,7 +594,7 @@ def build_table(
     page = folder / copy_list.table_from
     if response is not None:
         body, headers = response.body, response.headers
-    elif os.path.lexists(page):
+    elif page_row["result"] == "already saved":
         try:
             body = page.read_bytes()
         except OSError:
@@ -597,7 +603,11 @@ def build_table(
         # Saved by an earlier run that day: its record holds the page's headers.
         headers = recorded_headers(folder, copy_list.table_from, _sha256(body))
     else:
-        row.update(result="not written", reason=f"{copy_list.table_from} was not saved")
+        why = page_row.get("error") or f"its row reads {page_row['result']!r}"
+        row.update(
+            result="not written",
+            reason=f"{copy_list.table_from} was not saved in this run ({why})",
+        )
         return row
     charset = charset_of(headers)
     rows = members_table(decode_page(body, charset))
@@ -753,7 +763,7 @@ def main(
                     if source.filename != copy_list.table_from:
                         emit(row)
                         continue
-                    table_row = build_table(copy_list, folder, response, allowed)
+                    table_row = build_table(copy_list, folder, row, response, allowed)
                     rows.append(table_row)
                     if table_row["result"] == "not written" and "sha256" in row:
                         # The page is on disk and no table came of it: it looks wrong.

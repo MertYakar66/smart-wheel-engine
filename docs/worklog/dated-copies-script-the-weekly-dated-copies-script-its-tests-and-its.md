@@ -92,6 +92,10 @@ One approach, the one the Execution Prompt specified.
     that the first tests let through. The worst: the real run's default opener
     was never exercised, so a version that let `urllib` follow redirects by
     itself would have passed. Each of the twelve now fails a test.
+- **The pen's check of `1b74bb0` found one more.** After a page's write failed
+  part-way, the table could still be built from the short file left on disk.
+  The table is now built from disk only when the page's row says an earlier
+  run saved it.
 - **A network guard that raises `AssertionError` can be swallowed.** The script
   turns any `Exception` from the fetch function into a "failed" row. The guard
   now raises a `BaseException`, so a test that reaches for the network fails
@@ -153,10 +157,10 @@ All on 2026-11-17, in the cloud session, with `SWE_DATA_ROOT` unset and no
 - `sha256sum docs/DATED_COPIES.md`:
   `dac627c6760ebbfaabc38e66b0e5a4b4e719e85490f89b83df35d68469b039ae`, 14,079
   bytes, 181 lines.
-- `python -m pytest tests/test_copy_dated_sources.py -q`: `152 passed` on
+- `python -m pytest tests/test_copy_dated_sources.py -q`: `155 passed` on
   Python 3.11, 3.12 and 3.13 (`104 passed` at `cfcd339`).
 - `python -m pytest tests/ -m "not backtest_regression" -q -rs`, on Python
-  3.12.3: `3625 passed, 273 skipped, 8 deselected, 6 xfailed` (`3577 passed`
+  3.12.3: `3628 passed, 273 skipped, 8 deselected, 6 xfailed` (`3577 passed`
   at `cfcd339`). 66 skips are the `requires_data` marker's ("no data root"). Nearly all the others name absent data; 12 name the Theta terminal,
   one is Windows-only and one needs rclone.
 - `ruff check` and `ruff format --check` on `engine/ data/ tests/ scripts/
@@ -168,8 +172,8 @@ All on 2026-11-17, in the cloud session, with `SWE_DATA_ROOT` unset and no
   scripts/gen_worklog_index.py --check`, `python
   scripts/check_working_structure.py` and `python
   scripts/check_doc_currency.py`: all pass.
-- The mutation check: 55 deliberate breakages of the script, one at a time, on
-  a scratch copy outside the repository. The tests fail on all 55.
+- The mutation check: 56 deliberate breakages of the script, one at a time, on
+  a scratch copy outside the repository. The tests fail on all 56.
 
 ## Unresolved / handoff
 

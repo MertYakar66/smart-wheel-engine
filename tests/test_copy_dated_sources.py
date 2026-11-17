@@ -1325,6 +1325,66 @@ def test_a_table_that_cannot_be_written_in_full_flags_the_page_and_not_the_run(
     assert "looks wrong (" in line and "members.csv could not be written in full" in line
 
 
+@pytest.mark.parametrize("how", ["a short write", "another run's file"])
+def test_a_page_whose_write_failed_in_this_run_feeds_no_table(how, root, capsys, monkeypatch):
+    """What is then on disk under the page's name is not this run's copy: a short
+    file, or a file that appeared meanwhile. Either can hold a whole table."""
+    real_create = cds._create
+    on_disk = MEMBERS_PAGE[:-8] if how == "a short write" else MEMBERS_PAGE
+
+    def failing(path, data, allowed):
+        if path.name != "members_page.html":
+            return real_create(path, data, allowed)
+        with open(path, "xb") as handle:
+            handle.write(on_disk)
+        if how == "a short write":
+            raise OSError(28, "No space left on device (hand-made)")
+        raise FileExistsError(17, "File exists (hand-made)")
+
+    monkeypatch.setattr(cds, "_create", failing)
+    assert cds.members_table(on_disk.decode()) is not None  # the table is there to be read
+    code, web = _run(("members",))
+    assert code == 10 and web.calls == [WIKI]
+    assert not (_members(root) / "members.csv").exists()
+    assert (_members(root) / "members_page.html").read_bytes() == on_disk
+    page_row, table_row = _record(_members(root))["files"]
+    assert page_row["result"] == "failed" and "sha256" not in page_row
+    assert table_row["result"] == "not written" and "sha256" not in table_row
+    assert "members_page.html was not saved in this run" in table_row["reason"]
+    (line,) = capsys.readouterr().out.splitlines()
+    assert line.startswith("members_page.html  -  -  failed (members_page.html ")
+
+
+def test_a_saved_page_that_cannot_be_read_a_second_time_gives_no_table_and_no_crash(
+    root, monkeypatch
+):
+    """A page an earlier run saved is read twice: once to report it, once to build
+    the table. If it cannot be read the second time, no table is written and the
+    run goes on."""
+    page = _members(root) / "members_page.html"
+    page.parent.mkdir(parents=True)
+    page.write_bytes(MEMBERS_PAGE)
+    real_read = cds._read_existing
+
+    def read_then_swap(path, row):
+        found = real_read(path, row)
+        if path.name == "members_page.html":
+            path.unlink()
+            path.mkdir()  # a folder now stands under the page's name
+        return found
+
+    monkeypatch.setattr(cds, "_read_existing", read_then_swap)
+    code, web = _run(("members",))
+    assert code == 10 and web.calls == []
+    assert not (_members(root) / "members.csv").exists()
+    record = _record(_members(root))
+    page_row, table_row = record["files"]
+    assert record["finished"] is True
+    assert page_row["result"] == "looks wrong" and page_row["sha256"] == _sha(MEMBERS_PAGE)
+    assert table_row["result"] == "not written"
+    assert table_row["reason"] == "members_page.html cannot be read"
+
+
 @pytest.mark.parametrize("name", ["members_page.html", "members.csv"])
 def test_a_folder_in_the_place_of_the_page_or_the_table_fails_the_list_and_not_the_run(
     name, root, capsys

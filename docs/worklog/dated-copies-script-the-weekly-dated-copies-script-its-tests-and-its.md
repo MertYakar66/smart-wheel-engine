@@ -118,6 +118,11 @@ All on 2026-11-17, in the cloud session, with `SWE_DATA_ROOT` unset and no
   bytes, 181 lines.
 - `python -m pytest tests/test_copy_dated_sources.py -q`: `104 passed` on
   Python 3.11, 3.12 and 3.13.
+- `python -m pytest tests/ -m "not backtest_regression" -q -rs`, on Python
+  3.12.3: `3577 passed, 273 skipped, 8 deselected, 6 xfailed`. 66 skips are
+  the `requires_data` marker's ("no data root"). Nearly all the others name
+  absent data; 12 name the Theta terminal, one is Windows-only and one needs
+  rclone.
 - `ruff check` and `ruff format --check` on `engine/ data/ tests/ scripts/
   utils/ dashboard/ backtests/regression/`: `All checks passed!` and `372 files
   already formatted` (ruff 0.17.5).

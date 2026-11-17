@@ -14,6 +14,17 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-17 — D40: the data track reopens (desktop)
+
+**Docs** — `DECISIONS.md`: D40 written on the Operator's word-for-word yes and their `CLAUDE.md` §6 yes. It
+ends the park of D29 ruling 8 with no source named, makes the data list Track A's sourcing document, sets the
+order of work, and records the tests set in advance, before any profit test runs. One pointer line each
+under D2, D29, D31 and D39. `ROADMAP.md`: Track A's status and the order of work; slots for whole-book
+measuring, the join, the filter numbers, the freeze, the company measures and the later families; two
+out-of-scope lines marked with the consent D40 records. `PROJECT_STATE.md`: the direction, the next action
+and what the Operator authorized. D40 itself buys nothing, pulls nothing and builds nothing, and no other
+rule-book line changes.
+
 ## 2026-11-17 — the weekly dated copies: the script, its tests and its page (remote sandbox)
 
 **Added** — `scripts/copy_dated_sources.py`, the script that takes the weekly dated copy D29's amendment of

@@ -214,8 +214,14 @@ desktop's checkout still has the round 3 branch locally.
 - **What the engine is.** A probabilistic EV decision engine for the wheel on S&P
   500 names. It is a defensive premium sleeve, not a bull-market growth
   substitute (header above).
-- **Where it is going** (D29, 2026-09-16; plan `docs/RESTART_PLAN_2026-09-16.md`):
-  - tradeable expiries of 7, 14, 21 and at most 28 days;
+- **Where it is going** (D29, 2026-09-16; plan `docs/RESTART_PLAN_2026-09-16.md`; changed by D40,
+  2026-11-17):
+  - main expiries of 7, 14, 21 and 28 days, the longest 45; every expiry, the main ones included,
+    joins the menu only after a test set in advance and the Operator's signature (D40 points 6 and
+    13, in place of D29 ruling 5's "at most 28 days");
+  - the names are the S&P 500 plus SPY and QQQ; names on the Operator's private list, and trades
+    beyond the wheel, are measured early and ranked only after the same tests (D40 point 7, the
+    Operator's consent);
   - trading close to events, behind a validated event-conditioned distribution
     (Track B);
   - an advisory exit evaluator (Track C);
@@ -223,14 +229,18 @@ desktop's checkout still has the round 3 branch locally.
 - **Data** (D29, D31, D33):
   - The Bloomberg Terminal is gone, and the frozen CSVs end 2026-07-02.
     Bloomberg data is kept "at all costs" (D33).
-  - New data subscriptions are deferred (Track A parked, 2026-09-17). The Theta
+  - Track A's park ended with D40 (2026-11-17), and no source is named. The order of work is D40
+    point 1: the sample, if the Operator chooses one, and their vendor pick; then the fixes and the
+    new pullers; the first update; then the history the tests need. D40 itself buys nothing and
+    pulls nothing. The Theta
     subscription is no longer active. Theta will be collected again from the
     beginning, from a source chosen once the repository structure is settled.
   - Every dataset lives on the Operator's desktop under `SWE_DATA_ROOT`, and git
     holds none. Google Drive becomes the complete second copy, one folder
     `swe-data/` laid out like the root (D33). The MacBook is outside the data
     estate.
-- **Current focus.** Repository structure and efficiency (Track F), the data home
+- **Current focus.** Since D40 (2026-11-17): the data track, in the order above. Before it:
+  repository structure and efficiency (Track F), the data home
   (D31), and the working structure (D32).
 - **Brokerage.** Read-only everywhere. There is no order path.
 
@@ -913,10 +923,19 @@ desktop's checkout still has the round 3 branch locally.
       the Operator's "authorize the weekly copy". The release schedules start with the first copy. The members
       list waits for the Operator's reading of the licence points on #606 and starts on their word. #606 stays
       open until both lists have a first copy.
-    - **Plan 2, D40's draft (#604), approved 2026-11-17: read and draft only.** Done: the four files #604 names
-      match its sha256s and are read. Next: the check of their public facts on `main`; the draft, in chat and in
-      one dated file in the PM/RE's private folder; a check by a context that did not write it; then the draft
-      and a short plan for writing it go to the Operator. Nothing of the draft is in the repository or on GitHub.
+    - **Plan 2, D40's draft (#604), approved 2026-11-17: done.** The four files #604 names matched its
+      sha256s and were read. The draft was written in one dated file in the PM/RE's private folder and shown
+      in chat, and the one context that may read those files checked it in four passes.
+    - **Plan 3, writing D40 (#604), approved 2026-11-17.** D40 and its four pointer lines are written into
+      `DECISIONS.md` on the Operator's word-for-word yes and their `CLAUDE.md` §6 yes (Authorized, below).
+      Next: the check of that pull request by a fresh context; the merge with CI green, while the Operator
+      is present; the close; then the answer on #604, a pointer to D40 on `main`, whose text comes to the
+      Operator for their yes before it is posted.
+    - **After D40.** D40 itself buys nothing, pulls nothing and builds nothing. Next in its order of work,
+      each on the Operator's own yes: the paid talk's choices, the sample, if one is chosen, and the vendor
+      pick; then the fixes and the new pullers, each in its own run; the first update; the history the tests
+      need. Whole-book measuring starts on the Operator's "authorize". The rule-book lines D40 names change
+      later, each by its own text on the Operator's word-for-word yes.
     - **Limits both plans carry.** No agent opens a file in the data root beyond what plan 1's last line names
       (Authorized, below). The session-start hook and the mark still read the price and IV files' dates
       (`CLAUDE.md` §2). The Operator ruled on 2026-11-17: "The design's public-text rule governs." So the
@@ -975,7 +994,8 @@ desktop's checkout still has the round 3 branch locally.
        general terms ("Mask it in the docs now (Recommended)"). The Operator keeps the repository public.
      - Next, D39 point 5: the plan for pulling new data. The next-phase plan's questions are answered
        (2026-10-19; below, Proposed). Next: D40, the decision to reopen the data track (parked on
-       2026-09-17), drafted by the pen for the Operator's yes to its exact text.
+       2026-09-17), drafted by the pen for the Operator's yes to its exact text. Done 2026-11-17: D40 is in
+       `DECISIONS.md` (plan 3, above).
   2. Card 3, parked by D39. Card 3a ran on 2026-10-16 (#586, merged as `9e5bca6`): all three old
      folders "clear to trash by hand: yes", 0 blockers, the proof's sha256
      `0ae2d62dcff86179135441f05b997f6a4700f99c88996c8b1d0051e8b29a07d9`. A context that did not write the card checked
@@ -1003,8 +1023,8 @@ desktop's checkout still has the round 3 branch locally.
      - not done: the rehearsal by hand and the credential file's "Delete forever";
      - not done: the recount, the baseline, the trash by hand and the check; the undo-window row
        never opened.
-  3. The next-phase plan (Proposed): its questions answered on 2026-10-19; D40 is being drafted under plan 2
-     (above).
+  3. The next-phase plan (Proposed): its questions answered on 2026-10-19; D40 is written (plan 3, above) and
+     does not carry those answers, which stay proposed.
   4. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
      moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/` into
@@ -1067,7 +1087,35 @@ desktop's checkout still has the round 3 branch locally.
     - **Still to be asked, each when it is reached.** Plan 1: the Operator's word for the whole-root re-hash or a
       `build`; their word releasing the members list; each Drive sign-in and go-ahead; each text posted on #606,
       and closing it. Plan 2: D40's text word for word and its writing under `CLAUDE.md` §6; the plan for writing
-      it; each rule-book change; the answer on #604.
+      it; each rule-book change; the answer on #604. Given on 2026-11-17: the plan for writing it, and the two
+      yeses for D40's text (plan 3, below).
+  - **Plan 3, writing D40 (2026-11-17):** "I approve plan 3, the plan for writing D40." Its last line, what
+    the approval authorizes: "After your two yeses: the records pull request that writes D40 and the four lines into
+    `DECISIONS.md` exactly as you approve them, with `ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` and
+    `docs/deadlines.md` brought into line. My read of the draft file, `d40-draft-2026-11-17.md` in
+    `pm-private\engine-phase-2026-11\from-pen\`, to take that text. The check of the pull request by a fresh
+    context, which reads the pull request, `main` and that one draft file, and nothing else private. If you name
+    changes first: my changed copy of the draft, saved beside it under its date, which then stands for the file
+    named here; and the same read of the four agreed files and that draft, by the one checking context plan 2
+    named, to check it. The merge with CI green, while you are present. The close after it. And my draft of the
+    answer on #604, a pointer to D40 on `main` with the draft file's name and date and no other private text. And
+    nothing on the line above."
+    - **The Operator's changes and answers before their yes (2026-11-17).** Three changes to the draft, made
+      in the changed copy `d40-draft-2026-11-17-b.md` and read by the same checking context: in point 19 and
+      the line under D31, "my yes to D40 is my word for the weekly build over the named paths only, and no
+      more"; the rule itself in 13n; the `ROADMAP.md` slot in point 15. Their answers: "Keep D40 as one entry;
+      do not split it at point 13."; "Keep the first of the five suggestions by its title only."; "I accept
+      your readings of my two clarifications of 2026-11-14, in 13m and 13o."; "On the three places where two
+      texts pull apart, I accept what you propose: the answer on #604 is a pointer to D40 on main; each action
+      keeps its own gate; no rule-book line changes by D40 itself."
+    - **The two yeses (2026-11-17).** Asked "Do you approve D40 and its four lines word for word, and writing
+      them under CLAUDE.md §6?", the Operator answered: "Yes. I approve D40 and its four lines word for word, as
+      kept in d40-draft-2026-11-17-b.md, sha256
+      3df85ceb3400e098e7ed9b148eaeae33cd354f2a5aa8a5d8fc06327de7cc8cdb, and I approve writing them under
+      CLAUDE.md §6." The date filled into the text is 2026-11-17, the day of that answer.
+    - **Still to be asked, each when it is reached.** The Operator's yes to the text of the answer on #604,
+      before it is posted. Later, each under its own plan: each rule-book change D40 names, each dated
+      amendment to D40, and each edit to the decision-layer trio.
   - The standing rule's text (approval A), the `DECISIONS.md` writes (approval B), decision C and the merge
     of #607 (2026-11-15, quoted under Done): done, `c7601c0`. The reply on #605: its text (v4) approved
     word for word and posted, 2026-11-15 (quoted under Done). Any change on `Risk_Management` is not
@@ -1204,7 +1252,8 @@ desktop's checkout still has the round 3 branch locally.
     the data budget, "tell me whatever data we need. no budget limit"; IBKR market data, "Yes
     (Recommended)"; the names, "All ~503, trade the top (Recommended)"; the first real trade, "Wait for the
     short-dated menu". The fifth answer is kept off GitHub. Reopening the data track (parked on 2026-09-17) needs
-    a new decision, D40, which the pen drafts for the Operator's yes.
+    a new decision, D40, which the pen drafts for the Operator's yes. D40 is written (2026-11-17) and does not
+    carry these four answers: they stay proposed, not authorized.
   - **D33 point 8, the refresh routine** (a draft; its question answered by D39, 2026-10-17;
     superseded by the routine in `docs/DATA_INVENTORY.md` §C, written by #593, 2026-10-18).
     After a data change in the root, run an `rclone copy`, never a `sync`, of the root to
@@ -1408,6 +1457,8 @@ live count — up from 1087 at audit-viii. A small number of Windows-local
 Theta-tier tests skip/flake off the laptop; they are not engine defects.
 
 ## 3. Work in progress
+
+**Since D40 (2026-11-17):** Track A's park has ended; §0 A and §0 B above carry the order of work.
 
 **As of 2026-09-17.** The order of work is ruled in
 `docs/RESTART_PLAN_2026-09-16.md` §1 (Track F structure pass, then Track E

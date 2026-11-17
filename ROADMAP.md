@@ -23,16 +23,29 @@ at its owning doc; the Execution Prompts are in `docs/RESTART_PLAN_2026-09-16.md
 Order (revised 2026-09-17): F and E now, A when a subscription is chosen, then B
 (A and B share one re-baseline), then C; D once A is live.
 
+Changed by `DECISIONS.md` D40 (2026-11-17): Track A's park ends, with no source named.
+The order of work is D40 point 1: the sample, if the Operator chooses one, and their
+vendor pick; then the fixes and the new pullers; the first update; then the history
+the tests need. Each step waits for the Operator's own yes, and D40 itself buys
+nothing and pulls nothing. The join of the three rankers is Track B's first step and
+carries the one re-baseline (D40 point 9).
+
 | Track | Item | Status | Owning doc |
 |---|---|---|---|
-| **F** | **Repository structure and efficiency pass** — the Operator rules row by row on the candidate table (advisors, ml, studies, src remnants, dormant engine modules, TradingView MCP workspace, docs mass) and on the wheel_runner ranker/ladder unification | `done` 2026-09-17 on PR #524 for every row except the `wheel_runner` unification (excluded by ruling; open as its own campaign). Follow-up candidates in plan §7a. | `docs/RESTART_PLAN_2026-09-16.md` §7a |
-| **A** | **Data without Bloomberg** — provider census, pullers writing the same connector schemas, `scripts/refresh_data.py`; IV-history source is the Operator's subscription call | `parked` until a subscription is chosen (2026-09-17) | `docs/RESTART_PLAN_2026-09-16.md` §3 |
-| **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline; delta target deferred (keep 0.25 until ruled) | `next` after A | plan §4 |
+| **F** | **Repository structure and efficiency pass** — the Operator rules row by row on the candidate table (advisors, ml, studies, src remnants, dormant engine modules, TradingView MCP workspace, docs mass) and on the wheel_runner ranker/ladder unification | `done` 2026-09-17 on PR #524 for every row except the `wheel_runner` unification (excluded by ruling; open as its own campaign). Follow-up candidates in plan §7a. D40 point 9 (2026-11-17) lifts that exclusion: the join is Track B's first step. | `docs/RESTART_PLAN_2026-09-16.md` §7a |
+| **A** | **Data without Bloomberg** — provider census, pullers writing the same connector schemas, `scripts/refresh_data.py`; IV-history source is the Operator's subscription call | reopened by D40 (2026-11-17), with no source named. It waits for the sample, if chosen, and the vendor pick, each on the Operator's yes; then the fixes, the new pullers and the first update. "Writing the same connector schemas" is replaced by D40 point 19: new files keep the columns, and the reader changes. Parked from 2026-09-17 until then | `DECISIONS.md` D40; `docs/RESTART_PLAN_2026-09-16.md` §3 |
+| **B** | **7/14/21/28-day menu + event-aware policy** — menu plumbing → event-conditioned forward distribution + calibration gate → configurable event policy (block \| price) + reviewer rule; re-baseline; delta target deferred (keep 0.25 until ruled) | `next` after A. D40 (2026-11-17): the join is its first step and carries the one re-baseline; the 0.25 delta is kept as the one starting row (point 22); 35, then 45 days are the first longer expiries tested (point 6); the first close rule's test moves here, before the freeze (point 17) | plan §4; `DECISIONS.md` D40 |
 | **C** | **Exit evaluator + post-mortem loop** (D25 adopted; advisory, confirmed 2026-09-17; closes F1) | `next` after B | plan §5 |
 | **D** | **Strategist commentary layer** (macro + micro brief, engine-sourced figures, prose by an API model) | `next` once A is live | plan §6 |
 | **E** | **Protocol v3 adoption** — merge this restart PR (#524, which carries #523 and the Track F cuts; `main` stays unprotected by ruling), docs currency pass (60 stale worklog statuses; audit register and worklist marked shipped; `docs/PRODUCTION_READINESS.md` refresh), campaign issue for Track A | `next` (Operator steps first) | plan §7 |
 | — | **News layer redesign** | `parked` until A–C land | D29 |
-| — | **F4 IV-fallback guard**, D19 exit-cost netting, D21 horizon units, recalibration | folded into Track B's re-baseline | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` |
+| — | **F4 IV-fallback guard**, D19 exit-cost netting, D21 horizon units, recalibration | folded into Track B's re-baseline, which D40 point 9 moves to the join; F3 rides it too | `docs/REBASELINE_D19_D21_RECAL_SCOPE.md` |
+| — | **Whole-book measuring** (D40 point 15): the first new engine work after the fixes | starts on the Operator's "authorize"; reading the account needs its own approved plan | `DECISIONS.md` D40 |
+| — | **The join: one calculator in place of the three rankers** (D40 point 9) | Track B's first step | `DECISIONS.md` D40; plan §4 |
+| — | **The filter numbers** (D40 points 2 and 23) | `open question`: not set yet | `DECISIONS.md` D40 |
+| — | **The freeze** of the settings of each row of the family table (D40 13g and 13r) | before that row's sealed data is opened; the pen records each freeze, and the Operator says yes | `DECISIONS.md` D40 |
+| — | **The company measures** (D40 13k) | each counts only after the test of 13k | `DECISIONS.md` D40 |
+| — | **The later families**: on margin, capped, uncapped (D40 13r) | measured early; ranked one family at a time, only after the same tests | `DECISIONS.md` D40 |
 
 Superseded 2026-09-16: the "Re-baseline session" and "Bloomberg data acquisition"
 rows of the 2026-06-09 queue (no Terminal exists; Track A replaces the pull
@@ -125,9 +138,12 @@ and probably a redesign of the EV path:
 
 - Tick-level order flow / microstructure (Theta v3 doesn't expose it)
 - Auto-execution / broker wiring / OMS / order routing
-- Non-US equities or non-S&P 500 names
+- Non-US equities or non-S&P 500 names. *For names outside the S&P 500: consent recorded in D40
+  (points 7 and 8): measured early, ranked only after the same tests; `OPERATING_MODEL.md` §9.3
+  keeps its lines until its own text changes.*
 - Non-wheel strategies beyond short puts + covered calls + strangles
-  (timing-gated)
+  (timing-gated). *Consent recorded in D40 (points 7 and 8): measured early, ranked only after
+  the same tests; `OPERATING_MODEL.md` §9.3 keeps its lines until its own text changes.*
 - Anything that overrides `EVEngine.evaluate` (see `DECISIONS.md` D1)
 
 ---

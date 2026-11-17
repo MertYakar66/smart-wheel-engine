@@ -1,0 +1,200 @@
+---
+id: dated-copies-script
+title: The weekly dated copies script, its tests and its page
+kind: feature
+status: in-flight
+terminal: remote-sandbox
+pr:
+decisions: [D29]
+date: 2026-11-17
+headline: scripts/copy_dated_sources.py takes the weekly dated copy that D29's amendment of 2026-11-17 allows; its tests use a fake fetch, no network and no data; no copy has been taken yet
+surface: [scripts/copy_dated_sources.py, tests/test_copy_dated_sources.py, docs/DATED_COPIES.md, FILE_MANIFEST.md, TESTING.md, CHANGELOG.md]
+---
+
+## Goal
+
+The Operator wants a dated copy, taken once a week, of the official economic
+release schedules and of the S&P 500 members list, without touching any file
+the engine or its scripts read (`DECISIONS.md` D29, "Amended on 2026-11-17
+(ruling 8)"). This run is the third step of the plan the Operator approved on
+2026-11-17: it builds the script that takes the copy, its tests and the pen's
+page. It takes no copy itself. It fetched none of the sources and opened no
+data; it ran in a cloud session, which holds no data root.
+
+## What we tried
+
+One approach, the one the Execution Prompt specified.
+
+- **Standard library only.** `pyproject.toml` lists neither `requests` nor an
+  HTML parser, and the run may add no dependency. The script uses `urllib`,
+  `html.parser` and `csv`.
+- **One function is one HTTP request.** `fetch_once` sends one GET. `urllib`
+  follows redirects by itself, so its redirect handler is replaced by one that
+  refuses, and each redirect comes back to the script as an answer. The script
+  then decides: https only, the same host or its `www` form, at most three.
+- **Create-only files.** Every file is opened with mode `xb` (the log with
+  `x`). The bytes are written as served, and an existing file cannot be opened
+  for writing even by mistake.
+- **A fake in place of the network.** The tests pass `main` a fake fetch
+  function and a fixed clock. `SWE_DATA_ROOT` is removed before each test and
+  set only to a temporary folder, and a socket that tries to connect fails the
+  test.
+
+## What worked
+
+- The real request function is tested inside `urllib`'s own machinery without a
+  socket: a canned HTTPS handler answers in place of the network. That proves
+  one GET goes out with our User-Agent and a 30-second timeout, that `urllib`
+  does not follow a 301, 302, 303, 307 or 308 by itself, that an error status
+  comes back as an answer and not as an exception, and that a real run, which
+  hands in no opener, gets the one that follows nothing.
+- "It opens no other file under the data root" is proved with Python's audit
+  events. A child process runs the script three times on a temporary root and
+  records every `open`, folder listing, `mkdir`, rename and removal, run by
+  run. The second run finds every copy already saved and only reads them. The
+  third builds the table again from the saved page.
+- The page `docs/DATED_COPIES.md` was taken byte for byte from the prompt as
+  delivered. Its sha256 matches the one the pen gave.
+
+## What didn't
+
+- **The first tests missed one mutation.** The script was broken on purpose in
+  27 ways to see whether the tests notice. 26 were caught. Opening files with
+  `wb` in place of `xb` was not: the "already saved" check comes first, so the
+  mode never mattered in a whole run. A direct test of the create-only write
+  now pins it.
+- **Loading the script by path breaks dataclasses with postponed annotations.**
+  `from __future__ import annotations` makes `dataclasses` look the module up
+  in `sys.modules`, and a module loaded with `spec_from_file_location` is not
+  there unless the loader puts it there. The script does not use that import,
+  and the test registers the module before running it.
+- **The first pushed version (`cfcd339`) had gaps that a fresh context found.**
+  It read the script against the prompt and reported no blocker, two points to
+  fix and several small ones. Each was checked again here before it was acted
+  on. The ones that held, and their fixes:
+  - A run stopped part-way (Ctrl-C, a full disk) wrote no record, so the files
+    it had saved had no status, headers or request time anywhere. The record is
+    now written in a `finally`, with `"finished": false`.
+  - A full disk, or a folder under a file's name, crashed the whole run. Each
+    is now that address's "failed" row, and the run goes on.
+  - The text of an error could reach the screen and the log. After a followed
+    redirect the address asked comes from the server, and `http.client` quotes
+    it in its `InvalidURL` message. Such a failure now prints only the kind of
+    error; the text stays in the record.
+  - `--lists schedules --lists members` copied only the last list and exited 0.
+  - A `Content-Type` naming a codec that is no text encoding (`hex`,
+    `undefined`) crashed the table step after the page was saved.
+  - A table built later from a saved page was always read as UTF-8. It now
+    takes the charset from the earlier run's record of those same bytes.
+  - Port 0 in a redirect counted as port 443. The `.ics` check accepted any
+    mix of byte-order-mark bytes.
+  - The read broke the script on purpose too, and reported twelve breakages
+    that the first tests let through. The worst: the real run's default opener
+    was never exercised, so a version that let `urllib` follow redirects by
+    itself would have passed. Each of the twelve now fails a test.
+- **The pen's check of `1b74bb0` found one more.** After a page's write failed
+  part-way, the table could still be built from the short file left on disk.
+  The table is now built from disk only when the page's row says an earlier
+  run saved it.
+- **A network guard that raises `AssertionError` can be swallowed.** The script
+  turns any `Exception` from the fetch function into a "failed" row. The guard
+  now raises a `BaseException`, so a test that reaches for the network fails
+  outright.
+
+## How we fixed it
+
+`scripts/copy_dated_sources.py`:
+
+- `--lists` (one or both of `schedules`, `members`) and `--date` are required.
+  The root is `SWE_DATA_ROOT`, read directly. Unset or blank: one line, exit 3.
+  A date that is not today's in UTC: one line, exit 5. Both come before
+  anything is fetched or written.
+- `schedules` saves eight files under
+  `data_raw/macro_schedule/date=<copy date>/`. `members` saves
+  `members_page.html` and `members.csv` under
+  `data_raw/sector_dated/date=<copy date>/`.
+- Each run writes `_copy-<HHMMSS>Z.json` beside the copies and
+  `_logs/dated-copies/<copy date>/run-<HHMMSS>Z.log`. Response headers go only
+  into the record.
+- Exit 0 when everything is saved and looks right, 10 when an address was
+  refused, failed or looks wrong.
+
+Points the prompt left open, and what the script does. Each is for the pen to
+accept or re-cut:
+
+1. **A root that is set but is no existing folder** exits 3, like an unset one.
+   The script does not create a data root from a mistyped path.
+2. **Only a 200 answer is saved.** Any other final status is "refused".
+3. **Two runs in the same second** would need the same record and log names.
+   The second refuses with exit 1 before it fetches or writes anything.
+4. **An already saved file** is reported with the size and sha256 of the file
+   found, so a later run's lines can be compared with the first run's.
+5. **A missing `members.csv` beside a page saved earlier that day** is built
+   from the saved page, with the charset the earlier record holds for those
+   bytes, UTF-8 if there is none. If that page holds no such table, the run
+   exits 10 again, although no file was saved in it.
+6. **The heading row is the table's first row.** The text of `<script>` and
+   `<style>` is not cell text. A `<br>` adds no space: tags are removed and
+   nothing is put in their place.
+7. **The `.ics` check allows one byte-order mark and blank space** before
+   `BEGIN:VCALENDAR`.
+8. **A redirect that is not followed** is reported without its target: the
+   target is a response header, and those go only into the record. A redirect
+   to another port, or to an address with a user name, is not followed either.
+9. **A followed redirect's target is percent-quoted** the way `urllib`'s own
+   handler quotes it, so a space or a letter outside ASCII can be sent. The
+   record holds the quoted address.
+10. **`--dry-run` still needs the root and today's date**, since it prints the
+    paths a real run would use.
+11. **The record has two fields the prompt does not name**: `finished`, and for
+    the table `page_read_as`, the charset the page was read with.
+
+## Evidence
+
+All on 2026-11-17, in the cloud session, with `SWE_DATA_ROOT` unset and no
+`data/bloomberg/sp500_ohlcv.csv`.
+
+- `sha256sum docs/DATED_COPIES.md`:
+  `dac627c6760ebbfaabc38e66b0e5a4b4e719e85490f89b83df35d68469b039ae`, 14,079
+  bytes, 181 lines.
+- `python -m pytest tests/test_copy_dated_sources.py -q`: `155 passed` on
+  Python 3.11, 3.12 and 3.13 (`104 passed` at `cfcd339`).
+- `python -m pytest tests/ -m "not backtest_regression" -q -rs`, on Python
+  3.12.3: `3628 passed, 273 skipped, 8 deselected, 6 xfailed` (`3577 passed`
+  at `cfcd339`). 66 skips are the `requires_data` marker's ("no data root"). Nearly all the others name absent data; 12 name the Theta terminal,
+  one is Windows-only and one needs rclone.
+- `ruff check` and `ruff format --check` on `engine/ data/ tests/ scripts/
+  utils/ dashboard/ backtests/regression/`: `All checks passed!` and `372 files
+  already formatted` (ruff 0.17.5).
+- `python scripts/copy_dated_sources.py --lists schedules --date 2000-01-01`
+  with `SWE_DATA_ROOT` unset: one line, exit 3.
+- `python scripts/check_manifest_coverage.py`, `python
+  scripts/gen_worklog_index.py --check`, `python
+  scripts/check_working_structure.py` and `python
+  scripts/check_doc_currency.py`: all pass.
+- The mutation check: 56 deliberate breakages of the script, one at a time, on
+  a scratch copy outside the repository. The tests fail on all 56.
+
+## Unresolved / handoff
+
+- **Nothing here has met a real site.** The addresses for BEA's ICS and JSON
+  files and the five marker words are the pen's, unverified until the first
+  copy. A wrong marker only flags a file. A site may also refuse a client that
+  is not a browser; the script then reports the status and saves nothing for
+  that address.
+- **A body served compressed** would be saved as served and would fail its
+  light check. `urllib` asks for no compression, so this needs a server that
+  ignores the request.
+- **A write that fails part-way leaves a short file under the copy's name.**
+  The run reports it as failed and exits 10, and the script never deletes. A
+  later run that day would report that file as already saved. Proposed
+  follow-up, for the pen to decide: have a later run flag an existing file
+  that no earlier record lists with the same sha256.
+- **A copy folder that is a link to another folder** is written through. The
+  write guard compares paths as written and does not resolve links.
+- **The 30 seconds are for each socket step**, not for a whole answer, and an
+  answer has no size limit.
+- **The first copy** is the desktop run in `docs/DATED_COPIES.md`. It runs this
+  test file on Windows first, with `SWE_DATA_ROOT` unset for that one command.
+  The tests were run here on Linux only.
+- The pen sets this fragment's `status` and `pr` at the merge.

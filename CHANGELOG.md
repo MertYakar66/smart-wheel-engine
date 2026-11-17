@@ -14,6 +14,16 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-17 — the first weekly dated copy (desktop)
+
+**Docs** — `docs/worklog/dated-copy-2026-11-17-the-first-weekly-dated-copy-2026-11-17.md`, the record of
+the first weekly dated copy (D29, amended 2026-11-17), copy date 2026-11-17, list `schedules`. Six of the
+eight release-schedule files are saved under the data root in `data_raw/macro_schedule/date=2026-11-17/`
+and copied to `swe-data/`, the same both ways by checksum; the fragment gives each file's name, size and
+sha256. BLS refused both of its addresses (HTTP 403), so there is no BLS copy for this date. The manifest's
+144 files kept their sizes and `data_raw/sp500_constituents_current.csv` kept its sha256. No re-hash and no
+`build` ran. The script's test file passed on Windows for the first time: 155 passed.
+
 ## 2026-11-17 — the close after #613 and #614 (desktop)
 
 **Docs** — `PROJECT_STATE.md`: `main` at `8037636`; the copy script (#613) and D40 (#614) recorded under Done,

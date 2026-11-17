@@ -14,6 +14,18 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-17 — the weekly dated copies: the script, its tests and its page (remote sandbox)
+
+**Added** — `scripts/copy_dated_sources.py`, the script that takes the weekly dated copy D29's amendment of
+2026-11-17 allows, with `tests/test_copy_dated_sources.py` and the pen's page `docs/DATED_COPIES.md`. It
+saves, as served, the eight release-schedule files and, once released, the S&P 500 members page with
+`members.csv` built from it, each under its copy date in the data root. It has no default list, refuses
+without `SWE_DATA_ROOT` (exit 3) or on a date that is not today's in UTC (exit 5), never writes over a file,
+follows a redirect only over https to the same host or its `www` form, names itself by the repository and
+never as a browser, and uses only the standard library. No copy has been taken yet: this run fetched none of
+the sources and opened no data. The tests use a fake fetch function, hand-made pages and a temporary root:
+104 pass with no network and no data, on Python 3.11, 3.12 and 3.13.
+
 ## 2026-11-17 — D29 amended: the weekly dated copies (desktop)
 
 **Docs** — `DECISIONS.md`: D29 amended on the Operator's word-for-word yes. One exception to ruling 8 before

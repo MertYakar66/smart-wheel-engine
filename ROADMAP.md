@@ -26,8 +26,8 @@ Order (revised 2026-09-17): F and E now, A when a subscription is chosen, then B
 Changed by `DECISIONS.md` D40 (2026-11-17): Track A's park ends, with no source named.
 The order of work is D40 point 1: the sample, if the Operator chooses one, and their
 vendor pick; then the fixes and the new pullers; the first update; then the history
-the tests need. Each step waits for the Operator's own yes, and D40 itself buys
-nothing and pulls nothing. The join of the three rankers is Track B's first step and
+the tests need. The sample, the vendor pick and each fix wait for the Operator's own
+yes, and D40 itself buys nothing and pulls nothing. The join of the three rankers is Track B's first step and
 carries the one re-baseline (D40 point 9).
 
 | Track | Item | Status | Owning doc |
@@ -44,7 +44,7 @@ carries the one re-baseline (D40 point 9).
 | — | **The join: one calculator in place of the three rankers** (D40 point 9) | Track B's first step | `DECISIONS.md` D40; plan §4 |
 | — | **The filter numbers** (D40 points 2 and 23) | `open question`: not set yet | `DECISIONS.md` D40 |
 | — | **The freeze** of the settings of each row of the family table (D40 13g and 13r) | before that row's sealed data is opened; the pen records each freeze, and the Operator says yes | `DECISIONS.md` D40 |
-| — | **The company measures** (D40 13k) | each counts only after the test of 13k | `DECISIONS.md` D40 |
+| — | **The company measures** (D40 point 9) | each counts only if it meets the four conditions of D40 13k | `DECISIONS.md` D40 |
 | — | **The later families**: on margin, capped, uncapped (D40 13r) | measured early; ranked one family at a time, only after the same tests | `DECISIONS.md` D40 |
 
 Superseded 2026-09-16: the "Re-baseline session" and "Bloomberg data acquisition"
@@ -139,8 +139,8 @@ and probably a redesign of the EV path:
 - Tick-level order flow / microstructure (Theta v3 doesn't expose it)
 - Auto-execution / broker wiring / OMS / order routing
 - Non-US equities or non-S&P 500 names. *For names outside the S&P 500: consent recorded in D40
-  (points 7 and 8): measured early, ranked only after the same tests; `OPERATING_MODEL.md` §9.3
-  keeps its lines until its own text changes.*
+  (points 7 and 8): names on the Operator's private list are measured, and ranked only after the
+  same tests; `OPERATING_MODEL.md` §9.3 keeps its lines until its own text changes.*
 - Non-wheel strategies beyond short puts + covered calls + strangles
   (timing-gated). *Consent recorded in D40 (points 7 and 8): measured early, ranked only after
   the same tests; `OPERATING_MODEL.md` §9.3 keeps its lines until its own text changes.*

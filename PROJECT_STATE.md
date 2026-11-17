@@ -219,9 +219,9 @@ desktop's checkout still has the round 3 branch locally.
   - main expiries of 7, 14, 21 and 28 days, the longest 45; every expiry, the main ones included,
     joins the menu only after a test set in advance and the Operator's signature (D40 points 6 and
     13, in place of D29 ruling 5's "at most 28 days");
-  - the names are the S&P 500 plus SPY and QQQ; names on the Operator's private list, and trades
-    beyond the wheel, are measured early and ranked only after the same tests (D40 point 7, the
-    Operator's consent);
+  - the names are the S&P 500 plus SPY and QQQ; names on the Operator's private list are measured,
+    and trades beyond the wheel are measured early; both are ranked only after the same tests (D40
+    point 7, the Operator's consent);
   - trading close to events, behind a validated event-conditioned distribution
     (Track B);
   - an advisory exit evaluator (Track C);
@@ -234,7 +234,8 @@ desktop's checkout still has the round 3 branch locally.
     new pullers; the first update; then the history the tests need. D40 itself buys nothing and
     pulls nothing. The Theta
     subscription is no longer active. Theta will be collected again from the
-    beginning, from a source chosen once the repository structure is settled.
+    beginning, from a source not yet chosen: D40 names none, and its point 19 replaces the earlier
+    condition that the repository be settled first.
   - Every dataset lives on the Operator's desktop under `SWE_DATA_ROOT`, and git
     holds none. Google Drive becomes the complete second copy, one folder
     `swe-data/` laid out like the root (D33). The MacBook is outside the data
@@ -931,10 +932,10 @@ desktop's checkout still has the round 3 branch locally.
       Next: the check of that pull request by a fresh context; the merge with CI green, while the Operator
       is present; the close; then the answer on #604, a pointer to D40 on `main`, whose text comes to the
       Operator for their yes before it is posted.
-    - **After D40.** D40 itself buys nothing, pulls nothing and builds nothing. Next in its order of work,
-      each on the Operator's own yes: the paid talk's choices, the sample, if one is chosen, and the vendor
-      pick; then the fixes and the new pullers, each in its own run; the first update; the history the tests
-      need. Whole-book measuring starts on the Operator's "authorize". The rule-book lines D40 names change
+    - **After D40.** D40 itself buys nothing, pulls nothing and builds nothing. Next in its order of work:
+      the paid talk's choices, the sample, if one is chosen, and the vendor pick, each the Operator's own;
+      then the fixes, each in its own run with the approval D40 point 3 names, and the new pullers; the
+      first update; the history the tests need. Whole-book measuring starts on the Operator's "authorize". The rule-book lines D40 names change
       later, each by its own text on the Operator's word-for-word yes.
     - **Limits both plans carry.** No agent opens a file in the data root beyond what plan 1's last line names
       (Authorized, below). The session-start hook and the mark still read the price and IV files' dates
@@ -1089,8 +1090,9 @@ desktop's checkout still has the round 3 branch locally.
       and closing it. Plan 2: D40's text word for word and its writing under `CLAUDE.md` §6; the plan for writing
       it; each rule-book change; the answer on #604. Given on 2026-11-17: the plan for writing it, and the two
       yeses for D40's text (plan 3, below).
-  - **Plan 3, writing D40 (2026-11-17):** "I approve plan 3, the plan for writing D40." Its last line, what
-    the approval authorizes: "After your two yeses: the records pull request that writes D40 and the four lines into
+  - **Plan 3, writing D40 (2026-11-17):** asked "Do you approve plan 3, the plan for writing D40?", the
+    Operator answered "I approve plan 3, the plan for writing D40." Its last line, what the approval
+    authorizes: "After your two yeses: the records pull request that writes D40 and the four lines into
     `DECISIONS.md` exactly as you approve them, with `ROADMAP.md`, `PROJECT_STATE.md`, `CHANGELOG.md` and
     `docs/deadlines.md` brought into line. My read of the draft file, `d40-draft-2026-11-17.md` in
     `pm-private\engine-phase-2026-11\from-pen\`, to take that text. The check of the pull request by a fresh
@@ -1100,14 +1102,14 @@ desktop's checkout still has the round 3 branch locally.
     named, to check it. The merge with CI green, while you are present. The close after it. And my draft of the
     answer on #604, a pointer to D40 on `main` with the draft file's name and date and no other private text. And
     nothing on the line above."
-    - **The Operator's changes and answers before their yes (2026-11-17).** Three changes to the draft, made
-      in the changed copy `d40-draft-2026-11-17-b.md` and read by the same checking context: in point 19 and
-      the line under D31, "my yes to D40 is my word for the weekly build over the named paths only, and no
-      more"; the rule itself in 13n; the `ROADMAP.md` slot in point 15. Their answers: "Keep D40 as one entry;
-      do not split it at point 13."; "Keep the first of the five suggestions by its title only."; "I accept
-      your readings of my two clarifications of 2026-11-14, in 13m and 13o."; "On the three places where two
-      texts pull apart, I accept what you propose: the answer on #604 is a pointer to D40 on main; each action
-      keeps its own gate; no rule-book line changes by D40 itself."
+    - **The Operator's changes and answers before their yes (2026-11-17), in the pen's words.** Three changes
+      to the draft, made in the changed copy `d40-draft-2026-11-17-b.md` and read by the same checking
+      context: point 19 and the line under D31 say that the Operator's yes to D40 is their word for the
+      weekly `build` over the named paths only; 13n states the rule itself; point 15 names the `ROADMAP.md`
+      slot. The Operator also settled four points the pen had put to them: D40 stays one entry; the first of
+      the five suggestions is named by its title only; the readings in 13m and 13o are accepted; and, where
+      two approved texts pull apart, the answer on #604 is a pointer to D40 on `main`, each action keeps its
+      own gate, and no rule-book line changes by D40 itself. Their words are on file in the draft's notes.
     - **The two yeses (2026-11-17).** Asked "Do you approve D40 and its four lines word for word, and writing
       them under CLAUDE.md §6?", the Operator answered: "Yes. I approve D40 and its four lines word for word, as
       kept in d40-draft-2026-11-17-b.md, sha256

@@ -1,6 +1,9 @@
 # Project State
 
-**Last updated:** 2026-11-15 (the reply on #605 posted, on the Operator's word-for-word yes to its text (v4),
+**Last updated:** 2026-11-17 (close after #611, `main` at `6e33373`: D29 amended on the Operator's word-for-word
+yes, the weekly dated copies as an exception before D40 (#606); the Operator approved two plans, for #606 and
+for #604's D40 draft; the Portfolio Manager handoff recorded done. Earlier, 2026-11-15: the reply on #605 posted,
+on the Operator's word-for-word yes to its text (v4),
 and read back from GitHub byte for byte; `main`'s content unchanged since `c7601c0`, its head the close
 merge `7b0a0f8` (#608). Earlier the same day: close after #607, `main` at `c7601c0`: the Operator's
 standing rule for every agent adopted in the engine as an amendment of D32 (#605), approved word for word, with the `DECISIONS.md`
@@ -190,8 +193,8 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `c7601c0` (2026-11-15). Others on `origin`:
-- `claude/project-restart-ai-agents-kot5jr`, the pen's branch, while a close is open.
+**Branches:** `main` is at `6e33373` (2026-11-17). Others on `origin`:
+- `claude/close-611`, the pen's branch for this close, while it is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
 `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and `data/drive-migration`.
@@ -685,6 +688,27 @@ desktop's checkout still has the round 3 branch locally.
     - **Checks.** In each round, a context that did not write the text checked the corrections against the
       rule in `CLAUDE.md` and found nothing private. The checksum was verified before posting, and the
       comment read back from GitHub has the same sha256.
+- **D29 amended: the weekly dated copies, an exception before D40 (#611, merged as `6e33373`, 2026-11-17).** It
+  answers the first part of #606. No copy has been taken yet.
+  - **What it is.** One exception to ruling 8, written at the end of D29, with pointers under D29's, D31's and
+    D33's headings and one line in `docs/DATA_INVENTORY.md` §C. Once a week, a dated copy, as served, of the
+    official economic release schedules and, once the Operator releases it, of the S&P 500 members list. An
+    Executor on the desktop runs it, attended, under the pen's prompt. Each copy goes to `swe-data/` and is
+    checked by checksum. The routine's whole-root re-hash, and any manifest `build`, do not run for this job
+    until the Operator says so. Each copy run opens one small record pull request.
+  - **Approvals (2026-11-17).** The plans: "I approve plan 1 (the weekly dated copies, as an exception before
+    D40) and plan 2 (D40's draft, read and draft only), as rewritten." The texts: asked "Do you approve texts 1
+    to 5 word for word, and writing them under CLAUDE.md §6?", the Operator answered "Yes. I approve texts 1 to 5
+    word for word, in the version you showed me in your last message and keep as exception-version-b2.md. I also
+    approve, under CLAUDE.md §6, writing texts 1, 2, 3 and 5 into DECISIONS.md, with text 4 going into
+    docs/DATA_INVENTORY.md." The approved file's sha256 is
+    `b49b1a64f5458900e703d80759088f9a174d71741ad728e470651d5201a899c6`; it is kept outside the repository.
+  - **Checks.** Before the yes, contexts that did not write the texts checked them in several passes against
+    #606, D29, D31, D33, D39 and the two data documents, and one of them checked the quotation of the Operator's
+    "Approve" against the words file. The last passes found nothing blocking and nothing left to fix. A context
+    that did not write #611 checked it on GitHub against the approved file (PR #611 comment 6945440124): the five
+    texts match byte for byte, ten lines are added and nothing else is changed. All nine CI checks passed, and
+    the pen merged on the pinned head `c0e421d`.
 - **Remains.**
   1. **Desktop card 2, copy and prove.** Nothing is deleted. Confirmed on
      2026-09-26, after Codex's review ("agree with changes"; the pen checked each
@@ -878,10 +902,26 @@ desktop's checkout still has the round 3 branch locally.
      whole root, `_logs/` included, matched `swe-data/` both ways by MD5 (next action 1).
   7. **Card 2d's addendum**: done in #565 (above).
 - **Next action.**
-  - **Now (2026-11-15), each waiting on the Operator:** the Portfolio Manager handoff (PM13 on
-    `Risk_Management`, by that branch's own process, on the Operator's relay); the open pm-requests #604
-    (D40's draft) and #606 (the weekly dated copies), each to be taken through the standing rule. The reply
-    on #605 is posted (Done).
+  - **Now (2026-11-17).**
+    - **The Portfolio Manager handoff is done.** PM13 is recorded on `Risk_Management`: #610 merged there on
+      2026-11-16 as `22dc437`. The Operator corrected this record on 2026-11-16, relayed by another pen session
+      ("the PM13 handoff is done"), and the pen read #610 on GitHub. The reply on #605 is posted (Done).
+    - **Plan 1, the weekly dated copies (#606), approved 2026-11-17.** Done: the exception (#611, above). Next,
+      in order: the copy script, built by a cloud Executor under the pen's prompt (`scripts/copy_dated_sources.py`,
+      its tests and `docs/DATED_COPIES.md`, which holds the weekly prompt); the first copy, a desktop run after
+      the Operator's Drive sign-in and go-ahead, with its own record pull request; then one run a week, each on
+      the Operator's "authorize the weekly copy". The release schedules start with the first copy. The members
+      list waits for the Operator's reading of the licence points on #606 and starts on their word. #606 stays
+      open until both lists have a first copy.
+    - **Plan 2, D40's draft (#604), approved 2026-11-17: read and draft only.** Done: the four files #604 names
+      match its sha256s and are read. Next: the check of their public facts on `main`; the draft, in chat and in
+      one dated file in the PM/RE's private folder; a check by a context that did not write it; then the draft
+      and a short plan for writing it go to the Operator. Nothing of the draft is in the repository or on GitHub.
+    - **Limits both plans carry.** No agent opens a file in the data root beyond what plan 1's last line names
+      (Authorized, below). The session-start hook and the mark still read the price and IV files' dates
+      (`CLAUDE.md` §2). The Operator ruled on 2026-11-17: "The design's public-text rule governs." So the
+      public-text rule of the design's section 20, which #604's part two names, governs what the pen puts on any
+      public surface.
   1. D39 (2026-10-17, amended 2026-10-18): points 1 and 2 are done and checked.
      - D39's card (#588, `534fb04`, 2026-10-17) brought the day-bot's `_local_archive/data_raw`
        home and into `swe-data/`: 1,725 files and 34,816,381 B, card 1's plan; its 1,581
@@ -963,7 +1003,8 @@ desktop's checkout still has the round 3 branch locally.
      - not done: the rehearsal by hand and the credential file's "Delete forever";
      - not done: the recount, the baseline, the trash by hand and the check; the undo-window row
        never opened.
-  3. The next-phase plan (Proposed): its questions answered on 2026-10-19; D40 waits to be drafted.
+  3. The next-phase plan (Proposed): its questions answered on 2026-10-19; D40 is being drafted under plan 2
+     (above).
   4. **Drive folders: done 2026-10-12.** At the Operator's request ("everything related
      to smart wheel engine will not be on the very first page of my drive"), the Operator
      moved `swe-data/`, `swe-local-only/` and `smart-wheel-engine/` into
@@ -997,6 +1038,36 @@ desktop's checkout still has the round 3 branch locally.
   gone before the trash baseline. The Flex token is due before the Dashboard's next `update`,
   which pulls Flex.
 - **Authorized.**
+  - **Plan 1 and plan 2 (2026-11-17):** "I approve plan 1 (the weekly dated copies, as an exception before D40)
+    and plan 2 (D40's draft, read and draft only), as rewritten." The request, relayed word for word by another
+    pen session on 2026-11-16: "Separately, and not part of this plan: I want #604 (D40's draft) and #606 taken
+    through the standing rule now. Tell me whether this session or a fresh one should do it, and bring me that
+    plan next."
+    - **Plan 1's last line, what the approval authorizes:** "The draft of the exception in this chat, and its
+      check. After your two yeses: the records pull request and its merge with CI green. The script's change run
+      in a cloud Executor session, its check, and its merge with CI green. Neither the run nor its check opens
+      any data. One desktop run. Before it asks for your go-ahead it runs the script's own test file, which opens
+      no data. After your go-ahead it tests the Drive sign-in with a read-only call. It fetches the public pages
+      of the lists you have released. It writes the new copy folders (`data_raw/macro_schedule/` and, once
+      released, `data_raw/sector_dated/`) and `_logs/` in the root, and copies them to `swe-data/` through rclone,
+      by copy only. In the rest of the data root it opens one file, `data_raw/sp500_constituents_current.csv`, to
+      take its sha256, and reads the sizes of the manifest's 144 files. That run's record pull request, which
+      publishes the copy date, file names, sizes and sha256s; its check by a fresh context, which reads the pull
+      request, the new copy folders and the run's logs, and nothing else in the data root; and its merge with CI
+      green. Only on your yes to the re-hash: that pass, the rebuilt `SHA256SUMS`, and its replacement in
+      `swe-data/`, as the routine's items 1 and 3 say. The same run each later week, only on your "authorize the
+      weekly copy". The close after each merge. And nothing on the line above."
+    - **Plan 2's last line:** "My read of four files in `pm-private\engine-phase-2026-11\for-pen\`, after
+      checking their sha256s against the values on the request: `engine-design-revised.md`,
+      `engine-data-list-revised.md` and `words-2026-11-05.md` (named on the request on 2026-11-06), and
+      `amendment-2026-11-14.md` (named on 2026-11-14). The same read by one fresh checking context. Read-only
+      checks against `main` and public pages. D40's draft and the list of other changes, in this chat and in one
+      dated file in a new folder, `pm-private\engine-phase-2026-11\from-pen\`. And nothing on the line above."
+    - **The exception's texts and their writing** (2026-11-17, quoted under Done): done, #611.
+    - **Still to be asked, each when it is reached.** Plan 1: the Operator's word for the whole-root re-hash or a
+      `build`; their word releasing the members list; each Drive sign-in and go-ahead; each text posted on #606,
+      and closing it. Plan 2: D40's text word for word and its writing under `CLAUDE.md` §6; the plan for writing
+      it; each rule-book change; the answer on #604.
   - The standing rule's text (approval A), the `DECISIONS.md` writes (approval B), decision C and the merge
     of #607 (2026-11-15, quoted under Done): done, `c7601c0`. The reply on #605: its text (v4) approved
     word for word and posted, 2026-11-15 (quoted under Done). Any change on `Risk_Management` is not
@@ -1112,6 +1183,12 @@ desktop's checkout still has the round 3 branch locally.
     The pen wrote the rule-book text; an Executor wrote `scripts/session_open.py`'s branch rule, the tests
     and the label, in the same PR. Merged as #580 (`e042f5b`).
 - **Proposed, not authorized.**
+  - **From #611's check:** `docs/DATA_POLICY.md` §6 and §8 carry no pointer to D29's amendment of 2026-11-17,
+    which names a departure from each. Add one when that document is next changed; its own tables wait for D40.
+  - **Found while planning the weekly copies:** the session-start hook reads the data root at every session
+    start (the price file's dates and the sizes of the price and IV files; it also tries the Theta run manifest
+    and the engine's connector). Whether it should is the Operator's to say; changing it is an environment
+    change (`CLAUDE.md` §6).
   - `OPERATING_MODEL.md` Leg 4 still says "Nothing private goes on an issue", narrower than `CLAUDE.md` step 9
     and D38 point 2. Widen it to every GitHub surface in the next rule-book pass, with the Operator's yes.
   - **From #565's checks, for the next kits and cards:**

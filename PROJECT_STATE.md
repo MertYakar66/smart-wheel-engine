@@ -976,9 +976,10 @@ desktop's checkout still has the round 3 branch locally.
       ("the PM13 handoff is done"), and the pen read #610 on GitHub. The reply on #605 is posted (Done).
     - **Plan 1, the weekly dated copies (#606), approved 2026-11-17.** Done: the exception (#611), the copy
       script (#613) and the first copy (#616), all above. Next: one run a week, each on the Operator's
-      "authorize the weekly copy", after a Drive sign-in that is still in force (`docs/deadlines.md`). Open with
-      the Operator: whether and how to get BLS's two files, which the job as it names itself cannot fetch; a
-      change to how the job names itself needs a dated line under D29's amendment. The text for #606 on the
+      "authorize the weekly copy", after a Drive sign-in that is still in force (`docs/deadlines.md`). BLS
+      refused both addresses on 2026-11-17. The Operator accepted that day's copy without the two BLS files,
+      with no second automated attempt, and asked for a plan before the next weekly copy; neither the script
+      nor the job's name changes before they approve it. The text for #606 on the
       first copy (its date, file names, sizes and sha256s) comes to the Operator for their yes before it is
       posted. The members list waits for the Operator's reading of the licence points on #606 and starts on
       their word. #606 stays open until both lists have a first copy.
@@ -1149,8 +1150,9 @@ desktop's checkout still has the round 3 branch locally.
   - **The first copy, under plan 1 (2026-11-17).** The Operator: "Yes, prepare the first weekly copy for today.
     Fill the first-copy prompt, have it checked, and tell me when to sign in to Drive." Asked "Shall I start the
     desktop Executor with the checked first-copy prompt?", they answered "Yes, start it". Asked "Your Drive
-    sign-in is made. Go?", they answered "Go". Done: #616, above. Each later week still needs their "authorize
-    the weekly copy".
+    sign-in is made. Go?", they answered "Go". Done: #616, above. Asked "Accept today's copy without the two
+    BLS files?", they answered: "Yes. I accept today's copy without the two BLS files. No second automated
+    attempt today." Each later week still needs their "authorize the weekly copy".
   - **Plan 3, writing D40 (2026-11-17):** asked "Do you approve plan 3, the plan for writing D40?", the
     Operator answered "I approve plan 3, the plan for writing D40." Its last line, what the approval
     authorizes: "After your two yeses: the records pull request that writes D40 and the four lines into
@@ -1300,11 +1302,16 @@ desktop's checkout still has the round 3 branch locally.
 - **Proposed, not authorized.**
   - **From the first weekly copy (#616), proposed follow-up work (not done):**
     - the run's record keeps the sites' response headers whole, and some set an anonymous-visitor cookie; a
-      script change should leave such values out of the record. None is a credential, and none is on GitHub;
-    - BLS: find out what it asks of an automated reader, then put the choice to the Operator;
-    - the weekly prompt in `docs/DATED_COPIES.md`: say what to do when an address is refused, and which fields
-      of the run's record may be published; write each wrapped command so that it cannot be pasted in two
-      halves (step e's filter command would then leave an empty filter file);
+      script change should leave such values out of the record. None is a credential, and none is on GitHub.
+      The Operator agreed on 2026-11-17 that it should be fixed, and asked for it as a plan;
+    - BLS: a plan under the standing rule, before the next weekly copy, as the Operator asked on 2026-11-17:
+      what BLS asks of an automated reader and where that is written, and the options with what each needs
+      from the Operator. The job never uses a browser's User-Agent;
+    - the weekly prompt in `docs/DATED_COPIES.md`: keep its rule for a refused address as it is, record it and
+      go on, with no second attempt, and add only that a refusal is brought to the Operator the same day (the
+      Operator, 2026-11-17); say which fields of the run's record may be published; write each wrapped
+      command so that it cannot be pasted in two halves (step e's filter command would then leave an empty
+      filter file);
     - one Census address ends in `-2026`, and the other page already shows 2027: look at both at the turn of
       the year;
     - on this desktop the mark prints its dash and dots as broken characters in Git Bash; the values are right.

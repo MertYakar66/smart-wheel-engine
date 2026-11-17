@@ -14,6 +14,12 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-17 — the close after #613 and #614 (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `8037636`; the copy script (#613) and D40 (#614) recorded under Done,
+with the checks made; what comes next under plan 1 and plan 3; the follow-ups #613's checks proposed. The
+worklog fragment for #613 is marked merged. The two entries below gain their pull request and commit.
+
 ## 2026-11-17 — D40: the data track reopens (desktop)
 
 **Docs** — `DECISIONS.md`: D40 written on the Operator's word-for-word yes and their `CLAUDE.md` §6 yes. It
@@ -23,7 +29,7 @@ under D2, D29, D31 and D39. `ROADMAP.md`: Track A's status and the order of work
 measuring, the join, the filter numbers, the freeze, the company measures and the later families; two
 out-of-scope lines marked with the consent D40 records. `PROJECT_STATE.md`: the direction, the next action
 and what the Operator authorized. D40 itself buys nothing, pulls nothing and builds nothing, and no other
-rule-book line changes.
+rule-book line changes (#614, `8037636`).
 
 ## 2026-11-17 — the weekly dated copies: the script, its tests and its page (remote sandbox)
 
@@ -36,7 +42,7 @@ follows a redirect only over https to the same host or its `www` form, names its
 never as a browser, and uses only the standard library. No copy has been taken yet: this run fetched none of
 the sources and opened no data. The tests use a fake fetch function, hand-made pages and a temporary root:
 155 pass with no network and no data, on Python 3.11, 3.12 and 3.13. Fast lane, with no data root:
-3628 passed, 273 skipped, 8 deselected, 6 xfailed.
+3628 passed, 273 skipped, 8 deselected, 6 xfailed (#613, `de8603a`).
 
 ## 2026-11-17 — D29 amended: the weekly dated copies (desktop)
 

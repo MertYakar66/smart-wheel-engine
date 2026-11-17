@@ -318,6 +318,8 @@ last card, `_logs/d39-finish/` on the desktop). After any change in the root, fr
    stays in `swe-data/`. It leaves Drive only when it is unnecessary, as its own step with the
    Operator's yes (D39 point 3).
 
+The weekly dated copies (`DECISIONS.md` D29, amended 2026-11-17) do items 2, 4, 5 and 6 over their new folders only. Item 1, and item 3's replacement of `SHA256SUMS`, do not run for them until the Operator says the whole-root re-hash may run: a departure from this routine, named in that amendment.
+
 The last check of the whole root: 2026-10-18, by D39's last card, 150,121 files the same both ways,
 0 on one side only but one known stray file, 0 differ. The run's own `_logs/` folder was copied
 and checked after it. `SHA256SUMS` then listed 149,585 files; its own sha256 is

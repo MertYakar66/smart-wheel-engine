@@ -14,6 +14,13 @@ Format: `Added` / `Changed` / `Fixed` / `Deprecated` / `Docs` /
 
 ---
 
+## 2026-11-17 — the close after #616 (desktop)
+
+**Docs** — `PROJECT_STATE.md`: `main` at `9bb6538`; the first weekly dated copy recorded under Done, with its
+check; what is open with the Operator (BLS's two files, the text for #606); five proposed follow-ups.
+`docs/deadlines.md`: the Drive sign-in row records the read of 2026-11-17, and the data-dates row the first
+copy. The worklog fragment for #616 is marked merged.
+
 ## 2026-11-17 — the first weekly dated copy (desktop)
 
 **Docs** — `docs/worklog/dated-copy-2026-11-17-the-first-weekly-dated-copy-2026-11-17.md`, the record of
@@ -22,7 +29,7 @@ eight release-schedule files are saved under the data root in `data_raw/macro_sc
 and copied to `swe-data/`, the same both ways by checksum; the fragment gives each file's name, size and
 sha256. BLS refused both of its addresses (HTTP 403), so there is no BLS copy for this date. The manifest's
 144 files kept their sizes and `data_raw/sp500_constituents_current.csv` kept its sha256. No re-hash and no
-`build` ran. The script's test file passed on Windows for the first time: 155 passed.
+`build` ran. The script's test file passed on Windows for the first time: 155 passed (#616, `9bb6538`).
 
 ## 2026-11-17 — the close after #613 and #614 (desktop)
 

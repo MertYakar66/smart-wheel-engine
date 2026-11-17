@@ -2,9 +2,9 @@
 id: dated-copy-2026-11-17
 title: The first weekly dated copy, 2026-11-17
 kind: verification
-status: in-flight
+status: merged
 terminal: desktop
-pr:
+pr: 616
 decisions: [D29]
 date: 2026-11-17
 headline: the first weekly dated copy — six of the eight release-schedule files are saved under the data root and in swe-data/, the same both ways by checksum; BLS refused both of its addresses (HTTP 403), so there is no BLS copy for this date

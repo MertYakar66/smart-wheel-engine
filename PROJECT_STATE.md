@@ -1,6 +1,8 @@
 # Project State
 
-**Last updated:** 2026-11-17 (close after #613 and #614, `main` at `8037636`: the weekly copy script merged
+**Last updated:** 2026-11-17 (close after #616, `main` at `9bb6538`: the first weekly dated copy is taken, in
+part: six of the eight release-schedule files are saved and in `swe-data/`, and BLS refused both of its
+addresses. Earlier the same day: close after #613 and #614, `main` at `8037636`: the weekly copy script merged
 (#613), built by a cloud Executor and checked three times, with no copy taken yet; D40 written on the
 Operator's word-for-word yes and their `CLAUDE.md` §6 yes (#614): the data track reopens, with no source
 named; the answer on #604 posted on the Operator's yes. Earlier the same day: close after #611, `main` at
@@ -197,8 +199,8 @@ described here is no longer accurate.
 
 ## 0. Direction, handoff, and the restart record — read this first
 
-**Branches:** `main` is at `8037636` (2026-11-17). Others on `origin`:
-- `claude/close-613-614`, the pen's branch for this close, while it is open.
+**Branches:** `main` is at `9bb6538` (2026-11-17). Others on `origin`:
+- `claude/close-616`, the pen's branch for this close, while it is open.
 
 D31 step 6 deleted the four data branches on 2026-10-09 (#559): `deep-history/bloomberg-raw`,
 `claude/daybot-bloomberg-pull`, `backup/drive-tier-c-2026-07-22` and `data/drive-migration`.
@@ -755,6 +757,26 @@ desktop's checkout still has the round 3 branch locally.
   - **The answer on #604.** Posted on the Operator's yes as comment 6950372586, and read back: a pointer to D40
     on `main`, the draft file's name and date, and D40's point numbers against the issue's parts. It carries no
     text from D40. #604 stays open for the Portfolio Manager to close.
+- **The first weekly dated copy, 2026-11-17 (#616, merged as `9bb6538`).** Plan 1's fourth step.
+  - **What was saved.** Six of the eight release-schedule files: the Federal Reserve's page, BEA's page with
+    its calendar and dates files, and the two Census pages. They are under the data root in
+    `data_raw/macro_schedule/date=2026-11-17/` and in `swe-data/`, the same both ways by checksum. The worklog
+    fragment gives each file's name, size and sha256. The members list is not released, so it was not copied.
+  - **What was not.** BLS refused both of its addresses (HTTP 403), so there is no BLS copy for this date. Both
+    answers came from the delivery network in front of BLS, and no header names a reason; whether the job's
+    User-Agent is the cause is not established.
+  - **How it ran.** A desktop Executor ran the prompt of `docs/DATED_COPIES.md`, filled by script for the date
+    and checked by a fresh context before it was sent. The script's 155 tests passed on Windows for the first
+    time. The run stopped at its gate before anything was fetched or written; asked "Your Drive sign-in is
+    made. Go?", the Operator answered "Go" in the pen's chat, and the pen passed that word on with its question
+    and date. The copy script ran once. The manifest's 144 files kept their sizes and
+    `data_raw/sp500_constituents_current.csv` kept its sha256. No re-hash and no `build` ran.
+  - **Checks.** A context that did not do the run read the pull request and the two new folders on disk (#616,
+    comment 6953233222): names, sizes and sha256s equal the record, file for file; each saved file is the
+    schedule it should be, by a count of its meetings, rows or events, and none is an error or challenge page.
+    CI: 9 of 9.
+  - **Not shown.** Drive itself was read only by the run, so the sign-in test, the copy and its check rest on
+    the Run Summary. The root's `SHA256SUMS` and the manifest do not list the new files, by D29's amendment.
 - **Remains.**
   1. **Desktop card 2, copy and prove.** Nothing is deleted. Confirmed on
      2026-09-26, after Codex's review ("agree with changes"; the pen checked each
@@ -952,12 +974,15 @@ desktop's checkout still has the round 3 branch locally.
     - **The Portfolio Manager handoff is done.** PM13 is recorded on `Risk_Management`: #610 merged there on
       2026-11-16 as `22dc437`. The Operator corrected this record on 2026-11-16, relayed by another pen session
       ("the PM13 handoff is done"), and the pen read #610 on GitHub. The reply on #605 is posted (Done).
-    - **Plan 1, the weekly dated copies (#606), approved 2026-11-17.** Done: the exception (#611) and the copy
-      script (#613), both above. Next, in order: the first copy, a desktop run after
-      the Operator's Drive sign-in and go-ahead, with its own record pull request; then one run a week, each on
-      the Operator's "authorize the weekly copy". The release schedules start with the first copy. The members
-      list waits for the Operator's reading of the licence points on #606 and starts on their word. #606 stays
-      open until both lists have a first copy.
+    - **Plan 1, the weekly dated copies (#606), approved 2026-11-17.** Done: the exception (#611), the copy
+      script (#613) and the first copy (#616), all above. Next: one run a week, each on the Operator's
+      "authorize the weekly copy", after a Drive sign-in that is still in force (`docs/deadlines.md`). BLS
+      refused both addresses on 2026-11-17. The Operator accepted that day's copy without the two BLS files,
+      with no second automated attempt, and asked for a plan before the next weekly copy; neither the script
+      nor the job's name changes before they approve it. The text for #606 on the
+      first copy (its date, file names, sizes and sha256s) comes to the Operator for their yes before it is
+      posted. The members list waits for the Operator's reading of the licence points on #606 and starts on
+      their word. #606 stays open until both lists have a first copy.
     - **Plan 2, D40's draft (#604), approved 2026-11-17: done.** The four files #604 names matched its
       sha256s and were read. The draft was written in one dated file in the PM/RE's private folder and shown
       in chat, and the one context that may read those files checked it in four passes.
@@ -1122,6 +1147,12 @@ desktop's checkout still has the round 3 branch locally.
       and closing it. Plan 2: D40's text word for word and its writing under `CLAUDE.md` §6; the plan for writing
       it; each rule-book change; the answer on #604. Given on 2026-11-17: the plan for writing it, and the two
       yeses for D40's text (plan 3, below).
+  - **The first copy, under plan 1 (2026-11-17).** The Operator: "Yes, prepare the first weekly copy for today.
+    Fill the first-copy prompt, have it checked, and tell me when to sign in to Drive." Asked "Shall I start the
+    desktop Executor with the checked first-copy prompt?", they answered "Yes, start it". Asked "Your Drive
+    sign-in is made. Go?", they answered "Go". Done: #616, above. Asked "Accept today's copy without the two
+    BLS files?", they answered: "Yes. I accept today's copy without the two BLS files. No second automated
+    attempt today." Each later week still needs their "authorize the weekly copy".
   - **Plan 3, writing D40 (2026-11-17):** asked "Do you approve plan 3, the plan for writing D40?", the
     Operator answered "I approve plan 3, the plan for writing D40." Its last line, what the approval
     authorizes: "After your two yeses: the records pull request that writes D40 and the four lines into
@@ -1269,6 +1300,21 @@ desktop's checkout still has the round 3 branch locally.
     The pen wrote the rule-book text; an Executor wrote `scripts/session_open.py`'s branch rule, the tests
     and the label, in the same PR. Merged as #580 (`e042f5b`).
 - **Proposed, not authorized.**
+  - **From the first weekly copy (#616), proposed follow-up work (not done):**
+    - the run's record keeps the sites' response headers whole, and some set an anonymous-visitor cookie; a
+      script change should leave such values out of the record. None is a credential, and none is on GitHub.
+      The Operator agreed on 2026-11-17 that it should be fixed, and asked for it as a plan;
+    - BLS: a plan under the standing rule, before the next weekly copy, as the Operator asked on 2026-11-17:
+      what BLS asks of an automated reader and where that is written, and the options with what each needs
+      from the Operator. The job never uses a browser's User-Agent;
+    - the weekly prompt in `docs/DATED_COPIES.md`: keep its rule for a refused address as it is, record it and
+      go on, with no second attempt, and add only that a refusal is brought to the Operator the same day (the
+      Operator, 2026-11-17); say which fields of the run's record may be published; write each wrapped
+      command so that it cannot be pasted in two halves (step e's filter command would then leave an empty
+      filter file);
+    - one Census address ends in `-2026`, and the other page already shows 2027: look at both at the turn of
+      the year;
+    - on this desktop the mark prints its dash and dots as broken characters in Git Bash; the values are right.
   - **From #613, proposed follow-up work (not done):**
     - a later run on the same day reports a short file left by a failed write as "already saved"; flag an
       existing file that no earlier record lists with the same sha256;
